@@ -16,16 +16,23 @@
 #include "constants/items.h"
 #include "constants/sndseq.h"
 #include "constants/trainer_class.h"
+#include "constants/trainers.h"
+
+#include "msgdata/msg.naix"
 
 #include "bag.h"
+#include "blackout.h"
 #include "encounter.h"
 #include "field_system.h"
+#include "filesystem.h"
 #include "game_stats.h"
 #include "gen5.h"
 #include "gf_rtc.h"
 #include "item.h"
+#include "msgdata.h"
 #include "options.h"
 #include "party.h"
+#include "pm_string.h"
 #include "player_data.h"
 #include "pokedex.h"
 #include "pokemon.h"
@@ -37,6 +44,7 @@
 #include "sound.h"
 #include "system.h"
 #include "task.h"
+#include "trainer_data.h"
 
 static BOOL sRequested = FALSE; // The next battle runs in BW2's engine
 static BOOL sShown = FALSE; // BW2's battle is on screen
@@ -65,9 +73,21 @@ BOOL Gen5Battle_Wants(const BattleSetup *setup) {
     if (!GameSettings_Get()->gen5Battles || Gen5Rom_GameName() == NULL) {
         return FALSE;
     }
-    // Wild battles for now, alone (roaming Pokémon too): the Safari Zone, the Bug-Catching Contest, Pal Park, the
-    // tutorial, link and Frontier battles and the trainers stay HGSS's
-    return (setup->battleType & ~BATTLE_TYPE_ROAMER) == 0;
+    // Wild battles alone (roaming Pokémon too). The Safari Zone, the Bug-Catching Contest, Pal Park, the tutorial,
+    // link and Frontier battles stay HGSS's
+    const u32 type = setup->battleType;
+    if ((type & ~BATTLE_TYPE_ROAMER) == 0) {
+        return TRUE;
+    }
+    // Trainers: single, double (one trainer's two Pokémon), against two trainers (TAG), and beside a partner whom
+    // BW2's AI plays (MULTI with AI). The story's trainers (Gym Leaders, Silver, Team Rocket...) are started by their
+    // scripts as any trainer is; Silver's first battle has BATTLE_SPECIAL_FIRST_RIVAL (losing it goes on with the story,
+    // which the script decides from the result)
+    // BATTLE_TYPE_11 is a battle the player may lose and go on (the party healed after: encounter.c)
+    const u32 trainerTypes = BATTLE_TYPE_TRAINER | BATTLE_TYPE_DOUBLES | BATTLE_TYPE_TAG | BATTLE_TYPE_MULTI | BATTLE_TYPE_AI
+        | BATTLE_TYPE_11;
+    return (type & BATTLE_TYPE_TRAINER) && (type & ~trainerTypes) == 0
+        && (setup->battleSpecial & ~(BATTLE_SPECIAL_FIRST_RIVAL | BATTLE_SPECIAL_NO_RUNNING)) == 0;
 }
 
 // --- Text -------------------------------------------------------------------------------------------------------
@@ -250,6 +270,420 @@ static BOOL PokemonFromGen5(Pokemon *mon, const Gen5Pokemon *src) {
     return GetMonData(mon, MON_DATA_LEVEL, NULL) > level;
 }
 
+// --- Trainers ---------------------------------------------------------------------------------------------------
+
+// The classes BW2 draws itself (gen5/src/trainers.c, HGSS's table): the same class or the same person (Johto's and
+// Kanto's Gym Leaders, Giovanni, Blue, Lance, Red from BW2's Pokémon World Tournament). Every other class (Team Rocket,
+// Silver, the Elite Four, Kimono Girls, Sages, Ethan and Lyra...) has HGSS's own sprite drawn in its place
+static BOOL TrainerClassHasBw2Sprite(int trainerClass) {
+    switch (trainerClass) {
+    case TRAINERCLASS_YOUNGSTER:
+    case TRAINERCLASS_LASS:
+    case TRAINERCLASS_TWINS:
+    case TRAINERCLASS_HIKER:
+    case TRAINERCLASS_BATTLE_GIRL:
+    case TRAINERCLASS_FISHERMAN:
+    case TRAINERCLASS_CYCLIST_M:
+    case TRAINERCLASS_CYCLIST_F:
+    case TRAINERCLASS_BLACK_BELT:
+    case TRAINERCLASS_ARTIST:
+    case TRAINERCLASS_PKMN_BREEDER_M:
+    case TRAINERCLASS_PKMN_BREEDER_F:
+    case TRAINERCLASS_POKEFAN_M:
+    case TRAINERCLASS_POKEFAN:
+    case TRAINERCLASS_ACE_TRAINER_M:
+    case TRAINERCLASS_ACE_TRAINER_F:
+    case TRAINERCLASS_ACE_TRAINER_M_GS:
+    case TRAINERCLASS_ACE_TRAINER_F_GS:
+    case TRAINERCLASS_WAITRESS:
+    case TRAINERCLASS_VETERAN:
+    case TRAINERCLASS_RICH_BOY:
+    case TRAINERCLASS_LADY:
+    case TRAINERCLASS_GENTLEMAN:
+    case TRAINERCLASS_SOCIALITE:
+    case TRAINERCLASS_BEAUTY:
+    case TRAINERCLASS_POLICEMAN:
+    case TRAINERCLASS_PKMN_RANGER_M:
+    case TRAINERCLASS_PKMN_RANGER_F:
+    case TRAINERCLASS_SCIENTIST:
+    case TRAINERCLASS_SWIMMER_M:
+    case TRAINERCLASS_SWIMMER_F:
+    case TRAINERCLASS_PSYCHIC_M:
+    case TRAINERCLASS_PSYCHIC_F:
+    case TRAINERCLASS_GUITARIST:
+    case TRAINERCLASS_ROUGHNECK:
+    case TRAINERCLASS_WORKER:
+    case TRAINERCLASS_SCHOOL_KID_M:
+    case TRAINERCLASS_SCHOOL_KID_F:
+    case TRAINERCLASS_BIKER:
+    case TRAINERCLASS_PARASOL_LADY:
+    case TRAINERCLASS_WAITER:
+    case TRAINERCLASS_LEADER_FALKNER:
+    case TRAINERCLASS_LEADER_BUGSY:
+    case TRAINERCLASS_LEADER_WHITNEY:
+    case TRAINERCLASS_LEADER_MORTY:
+    case TRAINERCLASS_LEADER_PRYCE:
+    case TRAINERCLASS_LEADER_JASMINE:
+    case TRAINERCLASS_LEADER_CHUCK:
+    case TRAINERCLASS_LEADER_CLAIR:
+    case TRAINERCLASS_LEADER_BROCK:
+    case TRAINERCLASS_LEADER_MISTY:
+    case TRAINERCLASS_LEADER_LT_SURGE:
+    case TRAINERCLASS_LEADER_ERIKA:
+    case TRAINERCLASS_LEADER_JANINE:
+    case TRAINERCLASS_LEADER_SABRINA:
+    case TRAINERCLASS_LEADER_BLAINE:
+    case TRAINERCLASS_LEADER_BLUE:
+    case TRAINERCLASS_PKMN_TRAINER_RED:
+    case TRAINERCLASS_CHAMPION:
+    case TRAINERCLASS_PKMN_TRAINER_LANCE:
+    case TRAINERCLASS_ROCKET_BOSS:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+// HGSS's trainer sprite (a/0/5/8), for the Gen 5 battle to draw in place of its class's: the Platinum fork's
+// TrainerArtToGen5 (src/port/gen5_battle.c), which reads Platinum's, the same format. Each class's picture is an 80x80
+// cell bank (NCER) of poses of OBJ rectangles over a block of its character file (NCGR), with its palette (NCLR) and
+// an animation bank (NANR) whose sequence 1 plays through the poses once
+#define ART_MAX_RECTS 32
+#define ART_POOL_SIZE (48 * 1024)
+
+typedef struct ArtRect {
+    u8 width;
+    u8 height;
+    u8 *pixels; // one pixel (0 to 15) a byte, in the pool
+    int x;      // in the texture
+    int y;
+} ArtRect;
+
+static const u8 sArtObjWidth[3][4] = { { 8, 16, 32, 64 }, { 16, 32, 32, 64 }, { 8, 8, 16, 32 } };
+static const u8 sArtObjHeight[3][4] = { { 8, 16, 32, 64 }, { 8, 8, 16, 32 }, { 16, 32, 32, 64 } };
+
+static void TrainerArtToGen5(int trainerClass, Gen5Trainer *dest)
+{
+    const int base = trainerClass * 5; // a/0/5/8: tiles, palette, cells, animations, scan (GetTrainerPicFileIds)
+    const u32 tileSize = GetNarcMemberSizeByIdPair(NARC_a_0_5_8, base);
+    const u8 *tiles = malloc(tileSize);
+    const u8 *palette = malloc(GetNarcMemberSizeByIdPair(NARC_a_0_5_8, base + 1));
+    const u8 *cells = malloc(GetNarcMemberSizeByIdPair(NARC_a_0_5_8, base + 2));
+    const u8 *anims = malloc(GetNarcMemberSizeByIdPair(NARC_a_0_5_8, base + 3));
+    ArtRect *rects = malloc(sizeof(ArtRect) * ART_MAX_RECTS);
+    u8 *pool = malloc(ART_POOL_SIZE);
+    int poolUsed = 0;
+    int rectCount = 0;
+    BOOL ok = TRUE;
+    int left = 0, top = 0, right = 0, bottom = 0;
+    BOOL first = TRUE;
+
+    ReadWholeNarcMemberByIdPair((void *)tiles, NARC_a_0_5_8, base);
+    ReadWholeNarcMemberByIdPair((void *)palette, NARC_a_0_5_8, base + 1);
+    ReadWholeNarcMemberByIdPair((void *)cells, NARC_a_0_5_8, base + 2);
+    ReadWholeNarcMemberByIdPair((void *)anims, NARC_a_0_5_8, base + 3);
+
+    // NCGR: "RGCN" header 16 bytes, "RAHC" section: tiles from 0x30. NCLR: colors from 0x28. NCER: "KBEC" body at 0x18:
+    // cell count (u16), attributes (u16), the cells' offset (u32), mapping, the VRAM transfer table's offset (u32) from
+    // the body; cell entries (16 bytes each) from 0x30, the OBJs (6 bytes each) after them
+    const u8 *tileData = tiles + 0x30;
+    const u32 dataSize = tileSize - 0x30;
+    const int cellCount = *(const u16 *)(cells + 0x18);
+    const u32 transferOffset = *(const u32 *)(cells + 0x18 + 12);
+    const u8 *transfer = cells + 0x18 + transferOffset + 8; // after the maximum size and the count: (source, size) per cell
+    const u8 *objsBase = cells + 0x30 + cellCount * 16;
+    dest->artPoseCount = 0;
+    dest->artQuadCount = 0;
+    dest->artSeqCount = 0;
+    dest->artLastPose = 0;
+    if (cellCount <= 0 || cellCount > GEN5_ART_MAX_POSES) {
+        ok = FALSE;
+    }
+
+    memset(dest->artTexture, 0, sizeof(dest->artTexture));
+    for (int i = 0; i < 16; i++) {
+        dest->artPalette[i] = *(const u16 *)(palette + 0x28 + i * 2);
+    }
+    dest->artPalette[0] = 0;
+
+    // The picture's box: every OBJ of every pose (they are placed from the cell's centre, -40..40 for 80x80)
+    for (int c = 0; ok && c < cellCount; c++) {
+        const u8 *entry = cells + 0x30 + c * 16;
+        const int objCount = *(const u16 *)entry;
+        const u8 *objs = objsBase + *(const u32 *)(entry + 4);
+        for (int k = 0; k < objCount; k++) {
+            const u16 attr0 = *(const u16 *)(objs + k * 6);
+            const u16 attr1 = *(const u16 *)(objs + k * 6 + 2);
+            const int shape = (attr0 >> 14) & 3;
+            const int size = (attr1 >> 14) & 3;
+            int x = attr1 & 0x1FF;
+            int y = attr0 & 0xFF;
+            if (shape > 2) {
+                continue;
+            }
+            x = x >= 256 ? x - 512 : x;
+            y = y >= 128 ? y - 256 : y;
+            const int w = sArtObjWidth[shape][size];
+            const int h = sArtObjHeight[shape][size];
+            if (first) {
+                left = x;
+                top = y;
+                right = x + w;
+                bottom = y + h;
+                first = FALSE;
+            }
+            left = x < left ? x : left;
+            top = y < top ? y : top;
+            right = x + w > right ? x + w : right;
+            bottom = y + h > bottom ? y + h : bottom;
+        }
+    }
+    const int width = right - left;
+    const int height = bottom - top;
+    ok = ok && !first && width > 0 && height > 0 && width <= 256 && height <= 128;
+
+    // Each pose's OBJs as quads, each OBJ's pixels taken from its cell's block of tiles and shared with an earlier
+    // rectangle of the same pixels
+    for (int c = 0; ok && c < cellCount; c++) {
+        const u8 *entry = cells + 0x30 + c * 16;
+        const int objCount = *(const u16 *)entry;
+        const u8 *objs = objsBase + *(const u32 *)(entry + 4);
+        const u32 source = *(const u32 *)(transfer + c * 8);
+        dest->artPoseFirst[c] = dest->artQuadCount;
+        dest->artPoseQuads[c] = 0;
+        for (int k = 0; ok && k < objCount; k++) {
+            const u16 attr0 = *(const u16 *)(objs + k * 6);
+            const u16 attr1 = *(const u16 *)(objs + k * 6 + 2);
+            const u16 attr2 = *(const u16 *)(objs + k * 6 + 4);
+            const int shape = (attr0 >> 14) & 3;
+            const int size = (attr1 >> 14) & 3;
+            int x = attr1 & 0x1FF;
+            int y = attr0 & 0xFF;
+            if (shape > 2) {
+                continue;
+            }
+            x = x >= 256 ? x - 512 : x;
+            y = y >= 128 ? y - 256 : y;
+            const int w = sArtObjWidth[shape][size];
+            const int h = sArtObjHeight[shape][size];
+            const int firstTile = (attr2 & 0x3FF) * 2;
+            if (dest->artQuadCount >= GEN5_ART_MAX_QUADS || rectCount >= ART_MAX_RECTS || poolUsed + w * h > ART_POOL_SIZE) {
+                ok = FALSE;
+                break;
+            }
+            ArtRect *rect = &rects[rectCount];
+            rect->width = w;
+            rect->height = h;
+            rect->pixels = pool + poolUsed;
+            for (int py = 0; py < h; py++) {
+                for (int px = 0; px < w; px++) {
+                    const int tile = firstTile + (py / 8) * (w / 8) + px / 8;
+                    const u32 offset = source + tile * 32 + (py % 8) * 4 + (px % 8) / 2;
+                    u8 pixel = 0;
+                    if (offset < dataSize) {
+                        const u8 pair = tileData[offset];
+                        pixel = (px & 1) ? pair >> 4 : pair & 15;
+                    }
+                    rect->pixels[py * w + px] = pixel;
+                }
+            }
+            int index = rectCount;
+            for (int r = 0; r < rectCount; r++) {
+                if (rects[r].width == w && rects[r].height == h && memcmp(rects[r].pixels, rect->pixels, w * h) == 0) {
+                    index = r;
+                    break;
+                }
+            }
+            if (index == rectCount) {
+                rectCount++;
+                poolUsed += w * h;
+            }
+            // The quad is placed as HGSS places it: from the cell's centre, whose feet are at 40 below it (a pose
+            // that jumps leaves the ground, as it does there; the bottom of the union of the poses isn't the ground).
+            // The origin is under the feet; its texture place is set below
+            dest->artQuad[dest->artQuadCount][0] = x;
+            dest->artQuad[dest->artQuadCount][1] = 40 - y;
+            dest->artQuad[dest->artQuadCount][2] = w;
+            dest->artQuad[dest->artQuadCount][3] = h;
+            dest->artQuad[dest->artQuadCount][4] = index; // the rectangle for now
+            dest->artQuad[dest->artQuadCount][5] = 0;
+            dest->artQuadCount++;
+            dest->artPoseQuads[c]++;
+        }
+    }
+
+    // The rectangles into the texture, in rows, the tallest first
+    int order[ART_MAX_RECTS];
+    for (int r = 0; ok && r < rectCount; r++) {
+        order[r] = r;
+    }
+    for (int i = 1; ok && i < rectCount; i++) {
+        const int v = order[i];
+        int j = i - 1;
+        while (j >= 0 && rects[order[j]].height < rects[v].height) {
+            order[j + 1] = order[j];
+            j--;
+        }
+        order[j + 1] = v;
+    }
+    int cursorX = 0, cursorY = 0, rowHeight = 0;
+    for (int i = 0; ok && i < rectCount; i++) {
+        ArtRect *rect = &rects[order[i]];
+        if (cursorX + rect->width > 256) {
+            cursorX = 0;
+            cursorY += rowHeight;
+            rowHeight = 0;
+        }
+        if (cursorY + rect->height > 128) {
+            ok = FALSE;
+            break;
+        }
+        rect->x = cursorX;
+        rect->y = cursorY;
+        cursorX += rect->width;
+        rowHeight = rect->height > rowHeight ? rect->height : rowHeight;
+        for (int py = 0; py < rect->height; py++) {
+            for (int px = 0; px < rect->width; px++) {
+                const int tx = rect->x + px;
+                const int ty = rect->y + py;
+                u8 *out = &dest->artTexture[(ty * 256 + tx) / 2];
+                *out |= (tx & 1) ? rect->pixels[py * rect->width + px] << 4 : rect->pixels[py * rect->width + px];
+            }
+        }
+    }
+    for (int q = 0; ok && q < dest->artQuadCount; q++) {
+        const ArtRect *rect = &rects[dest->artQuad[q][4]];
+        dest->artQuad[q][4] = rect->x;
+        dest->artQuad[q][5] = rect->y;
+    }
+
+    // The animation: sequence 1 plays through the poses once, ending on the pose that stays (sequence 0, one pose, if
+    // there is no other). NANR's "KNBA" body at 0x18: sequence count (u16), frame count (u16), the sequences' offset,
+    // the frames' and the frame data's (u32 each); a sequence (16 bytes): frame count (u16), ..., its frames' offset (u32
+    // at 12); a frame (8 bytes): its data's offset (u32), its length in ticks (u16); the data: the cell (u16)
+    if (ok) {
+        const u8 *body = anims + 0x18;
+        const int sequenceCount = *(const u16 *)body;
+        const u32 sequenceOffset = *(const u32 *)(body + 4);
+        const u32 frameOffset = *(const u32 *)(body + 8);
+        const u32 dataOffset = *(const u32 *)(body + 12);
+        const int wanted = sequenceCount > 1 ? 1 : 0;
+        if (sequenceCount > 0) {
+            const u8 *sequence = body + sequenceOffset + wanted * 16;
+            const int frameCount = *(const u16 *)sequence;
+            const u8 *frames = body + frameOffset + *(const u32 *)(sequence + 12);
+            for (int f = 0; f < frameCount && f < GEN5_ART_MAX_SEQ; f++) {
+                const u32 data = *(const u32 *)(frames + f * 8);
+                const int cell = *(const u16 *)(body + dataOffset + data);
+                // HGSS's battle ticks its animations once a logic frame (30 a second): two ticks of 1/60
+                dest->artSeqPose[f] = cell < cellCount ? cell : 0;
+                dest->artSeqTicks[f] = *(const u16 *)(frames + f * 8 + 4) * 2;
+                dest->artSeqCount = f + 1;
+            }
+            if (dest->artSeqCount > 0) {
+                dest->artLastPose = dest->artSeqPose[dest->artSeqCount - 1];
+            }
+        }
+    }
+    dest->artPoseCount = ok ? cellCount : 0;
+    dest->artWidth = width;
+    dest->artHeight = height;
+    dest->hasArt = ok && dest->artQuadCount > 0;
+    free((void *)tiles);
+    free((void *)palette);
+    free((void *)cells);
+    free((void *)anims);
+    free(rects);
+    free(pool);
+}
+
+
+// The prize for a class (battle_command.c's sPrizeMoneyTbl: class and prize, by pairs)
+extern const u16 sPrizeMoneyTbl[258];
+
+static unsigned PrizeBase(int trainerClass) {
+    for (int i = 0; i + 1 < (int)NELEMS(sPrizeMoneyTbl); i += 2) {
+        if (sPrizeMoneyTbl[i] == trainerClass) {
+            return sPrizeMoneyTbl[i + 1];
+        }
+    }
+    return sPrizeMoneyTbl[2 * 2 + 1]; // a Youngster's, as CalcPrizeMoney falls back to
+}
+
+// A trainer of the battle (an opponent, or the player's partner) as the Gen 5 code takes it: its class, AI, items and
+// party, its name, its class's name and the line it says when beaten from HGSS's messages, and its class's prize
+static void TrainerToGen5(BattleSetup *setup, int battler, Gen5Trainer *dest) {
+    const Trainer *trainer = &setup->trainer[battler];
+    const int id = setup->trainerId[battler];
+    String *text = String_New(GEN5_TEXT_LENGTH, HEAP_ID_FIELD2);
+
+    dest->id = id;
+    dest->platinumClass = trainer->data.trainerClass;
+    dest->aiFlags = trainer->data.aiFlags;
+    if (!TrainerClassHasBw2Sprite(dest->platinumClass)) {
+        TrainerArtToGen5(dest->platinumClass, dest);
+    }
+    for (int i = 0; i < 4; i++) {
+        dest->items[i] = trainer->data.items[i];
+    }
+    dest->prizeBase = PrizeBase(dest->platinumClass);
+    // A trainer's name may be kept compressed (String_Cat_HandleTrainerName unpacks it)
+    String *packed = String_New(PLAYER_NAME_LENGTH + 1, HEAP_ID_FIELD2);
+    CopyU16ArrayToStringN(packed, trainer->name, PLAYER_NAME_LENGTH + 1);
+    String_SetEmpty(text);
+    String_Cat_HandleTrainerName(text, packed);
+    String_Delete(packed);
+    TextToGen5(String_cstr(text), String_GetLength(text) + 1, dest->name, 16);
+
+    MsgData *classNames = NewMsgDataFromNarc(MSGDATA_LOAD_LAZY, NARC_msgdata_msg, NARC_msg_msg_0730_bin, HEAP_ID_FIELD2);
+    if (classNames != NULL) {
+        ReadMsgDataIntoString(classNames, dest->platinumClass, text);
+        DestroyMsgData(classNames);
+        TextToGen5(String_cstr(text), String_GetLength(text) + 1, dest->className, 32);
+    } else {
+        dest->className[0] = 0xFFFF;
+    }
+
+    dest->defeatText[0] = 0xFFFF;
+    if (TrainerMessageWithIdPairExists(id, TRMSG_LOSE, HEAP_ID_FIELD2)) {
+        GetTrainerMessageByIdPair(id, TRMSG_LOSE, text, HEAP_ID_FIELD2);
+        TextToGen5(String_cstr(text), String_GetLength(text) + 1, dest->defeatText, GEN5_TEXT_LENGTH);
+    } else {
+        // A double battle's trainer (twins, a couple) has a line for each of its two people instead: both, a page each
+        static const int types[] = { TRMSG_DBL_LOSE_1, TRMSG_DBL_LOSE_2 };
+        int n = 0;
+        for (int k = 0; k < (int)NELEMS(types); k++) {
+            if (!TrainerMessageWithIdPairExists(id, types[k], HEAP_ID_FIELD2) || n + 4 >= GEN5_TEXT_LENGTH) {
+                continue;
+            }
+            if (n > 0) {
+                // A new page: BW2's stream command that clears the window
+                dest->defeatText[n++] = 0xF000;
+                dest->defeatText[n++] = 0xBE01;
+                dest->defeatText[n++] = 0;
+            }
+            GetTrainerMessageByIdPair(id, types[k], text, HEAP_ID_FIELD2);
+            TextToGen5(String_cstr(text), String_GetLength(text) + 1, dest->defeatText + n, GEN5_TEXT_LENGTH - n);
+            while (dest->defeatText[n] != 0xFFFF) {
+                n++;
+            }
+            while (n > 0 && dest->defeatText[n - 1] == 0xFFFE) {
+                dest->defeatText[--n] = 0xFFFF;
+            }
+        }
+    }
+    String_Delete(text);
+
+    Party *party = setup->party[battler];
+    dest->partyCount = Party_GetCount(party);
+    if (dest->partyCount > GEN5_PARTY_MAX) {
+        dest->partyCount = GEN5_PARTY_MAX;
+    }
+    for (int i = 0; i < dest->partyCount; i++) {
+        PokemonToGen5(Party_GetMonByIndex(party, i), &dest->party[i]);
+    }
+}
+
 // --- Where the battle is ----------------------------------------------------------------------------------------
 
 // BW2's battle backgrounds (the field environment's bgType)
@@ -269,12 +703,50 @@ static BOOL IsRocketClass(int trainerClass) {
         || trainerClass == TRAINERCLASS_ROCKET_BOSS;
 }
 
+static BOOL IsGymLeaderClass(int trainerClass) {
+    return (trainerClass >= TRAINERCLASS_LEADER_MORTY && trainerClass <= TRAINERCLASS_LEADER_CLAIR)
+        || trainerClass == TRAINERCLASS_LEADER_FALKNER || trainerClass == TRAINERCLASS_LEADER_BUGSY
+        || trainerClass == TRAINERCLASS_LEADER_WHITNEY || trainerClass == TRAINERCLASS_LEADER_BROCK
+        || (trainerClass >= TRAINERCLASS_LEADER_MISTY && trainerClass <= TRAINERCLASS_LEADER_BLAINE)
+        || trainerClass == TRAINERCLASS_LEADER_BLUE;
+}
+
 static void ArenaFromSetup(const BattleSetup *setup, int *bg, int *terrain) {
-    if ((setup->battleType & BATTLE_TYPE_TRAINER) && IsRocketClass(setup->trainer[BATTLER_ENEMY].data.trainerClass)) {
+    const int trainerClass = (setup->battleType & BATTLE_TYPE_TRAINER) ? setup->trainer[BATTLER_ENEMY].data.trainerClass : -1;
+    if (IsRocketClass(trainerClass)) {
         // Team Rocket's own arena (lib/port/gen5_rocket.c): BW2's Champion room, darkened, with Rocket red streaks, a
         // rocket ship and the moon in its sky
         *bg = GEN5_ROCKET_BG;
         *terrain = GEN5_ROCKET_TERRAIN;
+        return;
+    }
+    if (IsGymLeaderClass(trainerClass)) {
+        // BW2's Gym Leaders battle on a stone floor in a dark hall (Clay's), as the Platinum fork's do
+        *bg = ARENA_BG_INDOORS;
+        *terrain = 19;
+        return;
+    }
+    // The Elite Four and Lance in BW2's Elite Four's and Champion's rooms (12 to 16), one each
+    switch (trainerClass) {
+    case TRAINERCLASS_ELITE_FOUR_WILL:
+        *bg = 12;
+        *terrain = 0;
+        return;
+    case TRAINERCLASS_ELITE_FOUR_KOGA:
+        *bg = 13;
+        *terrain = 0;
+        return;
+    case TRAINERCLASS_ELITE_FOUR_BRUNO:
+        *bg = 14;
+        *terrain = 0;
+        return;
+    case TRAINERCLASS_ELITE_FOUR_KAREN:
+        *bg = 15;
+        *terrain = 0;
+        return;
+    case TRAINERCLASS_CHAMPION:
+        *bg = 16;
+        *terrain = 0;
         return;
     }
     switch (setup->battleBg) {
@@ -383,7 +855,24 @@ static BOOL Init(OverlayManager *man, int *state) {
     for (int i = 0; i < sBattle.partyCount; i++) {
         PokemonToGen5(Party_GetMonByIndex(party, i), &sBattle.party[i]);
     }
-    PokemonToGen5(Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), &sBattle.wild);
+    sBattle.isTrainer = (setup->battleType & BATTLE_TYPE_TRAINER) != 0;
+    sBattle.doubles = (setup->battleType & BATTLE_TYPE_DOUBLES) != 0;
+    if (sBattle.isTrainer) {
+        TrainerToGen5(setup, BATTLER_ENEMY, &sBattle.trainer);
+        // Two trainers (TAG, or MULTI); a trainer who has both slots is one double battle's trainer
+        if ((setup->battleType & (BATTLE_TYPE_TAG | BATTLE_TYPE_MULTI)) && setup->trainerId[BATTLER_ENEMY2] != 0
+            && setup->trainerId[BATTLER_ENEMY2] != setup->trainerId[BATTLER_ENEMY]) {
+            sBattle.hasTrainer2 = TRUE;
+            TrainerToGen5(setup, BATTLER_ENEMY2, &sBattle.trainer2);
+        }
+        // The partner, whom BW2's AI plays beside the player
+        if ((setup->battleType & BATTLE_TYPE_AI) && setup->trainerId[BATTLER_PLAYER2] != 0) {
+            sBattle.hasPartner = TRUE;
+            TrainerToGen5(setup, BATTLER_PLAYER2, &sBattle.partner);
+        }
+    } else {
+        PokemonToGen5(Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), &sBattle.wild);
+    }
     for (int p = 0; p < (int)NELEMS(sBattlePockets); p++) {
         ItemSlot *slot;
         for (int i = 0; (slot = Bag_GetPocketSlotN(setup->bag, sBattlePockets[p], i)) != NULL && sBattle.itemCount < GEN5_ITEMS_MAX; i++) {
@@ -396,10 +885,22 @@ static BOOL Init(OverlayManager *man, int *state) {
     }
     sItemsBefore = sBattle.itemCount;
     memcpy(sItemCountsBefore, sBattle.items, sizeof(sBattle.items));
-    // Seen, as HGSS's battle registers a wild Pokémon when it appears
-    Pokedex_SetMonSeenFlag(setup->pokedex, Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0));
+    // Seen, as HGSS's battle registers a wild Pokémon when it appears; a trainer's, all of them for now (BW2 doesn't say
+    // which it sent out)
+    if (sBattle.isTrainer) {
+        for (int b = BATTLER_ENEMY; b < BATTLER_MAX; b += 2) {
+            if (b == BATTLER_ENEMY || sBattle.hasTrainer2) {
+                for (int i = 0; i < Party_GetCount(setup->party[b]); i++) {
+                    Pokedex_SetMonSeenFlag(setup->pokedex, Party_GetMonByIndex(setup->party[b], i));
+                }
+            }
+        }
+    } else {
+        Pokedex_SetMonSeenFlag(setup->pokedex, Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0));
+    }
 
-    // HGSS takes White 2's light HP boxes (Platinum keeps Black 2's dark ones)
+    // HGSS's trainer classes and its Pokémon's origin game; White 2's light HP boxes (Platinum keeps Black 2's dark ones)
+    Gen5_SetGame(gGameVersion);
     Gen5_SetWhiteGauges(1);
     // Before every battle: BW2 takes the archives it reads at its first start
     Gen5Rocket_PrepareArena();
@@ -498,6 +999,51 @@ static void Finish(BattleSetup *setup) {
     }
 }
 
+// HGSS's victory music for the battle won, as its battle picks it (battle_controller_player.c: by the first opposing
+// trainer's class; battle_command.c for a wild Pokémon), played when BW2 asks for its own
+static void PlayVictoryMusic(void) {
+    u16 seq = SEQ_GS_WIN2;
+    if (sBattle.isTrainer) {
+        switch (sBattle.trainer.platinumClass) {
+        case TRAINERCLASS_LEADER_FALKNER:
+        case TRAINERCLASS_LEADER_BUGSY:
+        case TRAINERCLASS_LEADER_WHITNEY:
+        case TRAINERCLASS_LEADER_MORTY:
+        case TRAINERCLASS_LEADER_PRYCE:
+        case TRAINERCLASS_LEADER_JASMINE:
+        case TRAINERCLASS_LEADER_CHUCK:
+        case TRAINERCLASS_LEADER_CLAIR:
+        case TRAINERCLASS_CHAMPION:
+        case TRAINERCLASS_ELITE_FOUR_WILL:
+        case TRAINERCLASS_ELITE_FOUR_KAREN:
+        case TRAINERCLASS_ELITE_FOUR_KOGA:
+        case TRAINERCLASS_ELITE_FOUR_BRUNO:
+        case TRAINERCLASS_LEADER_BROCK:
+        case TRAINERCLASS_LEADER_MISTY:
+        case TRAINERCLASS_LEADER_LT_SURGE:
+        case TRAINERCLASS_LEADER_ERIKA:
+        case TRAINERCLASS_LEADER_JANINE:
+        case TRAINERCLASS_LEADER_SABRINA:
+        case TRAINERCLASS_LEADER_BLAINE:
+        case TRAINERCLASS_LEADER_BLUE:
+            seq = SEQ_GS_WIN3;
+            break;
+        case TRAINERCLASS_TOWER_TYCOON:
+        case TRAINERCLASS_HALL_MATRON:
+        case TRAINERCLASS_FACTORY_HEAD:
+        case TRAINERCLASS_ARCADE_STAR:
+        case TRAINERCLASS_CASTLE_VALET:
+            seq = SEQ_GS_WINBRAIN;
+            break;
+        default:
+            seq = SEQ_GS_WIN1;
+            break;
+        }
+    }
+    printf("Gen 5: the battle is won: HGSS's victory music %u\n", (unsigned)seq);
+    PlayBGM(seq);
+}
+
 static BOOL Main(OverlayManager *man, int *state) {
     BattleSetup *setup = OverlayManager_GetArgs(man);
     (void)state;
@@ -512,8 +1058,7 @@ static BOOL Main(OverlayManager *man, int *state) {
             TestScript_OnEvent(TEST_EVENT_BATTLE_COMMAND);
         }
         if (events & GEN5_EVENT_VICTORY_MUSIC) {
-            // HGSS's victory music for a wild Pokémon (battle_command.c)
-            PlayBGM(SEQ_GS_WIN2);
+            PlayVictoryMusic();
         }
         if (running) {
             return FALSE;
@@ -553,7 +1098,6 @@ static BOOL Task_StartWild(TaskManager *taskManager) {
         SetupAndStartWildBattle(taskManager, start->species, start->level, NULL, TRUE, FALSE);
         return FALSE;
     default:
-        Heap_Free(start);
         return TRUE;
     }
 }
@@ -570,10 +1114,58 @@ BOOL Gen5Battle_StartWild(int species, int level, BOOL gen5) {
         }
         Gen5Battle_RequestNext();
     }
-    WildStart *start = Heap_Alloc(HEAP_ID_FIELD1, sizeof(WildStart));
+    // Static: the field's heaps are torn down while the battle runs, under the task
+    static WildStart sStart;
+    WildStart *start = &sStart;
     start->species = species;
     start->level = level;
     FieldSystem_CreateTask(fieldSystem, Task_StartWild, start);
+    return TRUE;
+}
+
+// --- Starting a trainer battle (the test scripts' trainer) ---------------------------------------------------------
+
+typedef struct {
+    u32 trainer1;
+    u32 trainer2;
+    u32 winFlag;
+} TrainerStart;
+
+static BOOL Task_StartTrainer(TaskManager *taskManager) {
+    TrainerStart *start = TaskManager_GetEnvironment(taskManager);
+    u32 *state = TaskManager_GetStatePtr(taskManager);
+
+    switch (*state) {
+    case 0:
+        (*state)++;
+        SetupAndStartTrainerBattle(taskManager, start->trainer1, start->trainer2, 0, 0, 0, HEAP_ID_FIELD2, &start->winFlag);
+        return FALSE;
+    case 1:
+        printf("Gen 5: trainer battle %u over, win flag %u\n", (unsigned)start->trainer1, (unsigned)start->winFlag);
+        (*state)++;
+        // A loss: the trainer's script whites the player out (whiteout, scrcmd_battle.c), the encounter doesn't
+        if (!IsBattleResultWin(start->winFlag)) {
+            CallTask_Blackout(taskManager);
+            return FALSE;
+        }
+        return TRUE;
+    default:
+        return TRUE;
+    }
+}
+
+BOOL Gen5Battle_StartTrainer(u32 trainer1, u32 trainer2) {
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    if (fieldSystem == NULL || fieldSystem->taskman != NULL) {
+        return FALSE;
+    }
+    // Static: the field's heaps are torn down while the battle runs, under the task
+    static TrainerStart sStart;
+    TrainerStart *start = &sStart;
+    start->trainer1 = trainer1;
+    start->trainer2 = trainer2;
+    start->winFlag = 0;
+    FieldSystem_CreateTask(fieldSystem, Task_StartTrainer, start);
     return TRUE;
 }
 

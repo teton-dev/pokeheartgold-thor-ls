@@ -1,0 +1,15 @@
+# From new-game: a level 50 Cyndaquil given to the player, then a battle against a Team Rocket Grunt (trainer 12) in
+# BW2's engine, in Team Rocket's arena with HGSS's own Grunt sprite; A mashed (FIGHT, the first move) until the battle
+# is won and the player is back on the overworld
+mash A until free
+give 155 50
+gen5 on
+trainer 12
+until battle timeout 600
+wait 100
+stillshot intro
+until command timeout 6000
+shot command
+mash A until free timeout 30000
+shot back
+exit
