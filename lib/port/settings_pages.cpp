@@ -4,6 +4,14 @@
 #include <simulator/sim_ui.hpp>
 
 #include "port_game_settings.h"
+#ifdef GEN5_BATTLES
+#include <simulator/sim_files.h>
+
+#include <string>
+
+#include "port_gen5_battle_ui.h"
+#include "port_gen5_rom.h"
+#endif
 
 namespace {
 
@@ -33,8 +41,64 @@ void DrawGameplay() {
         &settings->drawEveryFrame);
 }
 
+#ifdef GEN5_BATTLES
+// --- Gen 5 battles: the Black 2 or White 2 ROM (the Platinum fork's Settings > Games > Gen 5 battles) ---------------
+
+void OnGen5RomPicked(const char *path, void *) {
+    if (path != nullptr) {
+#ifdef SDK_BUILD_ANDROID
+        // The picker's copy in the app's folder: no need to keep it
+        Gen5Rom_Import(path, TRUE);
+#else
+        Gen5Rom_Import(path, FALSE);
+#endif
+    }
+}
+
+void DrawGen5() {
+    Gen5Rom_Update();
+    const enum Gen5RomState state = Gen5Rom_State();
+    const char *game = Gen5Rom_GameName();
+    GameSettings *settings = GameSettings_Get();
+    Section("Gen 5 battles");
+    SettingToggle("Gen 5 battles", "Battles in Black 2 and White 2's engine: their 3D arenas, moving camera, animated "
+        "Pokemon and Gen 5 rules, with your party, your bag and the results kept, and catching. Experimental: wild "
+        "Pokemon so far. Needs the ROM below.", &settings->gen5Battles, game != nullptr);
+    Section("Black 2 or White 2");
+    if (game != nullptr) {
+        std::string title = std::string("Pokemon ") + game + " (USA)";
+        Card(title.c_str(), "Its battle files are in the app's folder (about 270 MB).", true);
+    }
+    if (state == GEN5_ROM_IMPORTING) {
+        Status(Gen5Rom_Status());
+    } else if (state == GEN5_ROM_FAILED) {
+        Status(Gen5Rom_Status(), true);
+    } else if (state == GEN5_ROM_READY) {
+        Note(Gen5Rom_Status());
+    }
+    const bool busy = state == GEN5_ROM_IMPORTING || SIM_Files_IsBusy() != FALSE;
+    if (Button(game == nullptr ? "Add Black 2 or White 2" : "Replace it",
+            "Your own dump of Pokemon Black 2 or White 2 (USA), unpatched: the Gen 5 battles' graphics, sounds and "
+            "data come from it. Its files are extracted once; the ROM isn't kept.",
+            false, !busy)) {
+        SIM_Files_PickToOpen("Black 2 or White 2 (.nds)", ".nds,.*", OnGen5RomPicked, nullptr);
+    }
+    if (game != nullptr && Button("Remove it", "Deletes the extracted files.", false, !busy)) {
+        Gen5Rom_Remove();
+    }
+    Section("Try it");
+    if (Button("Wild battle in the Gen 5 engine", "A level 5 Rattata against your first Pokemon, in Black 2 and White "
+            "2's engine, from where you stand. Close the settings to see it.", false, game != nullptr)) {
+        Gen5BattleUI_StartWild(19, 5);
+    }
+}
+#endif
+
 } // namespace
 
 void SIM_Prj_SettingsPages() {
     SIM::Settings::AddPage("Gameplay", "60 FPS", DrawGameplay, 30);
+#ifdef GEN5_BATTLES
+    SIM::Settings::AddPage("Gen 5 battles", "Black 2 and White 2's battles, from your own ROM", DrawGen5, 35);
+#endif
 }

@@ -8,6 +8,9 @@
 
 #include "field/weather_manager.h"
 #include "field_system.h"
+#ifdef GEN5_BATTLES
+#include "port_gen5_battle.h"
+#endif
 
 // The field camera's projection as last computed, and its widening
 static const Camera *sFieldCamera = NULL;
@@ -47,21 +50,47 @@ static BOOL WeatherLayers(FieldSystem *fieldSystem, u8 *objWrap, u8 *wideBgs) {
     return TRUE;
 }
 
+static BOOL Gen5BattleShown(void) {
+#ifdef GEN5_BATTLES
+    return Gen5Battle_IsShown();
+#else
+    return FALSE;
+#endif
+}
+
+static BOOL Gen5MoveBgShown(void) {
+#ifdef GEN5_BATTLES
+    return Gen5Battle_MoveBgShown();
+#else
+    return FALSE;
+#endif
+}
+
 void Widescreen_Update(void) {
     FieldSystem *fieldSystem = ShownFieldSystem();
     u8 objWrap = 0;
     u8 wideBgs = 0;
-    BOOL wide = FALSE;
-    if (fieldSystem != NULL) {
+    u8 edgeBgs = 0;
+    u8 edgeMirrorBgs = 0;
+    // A battle in Black 2 and White 2's engine: its arena is 3D, its camera widened as the field camera is
+    // (gen5_battle.c); its text box (BG1), the ability bar and the full-screen moves' backgrounds reach the edges, their
+    // patterns mirrored, and the party balls' bar (sprites of priority 0) too
+    BOOL wide = Gen5BattleShown();
+    if (wide) {
+        edgeBgs = (1 << 1) | (1 << 2) | (1 << 3);
+        if (Gen5MoveBgShown()) {
+            edgeMirrorBgs = 1 << 3;
+        }
+    } else if (fieldSystem != NULL) {
         wide = WeatherLayers(fieldSystem, &objWrap, &wideBgs);
     }
     SIM_SetWidescreenSceneOptions(FALSE, wideBgs);
     SIM_SetWidescreenObjWrap(objWrap);
     SIM_SetWidescreenBgMirror(0);
-    SIM_SetWidescreenBgEdgeExtend(0);
-    SIM_SetWidescreenBgEdgeMirror(0);
+    SIM_SetWidescreenBgEdgeExtend(edgeBgs);
+    SIM_SetWidescreenBgEdgeMirror(edgeMirrorBgs);
     SIM_SetWidescreenBgStripe(0, 255.0f / 256.0f);
-    SIM_SetWidescreenObjEdgeExtend(0);
+    SIM_SetWidescreenObjEdgeExtend(Gen5BattleShown() ? 0x01 : 0);
     SIM_SetWidescreenScene(wide);
 }
 

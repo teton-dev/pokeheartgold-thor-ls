@@ -1,0 +1,5 @@
+# Imports the Black 2 or White 2 ROM as Settings > Gen 5 battles does (POKEHEARTGOLD_GEN5_ROM: the harness's GEN5_ROM,
+# or ~/thor-dev/PKMNB2.nds); BW2's own archive code reads it back (the self-check). The files are then kept in the data
+# folder for the other Gen 5 scripts
+gen5-import
+exit

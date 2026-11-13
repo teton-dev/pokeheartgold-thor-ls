@@ -1,0 +1,17 @@
+# From new-game: a level 5 Cyndaquil given to the player (who has none yet), then a wild level 5 Rattata against it in
+# BW2's engine, as the settings' button starts it; the command and move menus, then RUN, back on the overworld
+mash A until free
+give 155 5
+wild 19 5 gen5
+until battle timeout 600
+until command timeout 6000
+shot command
+press A
+wait 30
+shot moves
+press B
+wait 30
+# RUN: the bottom middle of the touch screen's command panel
+mash touch 128 183 until free timeout 6000
+shot back
+exit

@@ -14,7 +14,15 @@
 
 #include "field_system.h"
 #include "overlay_01.h"
+#include "heap.h"
+#include "party.h"
 #include "player_avatar.h"
+#include "pokemon.h"
+#include "port_game_settings.h"
+#ifdef GEN5_BATTLES
+#include "port_gen5_battle.h"
+#include "port_gen5_rom.h"
+#endif
 
 #define MAX_COMMANDS 1024
 #define DEFAULT_TIMEOUT 3000 // Frames: 100 s on the overworld, where Docker's software 3D runs at about 30 a second
@@ -32,6 +40,10 @@ enum TestOp {
     OP_MASH,
     OP_PACE,
     OP_SAVE,
+    OP_GEN5_IMPORT,
+    OP_GEN5_SETTING,
+    OP_WILD,
+    OP_GIVE,
     OP_SHOT,
     OP_LOG,
     OP_EXIT,
@@ -274,6 +286,34 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
             && strcmp(words[3], "until") == 0 && ParseCondition(words + 4, count - 4, command);
     } else if (strcmp(words[0], "save") == 0) {
         command->op = OP_SAVE;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        return TRUE;
+    } else if (strcmp(words[0], "gen5-import") == 0) {
+        // The Black 2 or White 2 ROM in POKEHEARTGOLD_GEN5_ROM, imported as the settings do
+        command->op = OP_GEN5_IMPORT;
+        command->timeout = 9000;
+        return TRUE;
+    } else if (strcmp(words[0], "gen5") == 0 && count >= 2) {
+        // gen5 on|off: Settings > Gen 5 battles
+        command->op = OP_GEN5_SETTING;
+        command->x = strcmp(words[1], "on") == 0;
+        return TRUE;
+    } else if (strcmp(words[0], "give") == 0 && count >= 3) {
+        // give SPECIES LEVEL: a new Pokémon into the party, the player's own (as a gift is)
+        command->op = OP_GIVE;
+        command->x = atoi(words[1]);
+        command->y = atoi(words[2]);
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        return TRUE;
+    } else if (strcmp(words[0], "wild") == 0 && count >= 3) {
+        // wild SPECIES LEVEL [gen5]: once the player is free, a wild battle as tall grass starts it (in BW2's engine
+        // with gen5, else as the setting says)
+        command->op = OP_WILD;
+        command->x = atoi(words[1]);
+        command->y = atoi(words[2]);
+        command->frames = count >= 4 && strcmp(words[3], "gen5") == 0;
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
@@ -544,6 +584,85 @@ static u16 Step(void) {
             printf("[test] saved\n");
             Next();
             continue;
+        case OP_GEN5_IMPORT: {
+#ifdef GEN5_BATTLES
+            if (elapsed == 0) {
+                const char *rom = getenv("POKEHEARTGOLD_GEN5_ROM");
+                if (rom == NULL || rom[0] == '\0') {
+                    Fail(command, "no POKEHEARTGOLD_GEN5_ROM to import");
+                    return 0;
+                }
+                Gen5Rom_Import(rom, FALSE);
+                return 0;
+            }
+            Gen5Rom_Update();
+            const enum Gen5RomState state = Gen5Rom_State();
+            if (state == GEN5_ROM_IMPORTING) {
+                if (elapsed % 300 == 0) {
+                    printf("[test] %s\n", Gen5Rom_Status());
+                }
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the import is taking too long");
+                }
+                return 0;
+            }
+            printf("[test] gen5: %s\n", Gen5Rom_Status());
+            if (state != GEN5_ROM_READY) {
+                Fail(command, "the import failed");
+                return 0;
+            }
+#else
+            Fail(command, "built without the Gen 5 code (-Dpokebw2)");
+            return 0;
+#endif
+            Next();
+            continue;
+        }
+        case OP_GEN5_SETTING:
+            GameSettings_Get()->gen5Battles = command->x;
+            printf("[test] Gen 5 battles %s\n", command->x ? "on" : "off");
+            Next();
+            continue;
+        case OP_GIVE: {
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free to be given a Pokemon");
+                }
+                return 0;
+            }
+            FieldSystem *fieldSystem = FieldSystem_PortGet();
+            Pokemon *mon = AllocMonZeroed(HEAP_ID_FIELD1);
+            CreateMon(mon, command->x, command->y, 32, FALSE, 0, OT_ID_PLAYER_ID, 0);
+            Party *party = SaveArray_Party_Get(fieldSystem->saveData);
+            const BOOL added = Party_AddMon(party, mon);
+            Heap_Free(mon);
+            if (!added) {
+                Fail(command, "the party is full");
+                return 0;
+            }
+            printf("[test] gave species %d at level %d (party of %d)\n", command->x, command->y, Party_GetCount(party));
+            Next();
+            continue;
+        }
+        case OP_WILD:
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free for a wild battle");
+                }
+                return 0;
+            }
+#ifdef GEN5_BATTLES
+            if (!Gen5Battle_StartWild(command->x, command->y, command->frames)) {
+                Fail(command, "the wild battle couldn't start");
+                return 0;
+            }
+#else
+            Fail(command, "built without the Gen 5 code (-Dpokebw2)");
+            return 0;
+#endif
+            sTest.freeFrames = 0;
+            Next();
+            return 0;
         case OP_SHOT:
             if (command->frames == 1) {
                 // stillshot: every frame is shown for three frames, then the game stops on the one just drawn for as

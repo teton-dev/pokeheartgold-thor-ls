@@ -86,6 +86,9 @@
 #include "legendary_cinematic_manager.h"
 #ifdef SDK_PORT
 #include "port_test_script.h"
+#ifdef GEN5_BATTLES
+#include "port_gen5_battle.h"
+#endif
 #endif
 
 FS_EXTERN_OVERLAY(certificates_app);
@@ -184,6 +187,13 @@ BOOL Battle_Exit(OverlayManager *man, int *state) {
 const OverlayManagerTemplate gOverlayTemplate_Battle = { Battle_Init, Battle_Main, Battle_Exit, FS_OVERLAY_ID(OVY_12) };
 
 void Battle_LaunchApp(FieldSystem *fieldSystem, BattleSetup *args) {
+#ifdef GEN5_BATTLES
+    // Gen 5 battles: in Black 2 and White 2's engine (port_gen5_battle.h)
+    if (Gen5Battle_Wants(args)) {
+        FieldSystem_LaunchApplication(fieldSystem, &gGen5BattleOverlayTemplate, args);
+        return;
+    }
+#endif
     FieldSystem_LaunchApplication(fieldSystem, &gOverlayTemplate_Battle, args);
 }
 

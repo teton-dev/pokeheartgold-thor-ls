@@ -214,6 +214,9 @@ test)
         esac
     done
     [ -e "$RUN/firmware.bin" ] || cp "$ROOT/res/pc_port/dwc_nv.bin" "$RUN/firmware.bin"
+    # Gen 5 battles: the BW2 ROM a test's gen5-import imports (GEN5_ROM, or Black 2 / White 2 in THOR_DEV); its files
+    # are kept in the data folder's gen5/ and linked into the next runs
+    GEN5_ROM=${GEN5_ROM:-$(ls "$THOR_DEV"/PKMNB2.nds "$THOR_DEV"/PKMNW2.nds 2>/dev/null | head -n 1)}
     printf '[General]\nInternalResolutionScale=1\n' > "$RUN/sim_config.ini"
     for setting in ${TEST_CONFIG:-}; do
         echo "$setting" >> "$RUN/sim_config.ini"
@@ -225,7 +228,8 @@ test)
     TEST=pokeheartgold-test${TEST_ID:+-$TEST_ID}
     docker rm -f $TEST >/dev/null 2>&1 || true
     docker run -d --name $TEST --user "$(id -u):$(id -g)" -e HOME=/tmp -e DISPLAY=:1 -e SDL_AUDIODRIVER=dummy \
-        -e LIBGL_ALWAYS_SOFTWARE=1 -e LIBNTR_TEST_MODE=1 -e POKEHEARTGOLD_TEST_SCRIPT="$SCRIPT" $(mounts) -w "$RUN" \
+        -e LIBGL_ALWAYS_SOFTWARE=1 -e LIBNTR_TEST_MODE=1 -e POKEHEARTGOLD_TEST_SCRIPT="$SCRIPT" \
+        -e POKEHEARTGOLD_GEN5_ROM="$GEN5_ROM" $(mounts) -w "$RUN" \
         $IMAGE sh -c "Xvfb :1 -screen 0 ${SCREEN}x24 -nolisten tcp >/tmp/xvfb.log 2>&1 &
                       sleep 1
                       exec stdbuf -oL -eL '$BIN'" >/dev/null # Line-buffered: nothing lost if it dies
@@ -279,6 +283,11 @@ test)
         rm -f "$SHOTS/frames.txt"
     fi
     docker rm -f $TEST >/dev/null 2>&1 || true
+    # A Gen 5 import made in this run (not the data folder's, linked): kept for the next runs
+    if [ "$CODE" = 0 ] && [ -d "$RUN/gen5" ] && [ ! -L "$RUN/gen5" ] && [ ! -e "$DATA/gen5" ]; then
+        mv "$RUN/gen5" "$DATA/gen5"
+        echo "Kept the Gen 5 files in $DATA/gen5"
+    fi
     if [ "$CODE" = 0 ] && [ -n "$KEEP" ]; then
         [ -f "$RUN/save.bin" ] || { echo "The run ended without a save to keep"; exit 1; }
         mkdir -p "$FIXTURES/$KEEP"
