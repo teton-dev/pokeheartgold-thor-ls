@@ -29,6 +29,20 @@ The data folder is `~/thor-dev/desktop-hg` (`desktop-ss` for SoulSilver): the ex
 Wi-Fi settings block, `res/pc_port/dwc_nv.bin`, which the APK ships too: without it the game crashes at boot) and
 imports the ROM through the desktop build's file dialog, then restarts the game.
 
+## Scripted tests
+
+`desktop.sh test SCRIPT [--from FIXTURE] [--keep FIXTURE]` plays a script of keys and touches in a fresh data folder
+and checks where the game gets: [tests/README.md](../../tests/README.md).
+
+## The APK
+
+`desktop.sh apk` builds it (`tools/android/build_apk.sh`, the dev flavor `org.pokeheartgold.port.dev` unless
+`--stable`) with the Android NDK r27c, the SDK, JDK 17 and Gradle 8.10.2 from the Docker volumes `android-ndk`
+(`/ndk/android-ndk-r27c`) and `android-tools` (`/tools/jdk`, `/tools/gradle-8.10.2`, `/tools/sdk`,
+`/tools/gradle-home`), which the Platinum fork's builds set up. Its version code is the date and hour
+(`VERSION_CODE=...` to choose). `desktop.sh install` puts it on the device adb sees (`ADB=...` if adb isn't on the
+PATH or in `~/Documents/platform-tools`). The log is `~/thor-dev/hgss-apk.log`.
+
 ## Known problems
 
 - `[assert] GF_ASSERT failed` from `GetOverlayRamBounds` at every overlay load is harmless: asserts only log on the
