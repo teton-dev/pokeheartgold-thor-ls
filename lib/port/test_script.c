@@ -20,6 +20,7 @@
 #include "pokemon.h"
 #include "port_game_settings.h"
 #ifdef GEN5_BATTLES
+#include "player_data.h"
 #include "port_gen5_battle.h"
 #include "port_gen5_rom.h"
 #endif
@@ -43,6 +44,7 @@ enum TestOp {
     OP_GEN5_IMPORT,
     OP_GEN5_SETTING,
     OP_WILD,
+    OP_TRAINER,
     OP_GIVE,
     OP_SHOT,
     OP_LOG,
@@ -314,6 +316,15 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->x = atoi(words[1]);
         command->y = atoi(words[2]);
         command->frames = count >= 4 && strcmp(words[3], "gen5") == 0;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        return TRUE;
+    } else if (strcmp(words[0], "trainer") == 0 && count >= 2) {
+        // trainer ID [ID2]: once the player is free, a battle against trainer ID (and ID2, two trainers), as a script
+        // starts it (in BW2's engine when the setting is on: "gen5 on")
+        command->op = OP_TRAINER;
+        command->x = atoi(words[1]);
+        command->y = count >= 3 ? atoi(words[2]) : 0;
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
@@ -632,7 +643,13 @@ static u16 Step(void) {
             }
             FieldSystem *fieldSystem = FieldSystem_PortGet();
             Pokemon *mon = AllocMonZeroed(HEAP_ID_FIELD1);
-            CreateMon(mon, command->x, command->y, 32, FALSE, 0, OT_ID_PLAYER_ID, 0);
+            // The player's own, as a gift: their ID, name and gender as its OT (BW2's battles make a Pokémon of
+            // another OT disobey above the badges' level)
+            PlayerProfile *profile = Save_PlayerData_GetProfile(fieldSystem->saveData);
+            CreateMon(mon, command->x, command->y, 32, FALSE, 0, OT_ID_PLAYER_ID, PlayerProfile_GetTrainerID(profile));
+            SetMonData(mon, MON_DATA_OT_NAME, (void *)PlayerProfile_GetNamePtr(profile));
+            u32 otGender = PlayerProfile_GetTrainerGender(profile);
+            SetMonData(mon, MON_DATA_OT_GENDER, &otGender);
             Party *party = SaveArray_Party_Get(fieldSystem->saveData);
             const BOOL added = Party_AddMon(party, mon);
             Heap_Free(mon);
@@ -654,6 +671,25 @@ static u16 Step(void) {
 #ifdef GEN5_BATTLES
             if (!Gen5Battle_StartWild(command->x, command->y, command->frames)) {
                 Fail(command, "the wild battle couldn't start");
+                return 0;
+            }
+#else
+            Fail(command, "built without the Gen 5 code (-Dpokebw2)");
+            return 0;
+#endif
+            sTest.freeFrames = 0;
+            Next();
+            return 0;
+        case OP_TRAINER:
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free for a trainer battle");
+                }
+                return 0;
+            }
+#ifdef GEN5_BATTLES
+            if (!Gen5Battle_StartTrainer(command->x, command->y)) {
+                Fail(command, "the trainer battle couldn't start");
                 return 0;
             }
 #else

@@ -16,6 +16,7 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 | `new_game.txt` | nothing | a new game (past the info topics, a boy named ETHAN, Prof. Oak's introduction) to the bedroom in New Bark Town, saved there | ~1 min |
 | `gen5_rom.txt` | nothing | imports the Black 2 or White 2 ROM (`GEN5_ROM`, or `~/thor-dev/PKMNB2.nds`) as Settings > Gen 5 battles does; BW2's own archive code reads it back. The files are kept in the data folder for the other Gen 5 scripts (`-Dpokebw2` builds) | ~30 s |
 | `gen5_wild.txt` | `new-game` | a Cyndaquil given, then a wild Rattata in BW2's engine (as the settings' button starts it): its command and move menus, RUN, back on the overworld with the party as the battle left it (`-Dpokebw2` builds, after `gen5_rom.txt`) | ~1 min |
+| `gen5_trainer.txt` | `new-game` | a level 50 Cyndaquil against a Team Rocket Grunt in BW2's engine (Rocket's arena, HGSS's Grunt sprite), A mashed until it is won | ~5 min |
 | `widescreen_newbark.txt` | `new-game` | down the stairs and out into New Bark Town, with screenshots there; run it with widescreen on (`TEST_CONFIG`, below) to check the overworld fills the 16:9 window | ~2 min |
 
 ## Running
@@ -57,6 +58,7 @@ frame by frame, so a script does the same every time.
 | `pace DIR DIR until EVENT [timeout N]` | walks one way and back, about two tiles each, while the player is free: tall grass until `battle` |
 | `give SPECIES LEVEL` | once the player is free, a new Pokémon into the party, the player's own |
 | `wild SPECIES LEVEL [gen5]` | once the player is free, a wild battle as tall grass starts it; with `gen5` in BW2's engine, else as the setting says (`-Dpokebw2` builds) |
+| `trainer ID [ID2]` | once the player is free, a battle against trainer ID (and ID2: two trainers; ID twice: its double battle), as a script starts it; in BW2's engine when the setting is on (`gen5 on`; `-Dpokebw2` builds) |
 | `gen5 on\|off` | Settings > Gen 5 battles > Gen 5 battles |
 | `gen5-import` | imports the Black 2 or White 2 ROM in `POKEHEARTGOLD_GEN5_ROM` (the harness's `GEN5_ROM`) and waits; fails if it is refused or BW2's code can't read it |
 | `save` | saves the game (`Field_SaveGameNormal`, as the save menu does) once the player is free |
