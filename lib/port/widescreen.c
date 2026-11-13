@@ -6,6 +6,7 @@
 
 #include "constants/weather.h"
 
+#include "battle_transition_task.h"
 #include "field/weather_manager.h"
 #include "field_system.h"
 #ifdef GEN5_BATTLES
@@ -81,6 +82,11 @@ void Widescreen_Update(void) {
         if (Gen5MoveBgShown()) {
             edgeMirrorBgs = 1 << 3;
         }
+    } else if (EncounterEffect_PortWildPlaying()) {
+        // A wild battle's own transition (the black or white tiles that flip the overworld away, on BG3): its edges
+        // reach the sides too, instead of a 4:3 box over the (already wide) field it covers
+        wide = TRUE;
+        edgeBgs = 1 << 3;
     } else if (fieldSystem != NULL) {
         wide = WeatherLayers(fieldSystem, &objWrap, &wideBgs);
     }
