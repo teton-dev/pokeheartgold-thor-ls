@@ -6,6 +6,9 @@
 #include "global.h"
 
 #include "geometry_math.h"
+#ifdef SDK_PORT
+#include "port_widescreen.h"
+#endif
 
 static void Camera_CalcLookAtPosFromTargetAndAngle(Camera *camera);
 static void Camera_CalcLookAtTargetFromPosAndAngle(Camera *camera);
@@ -146,6 +149,12 @@ void Camera_Copy(Camera *src, Camera *dest) {
     *dest = *src;
 }
 
+#ifdef SDK_PORT
+Camera *Camera_PortGetActive(void) {
+    return sCameraPtr;
+}
+#endif
+
 void Camera_SetStaticPtr(Camera *camera) {
     sCameraPtr = camera;
 }
@@ -264,13 +273,19 @@ void Camera_Init_FromTargetAndPos(const VecFx32 *target, const VecFx32 *pos, u16
 }
 
 void Camera_ApplyPerspectiveType(u8 perspectiveType, Camera *camera) {
+#ifdef SDK_PORT
+    // Widescreen overworld: the field camera sees as wide as the top display
+    const fx32 aspect = Widescreen_AspectRatio(camera, camera->perspective.aspect);
+#else
+    const fx32 aspect = camera->perspective.aspect;
+#endif
     if (perspectiveType == CAMERA_PERSPECTIVE_TYPE_PERSPECTIVE) {
-        NNS_G3dGlbPerspective(camera->perspective.fovySin, camera->perspective.fovyCos, camera->perspective.aspect, camera->perspective.near, camera->perspective.far);
+        NNS_G3dGlbPerspective(camera->perspective.fovySin, camera->perspective.fovyCos, aspect, camera->perspective.near, camera->perspective.far);
         camera->perspectiveType = CAMERA_PERSPECTIVE_TYPE_PERSPECTIVE;
         gG3dDepthBufferingMode = GX_BUFFERMODE_Z;
     } else {
         fx32 y = FX_Mul(FX_Div(camera->perspective.fovySin, camera->perspective.fovyCos), camera->distance);
-        fx32 x = FX_Mul(y, camera->perspective.aspect);
+        fx32 x = FX_Mul(y, aspect);
         NNS_G3dGlbOrtho(y, -y, -x, x, camera->perspective.near, camera->perspective.far);
         camera->perspectiveType = CAMERA_PERSPECTIVE_TYPE_ORTHOGRAPHIC;
         gG3dDepthBufferingMode = GX_BUFFERMODE_Z;

@@ -184,5 +184,9 @@ void WeatherManager_Delete(WeatherManager *weatherManager);
 void WeatherManager_SetWeather(WeatherManager *weatherManager, int weather);
 BOOL WeatherManager_ChangeWeather(WeatherManager *weatherManager, s32 weather);
 u32 WeatherManager_GetWeather(WeatherManager *weatherManager);
+#ifdef SDK_PORT
+// The port's widescreen: whether a weather draws sprites, and a BG2 picture
+void WeatherManager_PortLayers(u32 weather, BOOL *sprites, BOOL *bg2);
+#endif
 
 #endif // POKEHEARTGOLD_FIELD_WEATHER_MANAGER_H

@@ -207,6 +207,7 @@ hgss_port_lib_c = files(
     'lib/port/stats_upload_data.c',
     'lib/port/test_crash.c',
     'lib/port/test_script.c',
+    'lib/port/widescreen.c',
 )
 
 ############################################################

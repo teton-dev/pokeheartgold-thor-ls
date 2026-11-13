@@ -21,6 +21,9 @@
 #include "communication_core.h"
 #include "comm_state.h"
 #include "wfc_user_info_warning.h"
+#ifdef SDK_PORT
+#include "port_widescreen.h"
+#endif
 
 FS_EXTERN_OVERLAY(intro_title);
 FS_EXTERN_OVERLAY(OVY_36);
@@ -100,6 +103,9 @@ void NitroMain(void) {
         HandleCommunicationErrorScreen();
         HandleDSLidAction();
         ReadKeypadAndTouchpad();
+#ifdef SDK_PORT
+        Widescreen_Update();
+#endif
         if ((gSystem.heldKeysRaw & (PAD_BUTTON_START | PAD_BUTTON_SELECT | PAD_BUTTON_L | PAD_BUTTON_R)) == (PAD_BUTTON_START | PAD_BUTTON_SELECT | PAD_BUTTON_L | PAD_BUTTON_R)) {
             if (!gSystem.softResetDisabled) {
                 DoSoftReset(0); // no return
