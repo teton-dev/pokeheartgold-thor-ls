@@ -12,7 +12,13 @@
 struct SND_WORK {
     /* 0x00000 */ NNSSndArc arc;
     /* 0x00094 */ NNSSndHeapHandle heap;
+#ifdef SDK_PORT
+    // twice the DS's: the port's heap blocks and sound data structures hold 64-bit pointers, and at the DS's
+    // size the heap was full before the first song (no music anywhere; the Platinum port doubles its own too)
+    /* 0x00098 */ u8 heap_buf[SND_HEAP_SIZE * 2];
+#else
     /* 0x00098 */ u8 heap_buf[SND_HEAP_SIZE];
+#endif
     /* 0xBEB78 */ NNSSndHandle soundHandles[SND_HANDLE_MAX];
     /* 0xBEB9C */ u32 unk_BEB9C;
     /* 0xBEBA0 */ u32 unk_BEBA0;
