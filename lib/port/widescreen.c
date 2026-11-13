@@ -73,11 +73,12 @@ static BOOL Gen5MoveBgShown(void) {
 }
 
 // A full-screen 2D application is running over the field map (the field's processManager, its own child): its
-// background reaches the edges of the wide screen (its own edge columns continued), its panels staying in the 4:3
-// middle, as the Platinum fork does for the Bag, the Pokédex and the rest. isPokegear says whether it is
-// specifically the Pokégear, for the bezel below
-static BOOL WideApplication(u8 *edgeBgs, BOOL *isPokegear) {
-    *edgeBgs = 0;
+// background reaches the edges of the wide screen, its panels staying in the 4:3 middle, as the Platinum fork does
+// for the Bag, the Pokédex and the rest. isPokegear says whether it is specifically the Pokégear, for the bezel
+// below; its own background (wideBgs, not edgeBgs) is drawn wide rather than edge-extended, since only
+// G2SIM_DrawBGWide (SIM_SetWidescreenSceneOptions's wideBgLayers) composites the bezel's stamps onto a layer
+static BOOL WideApplication(u8 *wideBgs, BOOL *isPokegear) {
+    *wideBgs = 0;
     *isPokegear = FALSE;
     FieldSystem *fieldSystem = FieldSystem_PortGet();
     if (fieldSystem == NULL || fieldSystem->processManager == NULL || fieldSystem->processManager->child == NULL) {
@@ -86,7 +87,7 @@ static BOOL WideApplication(u8 *edgeBgs, BOOL *isPokegear) {
     const OverlayFunction init = fieldSystem->processManager->child->template.init;
     if (init == Pokegear_Init) {
         // Its background and buttons, GF_BG_LYR_MAIN_0 (pokegear_app_ui.c): the bezel below draws over its sides
-        *edgeBgs = 1 << 0;
+        *wideBgs = 1 << 0;
         *isPokegear = TRUE;
         return TRUE;
     }
@@ -204,7 +205,7 @@ void Widescreen_Update(void) {
         // reach the sides too, instead of a 4:3 box over the (already wide) field it covers
         wide = TRUE;
         edgeBgs = 1 << 3;
-    } else if (WideApplication(&edgeBgs, &isPokegear)) {
+    } else if (WideApplication(&wideBgs, &isPokegear)) {
         // An app over the field (the Pokégear) whose own background reaches the edges; its gray bezel
         // (UpdatePokegearBezel) fills the gap the background doesn't cover
         wide = TRUE;
