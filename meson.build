@@ -17,6 +17,8 @@ project('pokeheartgold', ['c', 'cpp', 'nasm'],
     ]
 )
 
+fs = import('fs')
+
 build_target = get_option('build_target')
 is_desktop = (build_target == 'linux')
 cc = meson.get_compiler('c')
@@ -164,6 +166,17 @@ if get_option('port_sanitize') != ''
 endif
 hgss_c_args += sanitize_args
 
+# Gen 5 battles (teton-dev fork): Black 2 and White 2's battle code from pokebw2, built when -Dpokebw2 is set. gen5/
+# is the Platinum fork's (a symbolic link to ../pokeplatinum-thor-ls/gen5, which has to be cloned next to this
+# repository, as pokebw2 is); the game calls it through gen5/api and links it whole, BW2's symbols renamed bw2_...
+gen5_objects = []
+if get_option('pokebw2') != ''
+    subdir('gen5')
+    hgss_includes = [hgss_includes, include_directories('gen5/api')]
+    hgss_c_args += '-DGEN5_BATTLES'
+    gen5_objects = [gen5_battle_prefixed]
+endif
+
 ############################################################
 ###                       SOURCES                        ###
 ############################################################
@@ -203,6 +216,7 @@ hgss_port_lib_c = files(
     'lib/port/dsprot_port.c',
     'lib/port/frame_rate.c',
     'lib/port/game_settings.c',
+    'lib/port/gen5_game.c',
     'lib/port/heap_debug.c',
     'lib/port/msl_runtime.c',
     'lib/port/save_migrate_v1.c',
@@ -276,6 +290,7 @@ hgss_settings_ui = static_library('hgss_settings_ui',
 if build_target == 'linux'
 main = executable('main',
     link_whole: [hgss_game, hgss_settings_ui],
+    objects: gen5_objects,
     link_with: hgss_link_with,
     dependencies: sdk_deps,
     link_args: link_args + ['-Wl,--no-undefined'] + sanitize_args,
@@ -288,6 +303,7 @@ elif build_target == 'android'
 # with -fPIC anyway, so the result is a normal .so. The APK script renames main.so.
 main = executable('main',
     link_whole: [hgss_game, hgss_settings_ui],
+    objects: gen5_objects,
     link_with: hgss_link_with,
     dependencies: sdk_deps,
     link_args: link_args + ['-shared'],

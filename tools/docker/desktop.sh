@@ -40,6 +40,9 @@ IMAGE=pokeheartgold-desktop
 SCREEN=${SCREEN:-1280x800}
 VNC_PORT=${VNC_PORT:-5901} # 5900 is the Platinum fork's
 BIN=$ROOT/build_linux/main
+# Gen 5 battles: a pokebw2 clone and the Platinum fork (its gen5/, which ./gen5 links to) next to this repository
+POKEBW2=${POKEBW2:-$(cd "$ROOT/.." && pwd)/pokebw2}
+PLATINUM=${PLATINUM:-$(cd "$ROOT/.." && pwd)/pokeplatinum-thor-ls}
 
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
 command -v docker >/dev/null || export PATH="$HOME/.docker/bin:$PATH"
@@ -54,8 +57,19 @@ mounts() {
     echo "--mount type=bind,src=$ROOT,target=$ROOT"
     GIT_COMMON=$(cd "$ROOT" && cd "$(git rev-parse --git-common-dir)" && pwd)
     case "$GIT_COMMON" in "$ROOT"/*) ;; *) echo "--mount type=bind,src=$GIT_COMMON,target=$GIT_COMMON" ;; esac
+    [ -d "$POKEBW2" ] && echo "--mount type=bind,src=$POKEBW2,target=$POKEBW2,readonly"
+    [ -d "$PLATINUM/gen5" ] && echo "--mount type=bind,src=$PLATINUM/gen5,target=$PLATINUM/gen5,readonly"
     mkdir -p "$DATA"
     echo "--mount type=bind,src=$THOR_DEV,target=$THOR_DEV"
+}
+
+# The Gen 5 code is built when pokebw2 and the Platinum fork's gen5/ are there
+gen5_option() {
+    if [ -d "$POKEBW2/src/ov167" ] && [ -d "$PLATINUM/gen5" ]; then
+        echo "-Dpokebw2=$POKEBW2"
+    else
+        echo "-Dpokebw2="
+    fi
 }
 
 in_container() {
@@ -113,8 +127,11 @@ case "$1" in
 build)
     image
     shift
-    [ -f "$ROOT/build_linux/build.ninja" ] ||
-        in_container meson setup build_linux -Dbuild_target=linux -Dlibntr:card_game_code=IPKE,IPGE
+    if [ -f "$ROOT/build_linux/build.ninja" ]; then
+        in_container meson configure build_linux "$(gen5_option)" >/dev/null
+    else
+        in_container meson setup build_linux -Dbuild_target=linux -Dlibntr:card_game_code=IPKE,IPGE "$(gen5_option)"
+    fi
     in_container ninja -C build_linux "${@:-main}" 2>&1 | tee "$ROOT/build_linux/desktop-build.log"
     exit "${PIPESTATUS[0]}"
     ;;
