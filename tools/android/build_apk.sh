@@ -83,6 +83,9 @@ c = toolchain / 'aarch64-linux-android$API-clang'
 cpp = toolchain / 'aarch64-linux-android$API-clang++'
 ar = toolchain / 'llvm-ar'
 strip = toolchain / 'llvm-strip'
+# The Gen 5 code's symbol renaming (gen5/tools/prefix_symbols.py) reads and rewrites arm64 objects
+nm = toolchain / 'llvm-nm'
+objcopy = toolchain / 'llvm-objcopy'
 
 [built-in options]
 # The decompiled game code type-puns and relies on wrapping signed arithmetic (as the
@@ -109,7 +112,8 @@ INI
 # 4. libmain.so
 if [ ! -f "$BUILD/meson/build.ninja" ]; then
     # The PC builds compile without optimization; a handheld CPU can't absorb that
-    $MESON setup -Dbuild_target=android -Doptimization=2 \
+    # Gen 5 battles (teton-dev fork): POKEBW2=<a pokebw2 clone> builds BW2's battle code in (gen5/)
+    $MESON setup -Dbuild_target=android -Doptimization=2 ${POKEBW2:+-Dpokebw2=$POKEBW2} \
         --native-file="$ROOT/meson/native.ini" \
         --cross-file="$BUILD/android.ini" \
         -- "$BUILD/meson"

@@ -302,7 +302,8 @@ apk)
     shift
     # A version code from the date and time, so each build installs over the last
     VERSION_CODE=${VERSION_CODE:-$(date +%y%m%d%H)}
-    docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e VERSION_CODE="$VERSION_CODE" \
+    POKEBW2_ARG=$(gen5_option | sed 's/^-Dpokebw2=//')
+    docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e VERSION_CODE="$VERSION_CODE" -e POKEBW2="$POKEBW2_ARG" \
         -v android-ndk:/ndk -v android-tools:/tools $(mounts) -w "$ROOT" $IMAGE sh -c "
         export JAVA_HOME=/tools/jdk PATH=/tools/jdk/bin:/tools/gradle-8.10.2/bin:\$PATH
         export ANDROID_HOME=/tools/sdk ANDROID_SDK_ROOT=/tools/sdk GRADLE_USER_HOME=/tools/gradle-home
