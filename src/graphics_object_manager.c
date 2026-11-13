@@ -30,9 +30,14 @@ static void GraphicsObject_Draw(GraphicsObject *object);
 static void GraphicsObject_InitFromTemplate(GraphicsObject *object, GraphicsObjectTemplate *template);
 
 static inline void SetMtxScale(fx32 x, fx32 y, fx32 z) {
+#ifdef SDK_PORT
+    // the port's renderer never reads the geometry registers: the G3 call reaches it
+    G3_Scale(x, y, z);
+#else
     reg_G3_MTX_SCALE = x;
     reg_G3_MTX_SCALE = y;
     reg_G3_MTX_SCALE = z;
+#endif
 }
 
 GraphicsManager *GraphicsManager_New(GraphicsManagerTemplate *template) {

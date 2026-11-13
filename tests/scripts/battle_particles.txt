@@ -1,0 +1,78 @@
+# From new-game: a Cyndaquil given, a wild Rattata in HGSS's own engine, Tackle; screenshots every 2 frames while its
+# particles (the impact burst and dust) play
+mash A until free
+give 155 5
+wild 19 3
+until battle timeout 600
+until command timeout 6000
+stillshot command
+touch 128 90
+wait 30
+stillshot moves
+mash touch 64 50 for 24
+wait 10
+wait 2
+stillshot f01
+wait 2
+stillshot f02
+wait 2
+stillshot f03
+wait 2
+stillshot f04
+wait 2
+stillshot f05
+wait 2
+stillshot f06
+wait 2
+stillshot f07
+wait 2
+stillshot f08
+wait 2
+stillshot f09
+wait 2
+stillshot f10
+wait 2
+stillshot f11
+wait 2
+stillshot f12
+wait 2
+stillshot f13
+wait 2
+stillshot f14
+wait 2
+stillshot f15
+wait 2
+stillshot f16
+wait 2
+stillshot f17
+wait 2
+stillshot f18
+wait 2
+stillshot f19
+wait 2
+stillshot f20
+wait 2
+stillshot f21
+wait 2
+stillshot f22
+wait 2
+stillshot f23
+wait 2
+stillshot f24
+wait 2
+stillshot f25
+wait 2
+stillshot f26
+wait 2
+stillshot f27
+wait 2
+stillshot f28
+wait 2
+stillshot f29
+wait 2
+stillshot f30
+wait 2
+stillshot f31
+wait 2
+stillshot f32
+exit 0

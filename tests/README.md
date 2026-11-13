@@ -18,6 +18,8 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 | `gen5_wild.txt` | `new-game` | a Cyndaquil given, then a wild Rattata in BW2's engine (as the settings' button starts it): its command and move menus, RUN, back on the overworld with the party as the battle left it (`-Dpokebw2` builds, after `gen5_rom.txt`) | ~1 min |
 | `gen5_trainer.txt` | `new-game` | a level 50 Cyndaquil against a Team Rocket Grunt in BW2's engine (Rocket's arena, HGSS's Grunt sprite), A mashed until it is won | ~5 min |
 | `gen5_rival.txt` | `new-game` | out to New Bark Town, then Silver (trainer 1) in BW2's engine, in the grass field with a dirt path (ArenaFromSetup's town case), A mashed until it is won | ~5 min |
+| `battle_particles.txt` | `new-game` | a Cyndaquil given, a wild Rattata in HGSS's own engine, Tackle: screenshots every 2 frames through its animation (the impact burst and dust are SPL particles) | ~1 min |
+| `starter_balls.txt` | `new-game` | out to Prof. Elm's lab, his introduction, the machine: screenshots of the three Poké Balls and the first one up close (each with one spotlight, not tiled) | ~2 min |
 | `widescreen_newbark.txt` | `new-game` | down the stairs and out into New Bark Town, with screenshots there; run it with widescreen on (`TEST_CONFIG`, below) to check the overworld fills the 16:9 window | ~2 min |
 
 ## Running
