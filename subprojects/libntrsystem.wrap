@@ -4,7 +4,7 @@ url = https://github.com/cybervisi0n/libntrsystem.git
 revision = 97fa995ed33fe2ab8c83ec7068aa3aa5b4c3e12f
 depth = 1
 directory = libntrsystem
-diff_files = libntrsystem_android.patch
+diff_files = libntrsystem_android.patch, libntrsystem_anim_edge.patch
 
 [provide]
 dependency_names = NitroSystem
