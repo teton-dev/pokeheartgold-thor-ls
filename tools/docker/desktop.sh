@@ -16,14 +16,13 @@
 #   tools/docker/desktop.sh test SCRIPT [--from FIXTURE] [--keep FIXTURE]
 #                                              run a test script (tests/README.md) in a fresh data folder, from a
 #                                              fixture's save, and keep the save it ends with as a fixture
-#   tools/docker/desktop.sh apk [--stable]     build the APK (tools/android/build_apk.sh; dev flavor by default)
+#   tools/docker/desktop.sh apk [--stable]     build the APK on macOS itself (tools/android/build_apk.sh; dev flavor)
 #   tools/docker/desktop.sh install            install that APK on the device adb sees (ADB=... for adb's path)
 #
 # GAME=ss runs SoulSilver (its own data folder and ROM). The desktop build's container is arm64 Linux, native on Apple
-# Silicon (gdb works in it). The APK's is x86-64, under Rosetta: the Android NDK only has x86-64 Linux tools. THOR_DEV (default ~/thor-dev) holds the ROMs and the data folders (desktop-hg, desktop-ss: the extracted
-# ROM, saves and settings, kept between runs); the game sees THOR_DEV at the same path as on the Mac. The APK build
-# uses the Docker volumes android-ndk (/ndk/android-ndk-r27c) and android-tools (/tools: jdk, gradle-8.10.2, sdk,
-# gradle-home), shared with the Platinum fork.
+# Silicon (gdb works in it). The APK is built natively on macOS, with no container (its tools in ~/Library/Android).
+# THOR_DEV (default ~/thor-dev) holds the ROMs and the data folders (desktop-hg, desktop-ss: the extracted ROM, saves
+# and settings, kept between runs); the game sees THOR_DEV at the same path as on the Mac.
 set -e
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -36,11 +35,9 @@ ss) ROM=${ROM:-$THOR_DEV/Pokemon - SoulSilver Version (USA).nds} ;;
 esac
 DATA=${DATA:-$THOR_DEV/desktop-$GAME}
 NAME=pokeheartgold-desktop
-# The desktop build's image (arm64) and the APK's (x86-64: the NDK's tools are), from the same Dockerfile
+# The desktop build's image (arm64 Linux)
 IMAGE=pokeheartgold-desktop
 PLATFORM=linux/arm64
-APK_IMAGE=pokeheartgold-apk
-APK_PLATFORM=linux/amd64
 BUILD=build_linux
 PIE_BASE=0xaaaaaaaa0000 # where arm64 Linux loads a PIE without ASLR
 SCREEN=${SCREEN:-1280x800}
@@ -309,18 +306,22 @@ test)
     exit "$CODE"
     ;;
 apk)
-    image $APK_IMAGE $APK_PLATFORM
     shift
+    # Natively on macOS (no Docker): the NDK (its compilers are universal binaries), the SDK, Gradle 8.10.2 and JDK 17
+    # in ANDROID_DIR (default ~/Library/Android; README.md says how they were installed), meson, ninja, cmake, nasm,
+    # bison and Python 3.12 from Homebrew
+    ANDROID_DIR=${ANDROID_DIR:-$HOME/Library/Android}
+    BREW=$(brew --prefix 2>/dev/null || echo /opt/homebrew)
+    export JAVA_HOME=${JAVA_HOME:-$BREW/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home}
+    export ANDROID_HOME=$ANDROID_DIR/sdk ANDROID_SDK_ROOT=$ANDROID_DIR/sdk
+    export ANDROID_NDK_HOME=${ANDROID_NDK_HOME:-$ANDROID_DIR/sdk/ndk/27.2.12479018}
+    # Homebrew's bison and Python ahead of macOS's (bison 2.3, Python 3.9; the Gen 5 build needs 3.11)
+    export PATH=$JAVA_HOME/bin:$ANDROID_DIR/gradle-8.10.2/bin:$BREW/opt/bison/bin:$BREW/opt/python@3.12/libexec/bin:$BREW/bin:$PATH
+    [ -d "$ANDROID_NDK_HOME" ] || { echo "No NDK at $ANDROID_NDK_HOME (README.md)"; exit 1; }
     # A version code from the date and time, so each build installs over the last
-    VERSION_CODE=${VERSION_CODE:-$(date +%y%m%d%H)}
-    POKEBW2_ARG=$(gen5_option | sed 's/^-Dpokebw2=//')
-    docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e VERSION_CODE="$VERSION_CODE" -e POKEBW2="$POKEBW2_ARG" \
-        --platform $APK_PLATFORM -v android-ndk:/ndk -v android-tools:/tools $(mounts) -w "$ROOT" $APK_IMAGE sh -c "
-        export JAVA_HOME=/tools/jdk PATH=/tools/jdk/bin:/tools/gradle-8.10.2/bin:\$PATH
-        export ANDROID_HOME=/tools/sdk ANDROID_SDK_ROOT=/tools/sdk GRADLE_USER_HOME=/tools/gradle-home
-        export ANDROID_NDK_HOME=/ndk/android-ndk-r27c NDK_HOST_TAG=linux-x86_64
-        git config --global --add safe.directory '*'
-        ./tools/android/build_apk.sh $*" 2>&1 | tee "$THOR_DEV/hgss-apk.log"
+    export VERSION_CODE=${VERSION_CODE:-$(date +%y%m%d%H)}
+    export POKEBW2=$(gen5_option | sed 's/^-Dpokebw2=//')
+    (cd "$ROOT" && ./tools/android/build_apk.sh "$@") 2>&1 | tee "$THOR_DEV/hgss-apk.log"
     exit "${PIPESTATUS[0]}"
     ;;
 install)

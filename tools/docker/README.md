@@ -2,8 +2,8 @@
 
 `tools/docker/desktop.sh` builds the Linux desktop build in Docker on a Mac and runs it on a virtual display that
 can be watched and played over VNC, with commands to take screenshots and press keys so that an agent can check
-things on screen. The container is arm64 Linux, native on Apple Silicon (no Rosetta); the APK's is x86-64 under Rosetta,
-because the Android NDK's and SDK's tools only exist for x86-64 Linux.
+things on screen. The container is arm64 Linux, native on Apple Silicon (no Rosetta). The APK is built on macOS
+itself, with no container.
 
 ## Setup
 
@@ -38,9 +38,18 @@ and checks where the game gets: [tests/README.md](../../tests/README.md).
 ## The APK
 
 `desktop.sh apk` builds it (`tools/android/build_apk.sh`, the dev flavor `org.pokeheartgold.port.dev` unless
-`--stable`) with the Android NDK r27c, the SDK, JDK 17 and Gradle 8.10.2 from the Docker volumes `android-ndk`
-(`/ndk/android-ndk-r27c`) and `android-tools` (`/tools/jdk`, `/tools/gradle-8.10.2`, `/tools/sdk`,
-`/tools/gradle-home`), which the Platinum fork's builds set up. Its version code is the date and hour
+`--stable`) natively on the Mac, no Docker. It needs, set up once:
+
+- from Homebrew: `brew install openjdk@17 meson ninja cmake nasm pkgconf bison python@3.12` (Homebrew's bison and
+  Python go ahead of macOS's 2.3 and 3.9 on the script's PATH; the Gen 5 build needs Python 3.11+);
+- Gradle 8.10.2 (`gradle-8.10.2-bin.zip` from services.gradle.org, unzipped into `~/Library/Android`; Homebrew's
+  Gradle 9 is too new for the Android Gradle plugin 8.7);
+- Google's command-line tools for Mac (`commandlinetools-mac_arm64-..._latest.zip`, into
+  `~/Library/Android/sdk/cmdline-tools/latest`), then `sdkmanager --licenses` and `sdkmanager "platforms;android-35"
+  "build-tools;34.0.0" "ndk;27.2.12479018"` (NDK r27c: its compilers are universal binaries, native on Apple Silicon).
+
+`ANDROID_DIR` (default `~/Library/Android`), `ANDROID_NDK_HOME` and `JAVA_HOME` override where they are. The build is
+in `build_android` (SDL2 and enet built there the first time). Its version code is the date and hour
 (`VERSION_CODE=...` to choose). `desktop.sh install` puts it on the device adb sees (`ADB=...` if adb isn't on the
 PATH or in `~/Documents/platform-tools`). The log is `~/thor-dev/hgss-apk.log`.
 
@@ -56,5 +65,5 @@ PATH or in `~/Documents/platform-tools`). The log is `~/thor-dev/hgss-apk.log`.
   "cross" file naming the host x86-64 while compiling with the container's own gcc (as `tools/android/build_apk.sh`
   does). gdb works (`desktop.sh shell`, then `gdb build_linux/main`), and `where` takes addresses from arm64's PIE base
   (0xaaaaaaaa0000).
-- The APK is built in `pokeheartgold-apk`, the same Dockerfile as x86-64 (`--platform linux/amd64`) under Rosetta: the
-  NDK and SDK in the `android-ndk` and `android-tools` volumes are their Linux x86-64 builds.
+- The APK isn't built in Docker: the NDK's and the SDK's Linux tools are x86-64 only (Rosetta), their macOS ones run
+  natively.
