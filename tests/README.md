@@ -61,6 +61,7 @@ frame by frame, so a script does the same every time.
 | `mash KEYS [touch X Y] for N` | the same for N frames |
 | `pace DIR DIR until EVENT [timeout N]` | walks one way and back, about two tiles each, while the player is free: tall grass until `battle` |
 | `give SPECIES LEVEL` | once the player is free, a new Pokémon into the party, the player's own |
+| `flag N` | once the player is free, sets script flag N (`include/constants/flags.h`), for whatever it unlocks (a start menu app, a Pokédex or Pokégear flag...) |
 | `wild SPECIES LEVEL [gen5]` | once the player is free, a wild battle as tall grass starts it; with `gen5` in BW2's engine, else as the setting says (`-Dpokebw2` builds) |
 | `trainer ID [ID2]` | once the player is free, a battle against trainer ID (and ID2: two trainers; ID twice: its double battle), as a script starts it; in BW2's engine when the setting is on (`gen5 on`; `-Dpokebw2` builds) |
 | `gen5 on\|off` | Settings > Gen 5 battles > Gen 5 battles |

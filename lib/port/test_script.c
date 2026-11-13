@@ -19,6 +19,7 @@
 #include "player_avatar.h"
 #include "pokemon.h"
 #include "port_game_settings.h"
+#include "save_vars_flags.h"
 #ifdef GEN5_BATTLES
 #include "player_data.h"
 #include "port_gen5_battle.h"
@@ -47,6 +48,7 @@ enum TestOp {
     OP_TRAINER,
     OP_GIVE,
     OP_GIRL,
+    OP_FLAG,
     OP_SHOT,
     OP_LOG,
     OP_EXIT,
@@ -305,6 +307,14 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
     } else if (strcmp(words[0], "girl") == 0) {
         // girl: the player is a girl (Lyra) from now on: the save's gender flag, once the player is free
         command->op = OP_GIRL;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        return TRUE;
+    } else if (strcmp(words[0], "flag") == 0 && count >= 2) {
+        // flag N: sets script flag N (include/constants/flags.h) once the player is free, for whatever it unlocks
+        // (an app on the start menu, a Pokédex or Pokégear flag...)
+        command->op = OP_FLAG;
+        command->x = atoi(words[1]);
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
@@ -650,6 +660,18 @@ static u16 Step(void) {
             }
             PlayerProfile_SetTrainerGender(Save_PlayerData_GetProfile(FieldSystem_PortGet()->saveData), 1);
             printf("[test] the player is a girl\n");
+            Next();
+            continue;
+        }
+        case OP_FLAG: {
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free for a flag to be set");
+                }
+                return 0;
+            }
+            Save_VarsFlags_SetFlagInArray(Save_VarsFlags_Get(FieldSystem_PortGet()->saveData), (u16)command->x);
+            printf("[test] flag %d set\n", command->x);
             Next();
             continue;
         }
