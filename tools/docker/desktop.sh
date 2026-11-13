@@ -19,8 +19,8 @@
 #   tools/docker/desktop.sh apk [--stable]     build the APK (tools/android/build_apk.sh; dev flavor by default)
 #   tools/docker/desktop.sh install            install that APK on the device adb sees (ADB=... for adb's path)
 #
-# GAME=ss runs SoulSilver (its own data folder and ROM). The container is x86-64 and runs under Rosetta on Apple
-# Silicon. THOR_DEV (default ~/thor-dev) holds the ROMs and the data folders (desktop-hg, desktop-ss: the extracted
+# GAME=ss runs SoulSilver (its own data folder and ROM). The desktop build's container is arm64 Linux, native on Apple
+# Silicon (gdb works in it). The APK's is x86-64, under Rosetta: the Android NDK only has x86-64 Linux tools. THOR_DEV (default ~/thor-dev) holds the ROMs and the data folders (desktop-hg, desktop-ss: the extracted
 # ROM, saves and settings, kept between runs); the game sees THOR_DEV at the same path as on the Mac. The APK build
 # uses the Docker volumes android-ndk (/ndk/android-ndk-r27c) and android-tools (/tools: jdk, gradle-8.10.2, sdk,
 # gradle-home), shared with the Platinum fork.
@@ -36,20 +36,28 @@ ss) ROM=${ROM:-$THOR_DEV/Pokemon - SoulSilver Version (USA).nds} ;;
 esac
 DATA=${DATA:-$THOR_DEV/desktop-$GAME}
 NAME=pokeheartgold-desktop
+# The desktop build's image (arm64) and the APK's (x86-64: the NDK's tools are), from the same Dockerfile
 IMAGE=pokeheartgold-desktop
+PLATFORM=linux/arm64
+APK_IMAGE=pokeheartgold-apk
+APK_PLATFORM=linux/amd64
+BUILD=build_linux
+PIE_BASE=0xaaaaaaaa0000 # where arm64 Linux loads a PIE without ASLR
 SCREEN=${SCREEN:-1280x800}
 VNC_PORT=${VNC_PORT:-5901} # 5900 is the Platinum fork's
-BIN=$ROOT/build_linux/main
+BIN=$ROOT/$BUILD/main
 # Gen 5 battles: a pokebw2 clone and the Platinum fork (its gen5/, which ./gen5 links to) next to this repository
 POKEBW2=${POKEBW2:-$(cd "$ROOT/.." && pwd)/pokebw2}
 PLATINUM=${PLATINUM:-$(cd "$ROOT/.." && pwd)/pokeplatinum-thor-ls}
 
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
+export DOCKER_DEFAULT_PLATFORM=$PLATFORM
 command -v docker >/dev/null || export PATH="$HOME/.docker/bin:$PATH"
 
+# An image made once (a desktop build's left from before arm64, x86-64, is rebuilt)
 image() {
-    if [ -z "$(docker images -q $IMAGE)" ]; then
-        docker build -t $IMAGE -f "$ROOT/tools/docker/Dockerfile.desktop" "$ROOT/tools/docker"
+    local image=${1:-$IMAGE} platform=${2:-$PLATFORM}
+    if [ "$(docker image inspect -f '{{.Os}}/{{.Architecture}}' $image 2>/dev/null)" != "$platform" ]; then
+        docker build --platform $platform -t $image -f "$ROOT/tools/docker/Dockerfile.desktop" "$ROOT/tools/docker"
     fi
 }
 
@@ -127,12 +135,15 @@ case "$1" in
 build)
     image
     shift
-    if [ -f "$ROOT/build_linux/build.ninja" ]; then
-        in_container meson configure build_linux "$(gen5_option)" >/dev/null
+    if [ -f "$ROOT/$BUILD/build.ninja" ]; then
+        in_container meson configure $BUILD "$(gen5_option)" >/dev/null
     else
-        in_container meson setup build_linux -Dbuild_target=linux -Dlibntr:card_game_code=IPKE,IPGE "$(gen5_option)"
+        # meson refuses NASM (declared by the project and libntr, used only for the DS) on a non-x86 host, so the build
+        # is set up as a "cross" one that names the host x86-64 and compiles with the native gcc, as
+        # tools/android/build_apk.sh does for the APK (linux-arm64.ini)
+        in_container meson setup $BUILD --cross-file tools/docker/linux-arm64.ini -Dbuild_target=linux -Dlibntr:card_game_code=IPKE,IPGE "$(gen5_option)"
     fi
-    in_container ninja -C build_linux "${@:-main}" 2>&1 | tee "$ROOT/build_linux/desktop-build.log"
+    in_container ninja -C $BUILD "${@:-main}" 2>&1 | tee "$ROOT/$BUILD/desktop-build.log"
     exit "${PIPESTATUS[0]}"
     ;;
 start)
@@ -175,10 +186,10 @@ log)
 where)
     shift
     image
-    # The game runs at the fixed base Linux gives a PIE without ASLR in Docker
+    # The game runs at the fixed base Linux gives a PIE without ASLR in Docker (its architecture's)
     for a in "$@"; do
         printf '%s: ' "$a"
-        in_container addr2line -f -C -i -p -e "$BIN" "$(printf '0x%x' $((a - 0x555555554000)))" | sed "s#$ROOT/build_linux/../##"
+        in_container addr2line -f -C -i -p -e "$BIN" "$(printf '0x%x' $((a - PIE_BASE)))" | sed "s#$ROOT/$BUILD/../##"
     done
     ;;
 test)
@@ -278,7 +289,7 @@ test)
         for n in $(cut -d' ' -f1 "$SHOTS/frames.txt" | uniq); do
             [ "$n" = 0 ] || echo "  -- sample $n"
             awk -v n="$n" '$1 == n { print $2 }' "$SHOTS/frames.txt" |
-                docker run --rm -i $(mounts) $IMAGE addr2line -f -C -i -p -e "$BIN" | sed 's#'"$ROOT"'/build_linux/../##; s#^#  #'
+                docker run --rm -i $(mounts) $IMAGE addr2line -f -C -i -p -e "$BIN" | sed 's#'"$ROOT"'/'"$BUILD"'/../##; s#^#  #'
         done | tee "$SHOTS/crash.txt"
         rm -f "$SHOTS/frames.txt"
     fi
@@ -298,13 +309,13 @@ test)
     exit "$CODE"
     ;;
 apk)
-    image
+    image $APK_IMAGE $APK_PLATFORM
     shift
     # A version code from the date and time, so each build installs over the last
     VERSION_CODE=${VERSION_CODE:-$(date +%y%m%d%H)}
     POKEBW2_ARG=$(gen5_option | sed 's/^-Dpokebw2=//')
     docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp -e VERSION_CODE="$VERSION_CODE" -e POKEBW2="$POKEBW2_ARG" \
-        -v android-ndk:/ndk -v android-tools:/tools $(mounts) -w "$ROOT" $IMAGE sh -c "
+        --platform $APK_PLATFORM -v android-ndk:/ndk -v android-tools:/tools $(mounts) -w "$ROOT" $APK_IMAGE sh -c "
         export JAVA_HOME=/tools/jdk PATH=/tools/jdk/bin:/tools/gradle-8.10.2/bin:\$PATH
         export ANDROID_HOME=/tools/sdk ANDROID_SDK_ROOT=/tools/sdk GRADLE_USER_HOME=/tools/gradle-home
         export ANDROID_NDK_HOME=/ndk/android-ndk-r27c NDK_HOST_TAG=linux-x86_64

@@ -2,7 +2,8 @@
 
 `tools/docker/desktop.sh` builds the Linux desktop build in Docker on a Mac and runs it on a virtual display that
 can be watched and played over VNC, with commands to take screenshots and press keys so that an agent can check
-things on screen. The container is x86-64 and runs under Rosetta on Apple Silicon.
+things on screen. The container is arm64 Linux, native on Apple Silicon (no Rosetta); the APK's is x86-64 under Rosetta,
+because the Android NDK's and SDK's tools only exist for x86-64 Linux.
 
 ## Setup
 
@@ -14,7 +15,7 @@ things on screen. The container is x86-64 and runs under Rosetta on Apple Silico
 ## Use
 
 ```sh
-tools/docker/desktop.sh build      # meson setup build_linux (first time), then ninja main: ~15 min from scratch
+tools/docker/desktop.sh build      # meson setup build_linux (first time), then ninja main: ~2 min from scratch
 tools/docker/desktop.sh start      # open vnc://localhost:5901 to watch and play
 tools/docker/desktop.sh key Return z z
 tools/docker/desktop.sh shot       # ~/thor-dev/shots/hgss.png
@@ -49,4 +50,11 @@ PATH or in `~/Documents/platform-tools`). The log is `~/thor-dev/hgss-apk.log`.
   port, and the overlay table libntr reads from `header.bin` doesn't match the 64-bit `FSOverlayInfoHeader` (its
   pointers put `file_id` on the ARM9 load address). Overlays are native code on the port. `where ADDR` turns an
   assert's address into a function and line.
-- gdb doesn't run under Rosetta, so `tools/port/testrig` (gdb, a native Linux machine) doesn't work in here.
+- The desktop build is arm64 (`pokeheartgold-desktop`, `--platform linux/arm64`): about 7 times faster than it was
+  under Rosetta to build, and tests run at full speed (`new_game.txt` in seconds). meson refuses NASM, which the project
+  and libntr declare for the DS build only, on a non-x86 host, so `build_linux` is set up with `linux-arm64.ini`, a
+  "cross" file naming the host x86-64 while compiling with the container's own gcc (as `tools/android/build_apk.sh`
+  does). gdb works (`desktop.sh shell`, then `gdb build_linux/main`), and `where` takes addresses from arm64's PIE base
+  (0xaaaaaaaa0000).
+- The APK is built in `pokeheartgold-apk`, the same Dockerfile as x86-64 (`--platform linux/amd64`) under Rosetta: the
+  NDK and SDK in the `android-ndk` and `android-tools` volumes are their Linux x86-64 builds.
