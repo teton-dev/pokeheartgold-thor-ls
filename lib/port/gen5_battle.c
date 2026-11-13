@@ -761,6 +761,18 @@ static void ArenaFromSetup(const BattleSetup *setup, int *bg, int *terrain) {
         *terrain = 0;
         return;
     }
+    if (trainerClass >= 0 && setup->terrain == TERRAIN_PLAIN
+        && (setup->battleBg == BATTLE_BG_GENERAL || setup->battleBg == BATTLE_BG_CITY)) {
+        // Any trainer who challenges the player on a town's or a route's ordinary ground (a path, not tall grass,
+        // sand or water) gets the same brown floor with a grassy edge as Silver in a town, not BW2's plain green
+        // field or its city
+        const u8 mapType = MapHeader_GetMapType(setup->mapNumber);
+        if (mapType == MAP_TYPE_CITY_TOWN || mapType == MAP_TYPE_ROUTE) {
+            *bg = ARENA_BG_GRASS;
+            *terrain = 1;
+            return;
+        }
+    }
     switch (setup->battleBg) {
     case BATTLE_BG_OCEAN:
         *bg = ARENA_BG_SEA;

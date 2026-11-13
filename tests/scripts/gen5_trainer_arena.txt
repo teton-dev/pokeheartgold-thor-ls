@@ -1,0 +1,20 @@
+# From new-game: Youngster Joey (trainer 8) in BW2's engine in New Bark Town. A trainer on a town's or a route's
+# ordinary ground battles on the brown floor with a grassy edge (ArenaFromSetup), as Silver does in a town; routes
+# aren't reached here (the game keeps the player in town until Elm's scenes are done)
+mash A until free
+walk LEFT 3
+walk UP 2
+walk LEFT 1
+mash A until map 63 timeout 3000
+walk DOWN 7
+walk DOWN 1
+mash A until map 60 timeout 3000
+wait 60
+give 155 50
+gen5 on
+trainer 8
+until battle timeout 600
+until command timeout 6000
+stillshot arena
+mash A until free timeout 30000
+exit

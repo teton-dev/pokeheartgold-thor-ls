@@ -210,14 +210,30 @@ void Widescreen_Update(void) {
     } else if (fieldSystem != NULL) {
         wide = WeatherLayers(fieldSystem, &objWrap, &wideBgs);
     }
+    // The cut-ins before a Gym Leader's, Silver's, an Elite Four member's or Lance's battle (encounter_effect_leaders.c),
+    // as the Platinum fork widens its own
+    u8 mirrorBgs = 0;
+    u8 objEdge = Gen5BattleShown() ? 0x01 : 0;
+    if (!Gen5BattleShown() && EncounterEffect_PortGymLeaderPlaying()) {
+        // The banner is BG3, scrolling behind the zigzag wipe's window: drawn across the sides, mirrored
+        wide = TRUE;
+        wideBgs |= 1 << 3;
+        mirrorBgs |= 1 << 3;
+    }
+    if (!Gen5BattleShown() && EncounterEffect_PortEliteFourPlaying()) {
+        // The band's purple slashes are sprites of priority 2 (the portraits keep 1): their edge columns continue to
+        // the sides
+        wide = TRUE;
+        objEdge = 0x04;
+    }
     UpdatePokegearBezel(isPokegear);
     SIM_SetWidescreenSceneOptions(FALSE, wideBgs);
     SIM_SetWidescreenObjWrap(objWrap);
-    SIM_SetWidescreenBgMirror(0);
+    SIM_SetWidescreenBgMirror(mirrorBgs);
     SIM_SetWidescreenBgEdgeExtend(edgeBgs);
     SIM_SetWidescreenBgEdgeMirror(edgeMirrorBgs);
     SIM_SetWidescreenBgStripe(0, 255.0f / 256.0f);
-    SIM_SetWidescreenObjEdgeExtend(Gen5BattleShown() ? 0x01 : 0);
+    SIM_SetWidescreenObjEdgeExtend(objEdge);
     SIM_SetWidescreenScene(wide);
 }
 

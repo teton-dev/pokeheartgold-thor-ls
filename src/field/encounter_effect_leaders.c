@@ -281,6 +281,21 @@ enum GymLeaderIntroState {
     GYM_LEADER_INTRO_STATE_END,
 };
 
+#ifdef SDK_PORT
+// A Gym Leader's or Silver's banner (BG3 behind the zigzag wipe's window), or the Elite Four's or Lance's band, is
+// playing: lib/port/widescreen.c draws it across the wide screen's sides
+static BOOL sPortGymLeaderPlaying = FALSE;
+static BOOL sPortEliteFourPlaying = FALSE;
+
+BOOL EncounterEffect_PortGymLeaderPlaying(void) {
+    return sPortGymLeaderPlaying;
+}
+
+BOOL EncounterEffect_PortEliteFourPlaying(void) {
+    return sPortEliteFourPlaying;
+}
+#endif
+
 static BOOL LeadersEffect_RunGymLeaderIntro(EncounterEffectTask *effect, enum HeapID heapID, const GymLeaderIntroParams *params) {
     u32 state = effect->state;
     GymLeaderIntroWork *work = effect->work;
@@ -290,6 +305,9 @@ static BOOL LeadersEffect_RunGymLeaderIntro(EncounterEffectTask *effect, enum He
 
     switch (state) {
     case GYM_LEADER_INTRO_STATE_INIT:
+#ifdef SDK_PORT
+        sPortGymLeaderPlaying = TRUE;
+#endif
         effect->work = Heap_Alloc(heapID, sizeof(GymLeaderIntroWork));
         memset(effect->work, 0, sizeof(GymLeaderIntroWork));
         work = effect->work;
@@ -423,6 +441,9 @@ static BOOL LeadersEffect_RunGymLeaderIntro(EncounterEffectTask *effect, enum He
         GX_SetVisibleWnd(GX_WNDMASK_NONE);
         SetBlendBrightness(0, GX_BLEND_PLANEMASK_NONE, SCREEN_MASK_MAIN);
         BgSetPosTextAndCommit(effect->fieldSystem->bgConfig, GF_BG_LYR_MAIN_2, BG_POS_OP_SET_X, 0);
+#ifdef SDK_PORT
+        sPortGymLeaderPlaying = FALSE;
+#endif
         return TRUE;
     }
     if (work->scrolling == TRUE) {
@@ -578,6 +599,13 @@ static inline void EliteFourIntro_CreateSprites(EncounterEffectSpriteManager *sp
         Sprite_SetDrawFlag(sprites[i], FALSE);
         Sprite_SetAnimCtrlSeq(sprites[i], animSeq);
         Sprite_SetPriority(sprites[i], 1);
+#ifdef SDK_PORT
+        // The purple slashes (2 and 3) get a priority of their own, 2, which widescreen continues to the screen's
+        // edges; the portraits keep 1, so their edge pixels never smear
+        if (i >= ELITE_FOUR_SPRITE_PLAYER_NAMEPLATE) {
+            Sprite_SetPriority(sprites[i], 2);
+        }
+#endif
     }
 }
 
@@ -594,6 +622,9 @@ static BOOL LeadersEffect_RunEliteFourIntro(EncounterEffectTask *effect, enum He
 
     switch (effect->state) {
     case ELITE_FOUR_INTRO_STATE_LOAD_RESOURCES:
+#ifdef SDK_PORT
+        sPortEliteFourPlaying = TRUE;
+#endif
         effect->work = Heap_Alloc(heapID, sizeof(EliteFourIntroWork));
         memset(effect->work, 0, sizeof(EliteFourIntroWork));
         work = effect->work;
@@ -814,6 +845,9 @@ static BOOL LeadersEffect_RunEliteFourIntro(EncounterEffectTask *effect, enum He
         EncounterEffect_FreeParticles();
         EncounterEffect_EndParticleMode();
         G2_BlendNone();
+#ifdef SDK_PORT
+        sPortEliteFourPlaying = FALSE;
+#endif
         return TRUE;
     }
     if (effect->state != ELITE_FOUR_INTRO_STATE_END) {

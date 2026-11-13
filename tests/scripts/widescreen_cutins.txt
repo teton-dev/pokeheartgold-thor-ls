@@ -1,0 +1,211 @@
+# From new-game, out in New Bark Town, with widescreen on (TEST_CONFIG='SecondaryScreen=true Widescreen=true WindowWidth=768 WindowHeight=432'):
+# the cut-ins before Falkner (20, the Gym Leaders' banner), Silver (1, the same banner), Will (245, the Elite Four's
+# band), Lance (244, the Champion's) and Red (260), with screenshots every 8 frames through each; a level 100
+# Typhlosion wins each battle in BW2's engine
+mash A until free
+walk LEFT 3
+walk UP 2
+walk LEFT 1
+mash A until map 63 timeout 3000
+walk DOWN 7
+walk DOWN 1
+mash A until map 60 timeout 3000
+wait 60
+give 157 100
+gen5 on
+trainer 20
+wait 8
+stillshot falkner01
+wait 8
+stillshot falkner02
+wait 8
+stillshot falkner03
+wait 8
+stillshot falkner04
+wait 8
+stillshot falkner05
+wait 8
+stillshot falkner06
+wait 8
+stillshot falkner07
+wait 8
+stillshot falkner08
+wait 8
+stillshot falkner09
+wait 8
+stillshot falkner10
+wait 8
+stillshot falkner11
+wait 8
+stillshot falkner12
+wait 8
+stillshot falkner13
+wait 8
+stillshot falkner14
+wait 8
+stillshot falkner15
+wait 8
+stillshot falkner16
+wait 8
+stillshot falkner17
+wait 8
+stillshot falkner18
+until command timeout 6000
+mash A until free timeout 30000
+trainer 1
+wait 8
+stillshot silver01
+wait 8
+stillshot silver02
+wait 8
+stillshot silver03
+wait 8
+stillshot silver04
+wait 8
+stillshot silver05
+wait 8
+stillshot silver06
+wait 8
+stillshot silver07
+wait 8
+stillshot silver08
+wait 8
+stillshot silver09
+wait 8
+stillshot silver10
+wait 8
+stillshot silver11
+wait 8
+stillshot silver12
+wait 8
+stillshot silver13
+wait 8
+stillshot silver14
+wait 8
+stillshot silver15
+wait 8
+stillshot silver16
+wait 8
+stillshot silver17
+wait 8
+stillshot silver18
+until command timeout 6000
+mash A until free timeout 30000
+trainer 245
+wait 8
+stillshot will01
+wait 8
+stillshot will02
+wait 8
+stillshot will03
+wait 8
+stillshot will04
+wait 8
+stillshot will05
+wait 8
+stillshot will06
+wait 8
+stillshot will07
+wait 8
+stillshot will08
+wait 8
+stillshot will09
+wait 8
+stillshot will10
+wait 8
+stillshot will11
+wait 8
+stillshot will12
+wait 8
+stillshot will13
+wait 8
+stillshot will14
+wait 8
+stillshot will15
+wait 8
+stillshot will16
+wait 8
+stillshot will17
+wait 8
+stillshot will18
+until command timeout 6000
+mash A until free timeout 30000
+trainer 244
+wait 8
+stillshot lance01
+wait 8
+stillshot lance02
+wait 8
+stillshot lance03
+wait 8
+stillshot lance04
+wait 8
+stillshot lance05
+wait 8
+stillshot lance06
+wait 8
+stillshot lance07
+wait 8
+stillshot lance08
+wait 8
+stillshot lance09
+wait 8
+stillshot lance10
+wait 8
+stillshot lance11
+wait 8
+stillshot lance12
+wait 8
+stillshot lance13
+wait 8
+stillshot lance14
+wait 8
+stillshot lance15
+wait 8
+stillshot lance16
+wait 8
+stillshot lance17
+wait 8
+stillshot lance18
+until command timeout 6000
+mash A until free timeout 30000
+trainer 260
+wait 8
+stillshot red01
+wait 8
+stillshot red02
+wait 8
+stillshot red03
+wait 8
+stillshot red04
+wait 8
+stillshot red05
+wait 8
+stillshot red06
+wait 8
+stillshot red07
+wait 8
+stillshot red08
+wait 8
+stillshot red09
+wait 8
+stillshot red10
+wait 8
+stillshot red11
+wait 8
+stillshot red12
+wait 8
+stillshot red13
+wait 8
+stillshot red14
+wait 8
+stillshot red15
+wait 8
+stillshot red16
+wait 8
+stillshot red17
+wait 8
+stillshot red18
+until command timeout 6000
+mash A until free timeout 30000
+exit
