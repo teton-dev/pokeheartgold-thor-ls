@@ -216,6 +216,7 @@ hgss_port_lib_c = files(
     'lib/port/dsprot_port.c',
     'lib/port/frame_rate.c',
     'lib/port/game_settings.c',
+    'lib/port/gen5_battle.c',
     'lib/port/gen5_game.c',
     'lib/port/heap_debug.c',
     'lib/port/msl_runtime.c',
@@ -277,10 +278,19 @@ hgss_game = static_library('hgss_game',
 
 # The game's pages in libntr's settings screen: C++ (libntr's SIM::UI widgets, Dear ImGui), built apart from the game
 # code, whose include/assert.h would hide the C library's from ImGui's headers
+hgss_settings_ui_sources = files('lib/port/settings_pages.cpp')
+hgss_settings_ui_args = hgss_common_args + nitrosdk_defines
+hgss_settings_ui_includes = [include_directories('include/port_sdk')]
+if get_option('pokebw2') != ''
+    # The Black 2 / White 2 ROM's import (the Platinum fork's src/port/gen5_rom.cpp)
+    hgss_settings_ui_sources += files('lib/port/gen5_rom.cpp')
+    hgss_settings_ui_args += '-DGEN5_BATTLES'
+    hgss_settings_ui_includes += include_directories('gen5/api')
+endif
 hgss_settings_ui = static_library('hgss_settings_ui',
-    sources: files('lib/port/settings_pages.cpp'),
-    cpp_args: hgss_common_args + nitrosdk_defines,
-    include_directories: include_directories('include/port_sdk'),
+    sources: hgss_settings_ui_sources,
+    cpp_args: hgss_settings_ui_args,
+    include_directories: hgss_settings_ui_includes,
     dependencies: sdk_headers_deps,
     pic: true,
     native: is_desktop,
