@@ -201,6 +201,8 @@ hgss_lib_c = files(
 # lib/dsprot (lib/port/ is not part of the make build)
 hgss_port_lib_c = files(
     'lib/port/dsprot_port.c',
+    'lib/port/frame_rate.c',
+    'lib/port/game_settings.c',
     'lib/port/heap_debug.c',
     'lib/port/msl_runtime.c',
     'lib/port/save_migrate_v1.c',
@@ -259,9 +261,21 @@ hgss_game = static_library('hgss_game',
     native: is_desktop,
 )
 
+# The game's pages in libntr's settings screen: C++ (libntr's SIM::UI widgets, Dear ImGui), built apart from the game
+# code, whose include/assert.h would hide the C library's from ImGui's headers
+hgss_settings_ui = static_library('hgss_settings_ui',
+    sources: files('lib/port/settings_pages.cpp'),
+    cpp_args: hgss_common_args + nitrosdk_defines,
+    include_directories: include_directories('include/port_sdk'),
+    dependencies: sdk_headers_deps,
+    pic: true,
+    native: is_desktop,
+)
+# Whole: libntr has a weak SIM_Prj_SettingsPages, so nothing would pull this object out of an archive
+
 if build_target == 'linux'
 main = executable('main',
-    link_whole: hgss_game,
+    link_whole: [hgss_game, hgss_settings_ui],
     link_with: hgss_link_with,
     dependencies: sdk_deps,
     link_args: link_args + ['-Wl,--no-undefined'] + sanitize_args,
@@ -273,7 +287,7 @@ elif build_target == 'android'
 # and meson refuses them in a shared_library(), but the android target compiles everything
 # with -fPIC anyway, so the result is a normal .so. The APK script renames main.so.
 main = executable('main',
-    link_whole: hgss_game,
+    link_whole: [hgss_game, hgss_settings_ui],
     link_with: hgss_link_with,
     dependencies: sdk_deps,
     link_args: link_args + ['-shared'],

@@ -16,6 +16,10 @@
 #include "sound_playback.h"
 #include "sprite_transfer.h"
 
+#ifdef SDK_PORT
+#include "port_frame_rate.h"
+#endif
+
 static void WeatherTask_ChangeWeather(SysTask *task, void *data);
 static void WeatherTask_ChangeWeatherOverlapped(SysTask *task, void *data);
 static BOOL Weather_ShouldOverlapChange(u32 weather, u32 nextWeather);
@@ -446,6 +450,18 @@ static void WeatherDraw_SetSpriteMatrix(Sprite *sprite, VecFx32 *matrix) {
 
     Sprite_SetMatrix(sprite, matrix);
 }
+
+#ifdef SDK_PORT
+// 60 FPS: rain, snow, sand and the other weathers move their particles and effects a set step per frame, so on a
+// 60 Hz overworld they run every other frame to keep the DS's speed (the Platinum fork's PortWeatherTask)
+static void WeatherTask_Port(SysTask *task, void *data) {
+    if (FrameRate_SkipHalfRateTick()) {
+        return;
+    }
+    WeatherWork *work = data;
+    work->entry->taskFunc(task, data);
+}
+#endif
 
 static WeatherEntry sWeatherEntries[] = {
     {
@@ -890,7 +906,11 @@ static BOOL WeatherSystem_Start(WeatherSystem *weatherSystem, int weather, u32 s
         return FALSE;
     }
 
+#ifdef SDK_PORT
+    entry->work->weatherTask = SysTask_CreateOnMainQueue(WeatherTask_Port, entry->work, 4);
+#else
     entry->work->weatherTask = SysTask_CreateOnMainQueue(entry->taskFunc, entry->work, 4);
+#endif
 
     if (entry->work->weatherTask == NULL) {
         return FALSE;

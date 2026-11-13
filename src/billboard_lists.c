@@ -12,6 +12,8 @@
 #ifdef SDK_PORT
 #include <simulator/sim.h>
 
+#include "port_frame_rate.h"
+
 // The overworld's sprites are nudged toward the camera for the depth test, up to this much at their tops (view
 // units; nothing at their feet), so a head clears the lower edge of a sign just behind it. On the DS the edge snaps
 // to its 256x192 pixels, which hides most of the overlap; at a higher resolution it shows. Feet are not nudged, so
@@ -515,6 +517,12 @@ u32 BillboardObject_GetSequence(BillboardObject *object) {
 }
 
 BOOL BillboardObject_AdvanceFrame(BillboardObject *object, fx32 delta) {
+#ifdef SDK_PORT
+    // 60 FPS: the overworld's sprites and their effects (grass, ripples, dust) animate at the DS's speed
+    if (FrameRate_SpeedFixActive()) {
+        delta = delta >> 1;
+    }
+#endif
     GF_ASSERT(object != NULL);
     return BillboardObject_StepFrame(object, delta);
 }

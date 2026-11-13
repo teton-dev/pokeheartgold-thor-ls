@@ -5,6 +5,10 @@
 #include "filesystem.h"
 #include "filesystem_files_def.h"
 
+#ifdef SDK_PORT
+#include "port_frame_rate.h"
+#endif
+
 static BOOL Field3dObjectList_IsShared(Field3dRenderObjManager *renderObjManager, int index);
 static Field3dRenderObj *Field3dObjectList_InitNextObject(Field3dRenderObjManager *renderObjManager, NNSG3dResFileHeader **resFileHeader, int index);
 static void MapPropAnimation_AdvanceFrame(MapPropAnimation *animation);
@@ -350,6 +354,26 @@ void MapPropAnimation_SetLoopCount(MapPropAnimation *animation, const int loopCo
 }
 
 static void MapPropAnimation_AdvanceFrame(MapPropAnimation *animation) {
+#ifdef SDK_PORT
+    // Map props (windmills, doors...): half a frame per update at 60 Hz. The step can change between updates, so the
+    // end is checked with >= and the start clamped
+    const fx32 step = FrameRate_SpeedFixActive() ? FX32_ONE / 2 : FX32_ONE;
+    if (!animation->reversed) {
+        animation->animObj->frame += step;
+        if (animation->animObj->frame >= NNS_G3dAnmObjGetNumFrame(animation->animObj)) {
+            animation->animObj->frame = 0;
+        }
+    } else {
+        if (animation->animObj->frame <= 0) {
+            animation->animObj->frame = NNS_G3dAnmObjGetNumFrame(animation->animObj) - FX32_ONE;
+        } else {
+            animation->animObj->frame -= step;
+            if (animation->animObj->frame < 0) {
+                animation->animObj->frame = 0;
+            }
+        }
+    }
+#else
     if (!animation->reversed) {
         animation->animObj->frame += FX32_ONE;
         if (animation->animObj->frame == NNS_G3dAnmObjGetNumFrame(animation->animObj)) {
@@ -362,6 +386,7 @@ static void MapPropAnimation_AdvanceFrame(MapPropAnimation *animation) {
             animation->animObj->frame -= FX32_ONE;
         }
     }
+#endif
 }
 
 static BOOL MapPropAnimation_IsOnLastFrame(MapPropAnimation *animation) {

@@ -9,6 +9,10 @@
 #include "heap.h"
 #include "sys_task_api.h"
 
+#ifdef SDK_PORT
+#include "port_frame_rate.h"
+#endif
+
 void ModelResource_LoadFromNarc(ModelResource *model, NARC *narc, int fileId, enum HeapID heapID) {
     model->file = GfGfxLoader_LoadFromOpenNarc(narc, fileId, FALSE, heapID, FALSE);
     ModelResource_Init(model);
@@ -57,6 +61,12 @@ void ModelAnimation_Free(ModelAnimation *animation, NNSFndAllocator *allocator) 
 }
 
 void ModelAnimation_AdvanceLooped(ModelAnimation *animation, fx32 step) {
+#ifdef SDK_PORT
+    // 60 FPS: the overworld's 3D animations (map and effect models) play at the DS's speed
+    if (FrameRate_SpeedFixActive()) {
+        step = step / 2;
+    }
+#endif
     fx32 frames = NNS_G3dAnmObjGetNumFrame(animation->object);
     if (step > 0) {
         animation->frame = (animation->frame + step) % frames;
@@ -70,6 +80,12 @@ void ModelAnimation_AdvanceLooped(ModelAnimation *animation, fx32 step) {
 }
 
 BOOL ModelAnimation_Advance(ModelAnimation *animation, fx32 step) {
+#ifdef SDK_PORT
+    // 60 FPS: the overworld's 3D animations (map and effect models) play at the DS's speed
+    if (FrameRate_SpeedFixActive()) {
+        step = step / 2;
+    }
+#endif
     fx32 frames = NNS_G3dAnmObjGetNumFrame(animation->object);
     BOOL done = FALSE;
     if (step > 0) {

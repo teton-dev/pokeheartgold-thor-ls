@@ -19,6 +19,10 @@
 #include "sys_task.h"
 #include "sys_task_api.h"
 
+#ifdef SDK_PORT
+#include "port_frame_rate.h"
+#endif
+
 #define AREA_DATA_MAX_MAP_PROPS 550
 
 // The header of an area, member <areaDataBank> of NARC_a_0_4_2.
@@ -326,6 +330,12 @@ void Field3dModelAnimation_Unload(Field3DModelAnimation *anim, NNSFndAllocator *
 }
 
 void Field3dModelAnimation_FrameAdvanceAndLoop(Field3DModelAnimation *anim, fx32 delta) {
+#ifdef SDK_PORT
+    // 60 FPS: the overworld's 3D animations (map and effect models) play at the DS's speed
+    if (FrameRate_SpeedFixActive()) {
+        delta = delta / 2;
+    }
+#endif
     fx32 numFrames = NNS_G3dAnmObjGetNumFrame(anim->animObj);
     if (delta > 0) {
         anim->frame = (anim->frame + delta) % numFrames;
@@ -339,6 +349,12 @@ void Field3dModelAnimation_FrameAdvanceAndLoop(Field3DModelAnimation *anim, fx32
 }
 
 BOOL Field3dModelAnimation_FrameAdvanceAndCheck(Field3DModelAnimation *anim, fx32 delta) {
+#ifdef SDK_PORT
+    // 60 FPS: the overworld's 3D animations (map and effect models) play at the DS's speed
+    if (FrameRate_SpeedFixActive()) {
+        delta = delta / 2;
+    }
+#endif
     fx32 numFrames = NNS_G3dAnmObjGetNumFrame(anim->animObj);
     BOOL ret = FALSE;
     if (delta > 0) {
