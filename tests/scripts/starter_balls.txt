@@ -1,0 +1,52 @@
+# From new-game: out into New Bark Town, into Prof. Elm's lab, through his scene to the choice of Pokémon on the
+# touch screen; screenshots of the three Poké Balls there (their shine is an environment map)
+mash A until free
+walk LEFT 3
+walk UP 2
+walk LEFT 1
+mash A until map 63 timeout 3000
+walk DOWN 7
+walk DOWN 1
+mash A until map 60 timeout 3000
+walk LEFT 11
+walk UP 3
+walk UP 1
+until map 61
+walk UP 8
+mash A for 1500
+shot lab1
+mash A until free timeout 3000
+walk RIGHT 4
+walk UP 1
+press UP
+press A
+wait 10
+stillshot p01
+press A
+wait 10
+stillshot p02
+press A
+wait 10
+stillshot p03
+press A
+wait 10
+stillshot p04
+press A
+wait 10
+stillshot p05
+press A
+wait 10
+stillshot p06
+press A
+wait 10
+stillshot p07
+press A
+wait 10
+stillshot p08
+press A
+wait 10
+stillshot p09
+press A
+wait 10
+stillshot p10
+exit 0
