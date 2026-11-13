@@ -9,6 +9,9 @@ void CallTask_BattleTransition(TaskManager *man, int effect, int bgm);
 // A wild encounter's own transition (the grid or wave wipe, effects 0-5: see gEncounterEffectFuncs) is playing, for
 // widescreen.c to widen it
 BOOL EncounterEffect_PortWildPlaying(void);
+// A Gym Leader's or Silver's banner, or the Elite Four's or Lance's band, is playing (encounter_effect_leaders.c)
+BOOL EncounterEffect_PortGymLeaderPlaying(void);
+BOOL EncounterEffect_PortEliteFourPlaying(void);
 #endif
 
 #endif

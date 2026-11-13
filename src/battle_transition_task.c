@@ -24,7 +24,7 @@ static BOOL Task_BattleTransition(TaskManager *taskMan);
 
 #ifdef SDK_PORT
 // Effects 0-5 (gEncounterEffectFuncs) are the ordinary wild encounter's own transition (the grid or wave wipe),
-// confined to the DS's 256 pixels; widescreen.c widens it while this is TRUE
+// confined to the DS's 256 pixels, and 46 Red's; widescreen.c widens it while this is TRUE
 static BOOL sPortWildPlaying = FALSE;
 
 BOOL EncounterEffect_PortWildPlaying(void) {
@@ -43,7 +43,8 @@ static BOOL Task_BattleTransition(TaskManager *taskMan) {
         EncounterEffect_Start(env->effect, fieldSystem, &env->done);
         Sound_SetSceneAndPlayBGM(5, env->bgm, 1);
 #ifdef SDK_PORT
-        sPortWildPlaying = env->effect <= 5;
+        // Red's (46) is built the same way: black blocks filling BG3 over the overworld
+        sPortWildPlaying = env->effect <= 5 || env->effect == 46;
 #endif
         env->state++;
         break;
