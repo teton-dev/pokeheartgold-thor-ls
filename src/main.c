@@ -22,6 +22,7 @@
 #include "comm_state.h"
 #include "wfc_user_info_warning.h"
 #ifdef SDK_PORT
+#include "port_frame_rate.h"
 #include "port_widescreen.h"
 #endif
 
@@ -104,6 +105,7 @@ void NitroMain(void) {
         HandleDSLidAction();
         ReadKeypadAndTouchpad();
 #ifdef SDK_PORT
+        FrameRate_Update();
         Widescreen_Update();
 #endif
         if ((gSystem.heldKeysRaw & (PAD_BUTTON_START | PAD_BUTTON_SELECT | PAD_BUTTON_L | PAD_BUTTON_R)) == (PAD_BUTTON_START | PAD_BUTTON_SELECT | PAD_BUTTON_L | PAD_BUTTON_R)) {
@@ -118,7 +120,14 @@ void NitroMain(void) {
             OS_GetTick();
             SysTaskQueue_RunTasks(gSystem.mainTaskQueue);
             SysTaskQueue_RunTasks(gSystem.printTaskQueue);
-            if (!gSystem.frameCounter) {
+            if (!gSystem.frameCounter
+#ifdef SDK_PORT
+                && !FrameRate_Is60Hz()
+#endif
+            ) {
+#ifdef SDK_PORT
+                FrameRate_BeforeFirstVBlank();
+#endif
                 OS_WaitIrq(TRUE, OS_IE_VBLANK);
                 gSystem.vblankCounter++;
             }

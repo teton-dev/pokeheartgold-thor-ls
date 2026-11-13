@@ -15,6 +15,10 @@
 #include "sound_playback.h"
 #include "sys_task_api.h"
 
+#ifdef SDK_PORT
+#include "port_frame_rate.h"
+#endif
+
 struct EventObjectMovementWork {
     u32 state;
     BOOL finished;
@@ -84,6 +88,10 @@ typedef struct VariableSpeedWalkWork {
     s16 animation;
     s16 count;
     s16 index;
+#ifdef SDK_PORT
+    u8 halfRate; // 60 Hz: each step of the table takes two frames
+    u8 secondHalf;
+#endif
 } VariableSpeedWalkWork;
 
 enum MovementScriptMachineState {
@@ -371,6 +379,13 @@ BOOL MapObjectMovementCmd003_Step0(LocalMapObject *object) {
 }
 
 static void MapObject_StartWalkMovement(LocalMapObject *object, u32 direction, u32 distance, s32 duration, u16 animation) {
+#ifdef SDK_PORT
+    // 60 FPS: walking, running and biking take as long as on the DS (twice the frames, half the distance each)
+    if (FrameRate_SpeedFixActive()) {
+        duration = duration << 1;
+        distance = distance >> 1;
+    }
+#endif
     WalkMovementWork *work = (WalkMovementWork *)MapObject_InitMovementCmdData(object, sizeof(WalkMovementWork));
 
     work->animation = animation;
@@ -542,6 +557,12 @@ BOOL MapObjectMovementCmd091_Step0(LocalMapObject *object) {
 }
 
 static void MapObject_StartWalkInPlaceMovement(LocalMapObject *object, u32 direction, int duration, int animation) {
+#ifdef SDK_PORT
+    // Turning on the spot (a tap on the D-pad) takes as long as on the DS
+    if (FrameRate_SpeedFixActive()) {
+        duration = duration << 1;
+    }
+#endif
     WalkInPlaceMovementWork *work = (WalkInPlaceMovementWork *)MapObject_InitMovementCmdData(object, sizeof(WalkInPlaceMovementWork));
 
     work->animation = animation;
@@ -666,6 +687,14 @@ BOOL MapObjectMovementCmd043_Step0(LocalMapObject *object) {
 }
 
 static void MapObject_StartJumpMovement(LocalMapObject *object, s8 direction, int distance, s8 duration, u16 animation, s16 heightTable, u16 heightStep) {
+#ifdef SDK_PORT
+    // Ledge jumps: twice the frames, half the distance and arc per frame
+    if (FrameRate_SpeedFixActive() && duration <= 63) {
+        duration = duration << 1;
+        distance = distance >> 1;
+        heightStep = heightStep >> 1;
+    }
+#endif
     JumpMovementWork *work = (JumpMovementWork *)MapObject_InitMovementCmdData(object, sizeof(JumpMovementWork));
 
     work->direction = direction;
@@ -1007,6 +1036,10 @@ static void MapObject_StartVariableSpeedWalk(LocalMapObject *object, u32 directi
     work->direction = direction;
     work->animation = animation;
     work->count = count;
+#ifdef SDK_PORT
+    work->halfRate = FrameRate_SpeedFixActive();
+    work->secondHalf = FALSE;
+#endif
     MapObject_MoveCoordsInDirection(object, direction);
     MapObject_SetOrQueueFacing(object, direction);
     MapObject_SetAnimation(object, animation);
@@ -1016,7 +1049,23 @@ static void MapObject_StartVariableSpeedWalk(LocalMapObject *object, u32 directi
 
 static BOOL MapObject_UpdateVariableSpeedWalk(LocalMapObject *object, const u32 *distances) {
     VariableSpeedWalkWork *work = (VariableSpeedWalkWork *)MapObject_GetMovementCmdData(object);
+#ifdef SDK_PORT
+    // At 60 Hz each step of the table is split over two frames
+    u32 step = distances[work->index];
+    if (work->halfRate) {
+        u32 firstHalf = step / 2;
+        work->secondHalf = !work->secondHalf;
+        if (work->secondHalf) {
+            MapObject_OffsetPositionInDirection(object, work->direction, firstHalf);
+            MapObject_UpdateHeight(object);
+            return FALSE;
+        }
+        step -= firstHalf;
+    }
+    MapObject_OffsetPositionInDirection(object, work->direction, step);
+#else
     MapObject_OffsetPositionInDirection(object, work->direction, distances[work->index]);
+#endif
     MapObject_UpdateHeight(object);
     work->index++;
     if (work->index < work->count) {

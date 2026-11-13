@@ -13,6 +13,10 @@
 #include "render_animation.h"
 #include "render_model.h"
 
+#ifdef SDK_PORT
+#include "port_frame_rate.h"
+#endif
+
 // The Pokemon the player rides while surfing: one model, turned to the rider's facing; while bobbing it rises and
 // sinks under the map object, lifting the rider with it.
 
@@ -151,7 +155,12 @@ static void SurfMountEffect_Update(FieldEffect *effect, void *state) {
     }
     if (work->bobbing) {
         work->direction = facing;
+#ifdef SDK_PORT
+        // 60 FPS: half the bob per frame keeps the DS's speed (half steps still land on the bounds)
+        height = work->height + (FrameRate_SpeedFixActive() ? work->heightStep / 2 : work->heightStep);
+#else
         height = work->height + work->heightStep;
+#endif
         work->height = height;
         if (height >= 4 * FX32_ONE) {
             work->height = 4 * FX32_ONE;

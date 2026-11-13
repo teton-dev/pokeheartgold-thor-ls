@@ -7,6 +7,10 @@
 #include "texture_animation.h"
 #include "vram_transfer_manager.h"
 
+#ifdef SDK_PORT
+#include "port_frame_rate.h"
+#endif
+
 int sprintf(char *buf, const char *fmt, ...);
 
 static int FieldTextureManager_AddAnimatedTexture(FieldTextureManager *textureManager, NNSG3dResTex *textureResource, int index, NARC *narc);
@@ -84,7 +88,16 @@ void FieldTextureManager_Free(FieldTextureManager *textureManager) {
     slot = textureManager->textureSlots;
     while (i < MAX_TEXTURE_KEYS) {
         if (slot->fileData != NULL && slot->animationData != NULL) {
+#ifdef SDK_PORT
+            // Animated map textures (water, flowers): at 60 Hz each frame is held for twice as many updates
+            int frameLength = slot->animationData->frames[slot->currentFrame][1];
+            if (FrameRate_SpeedFixActive()) {
+                frameLength = frameLength * 2 + 1;
+            }
+            if (frameLength <= slot->frameCounter) {
+#else
             if (slot->animationData->frames[slot->currentFrame][1] <= slot->frameCounter) {
+#endif
                 slot->frameCounter = 1;
                 slot->currentFrame++;
                 if (slot->animationData->frames[slot->currentFrame][0] == 0xFF) {

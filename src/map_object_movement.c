@@ -10,6 +10,10 @@
 #include "player_avatar.h"
 #include "player_avatar_movement.h"
 
+#ifdef SDK_PORT
+#include "port_frame_rate.h"
+#endif
+
 // The movement data of each movement type (MapObject_InitMovementData)
 
 typedef struct RandomLookMovementState {
@@ -351,7 +355,11 @@ void RandomLookMovement_Update(LocalMapObject *object) {
     if (direction != DIR_NONE) {
         MapObject_SetFacingDirection(object, direction);
     } else if (state->state == 0) {
-        state->delay--;
+#ifdef SDK_PORT
+        // 60 FPS: the wait between looks counts DS frames
+        if (!FrameRate_SkipHalfRateTick())
+#endif
+            state->delay--;
         if (state->delay <= 0) {
             state->delay = DirectionList_GetRandom(sRandomLookDelays, -1);
             direction = GetRandomDirectionFromTable(state->tableId, -1);
@@ -403,7 +411,11 @@ void RandomWalkMovement_Update(LocalMapObject *object) {
         state->delay = DirectionList_GetRandom(sRandomLookDelays, -1);
         state->state++;
     case RANDOM_WALK_WAIT_DELAY:
-        state->delay--;
+#ifdef SDK_PORT
+        // 60 FPS: wandering people wait as many DS frames between steps as on the DS
+        if (!FrameRate_SkipHalfRateTick())
+#endif
+            state->delay--;
         if (state->delay != 0) {
             break;
         }
