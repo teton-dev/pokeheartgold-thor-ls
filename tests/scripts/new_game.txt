@@ -1,0 +1,25 @@
+# A new game: past the info topics, a boy named ETHAN, through Prof. Oak's introduction to the bedroom in New Bark
+# Town, saved there (keep it as the fixture new-game)
+mash START for 600
+# The info topics: "No info needed"
+touch 128 160
+wait 120
+mash A until naming timeout 6000
+wait 60
+# E T H A N, touched on the keyboard
+touch 98 99
+wait 20
+touch 178 118
+wait 20
+touch 146 99
+wait 20
+touch 34 99
+wait 20
+touch 82 118
+wait 20
+shot name
+press START
+mash A until free timeout 6000
+shot room
+save
+exit

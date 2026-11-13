@@ -309,6 +309,10 @@ BOOL Field_AppExec(OverlayManager *man, int *unused);
 BOOL Field_AppExit(OverlayManager *man, int *unused);
 void FieldSystem_LoadFieldOverlayInternal(FieldSystem *fieldSystem);
 void FieldSystem_ClearRunningFieldMap(FieldSystem *fieldSystem);
+#ifdef SDK_PORT
+// The running field system, or NULL off the field (the port's own code: scripted tests)
+FieldSystem *FieldSystem_PortGet(void);
+#endif
 u8 FieldSystem_GetStartMenuInputState(FieldSystem *fieldSystem);
 void FieldSystem_SetStartMenuInputState(FieldSystem *fieldSystem, int state);
 BOOL FieldSystem_IsFieldMapLoaded(FieldSystem *fieldSystem);

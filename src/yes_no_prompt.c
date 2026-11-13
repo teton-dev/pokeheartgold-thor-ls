@@ -8,6 +8,9 @@
 #include "sys_task_api.h"
 #include "system.h"
 #include "sound_playback.h"
+#ifdef SDK_PORT
+#include "port_test_script.h"
+#endif
 
 struct YesNoPromptButtonTemplate {
     BgConfig *bgConfig;
@@ -61,6 +64,9 @@ static void ScreenSetPalette(NNSG2dScreenData *scrnData, int plttNum);
 
 YesNoPrompt *YesNoPrompt_Create(enum HeapID heapID) {
     YesNoPrompt *out = (YesNoPrompt *)Heap_Alloc(heapID, sizeof(YesNoPrompt));
+#ifdef SDK_PORT
+    TestScript_OnEvent(TEST_EVENT_MENU);
+#endif
     YesNoPrompt_Init(out, heapID);
     return out;
 }

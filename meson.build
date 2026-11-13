@@ -205,6 +205,8 @@ hgss_port_lib_c = files(
     'lib/port/msl_runtime.c',
     'lib/port/save_migrate_v1.c',
     'lib/port/stats_upload_data.c',
+    'lib/port/test_crash.c',
+    'lib/port/test_script.c',
 )
 
 ############################################################

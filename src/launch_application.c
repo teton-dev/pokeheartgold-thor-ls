@@ -84,6 +84,9 @@
 #include "pokemon_summary.h"
 #include "gear_phone_ring_manager.h"
 #include "legendary_cinematic_manager.h"
+#ifdef SDK_PORT
+#include "port_test_script.h"
+#endif
 
 FS_EXTERN_OVERLAY(certificates_app);
 FS_EXTERN_OVERLAY(credits);
@@ -161,6 +164,9 @@ static BOOL Task_NamingScreen(TaskManager *taskman);
 static void SetName(TaskManager *taskman);
 
 BOOL Battle_Init(OverlayManager *man, int *state) {
+#ifdef SDK_PORT
+    TestScript_OnEvent(TEST_EVENT_BATTLE);
+#endif
     return TRUE;
 }
 

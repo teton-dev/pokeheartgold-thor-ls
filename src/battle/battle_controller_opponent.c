@@ -54,6 +54,9 @@
 #include "system.h"
 #include "text.h"
 #include "char_tiles.h"
+#ifdef SDK_PORT
+#include "port_test_script.h"
+#endif
 
 enum {
     ENCOUNTER_STATE_INIT,
@@ -4219,6 +4222,9 @@ static void Task_PlayerSelectCommand(SysTask *task, void *data) {
 
     switch (work->state) {
     case SELECT_COMMAND_STATE_INIT: {
+#ifdef SDK_PORT
+        TestScript_OnEvent(TEST_EVENT_BATTLE_COMMAND);
+#endif
         BattleInputMove moveDisplay;
         int i;
         for (i = 0; i < MAX_MON_MOVES; i++) {
