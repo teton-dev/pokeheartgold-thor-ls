@@ -12,6 +12,7 @@
 #include "battle_transition_task.h"
 #include "field/weather_manager.h"
 #include "field_system.h"
+#include "start_menu.h"
 #include "overlay_manager.h"
 #ifdef GEN5_BATTLES
 #include "port_gen5_battle.h"
@@ -209,6 +210,10 @@ void Widescreen_Update(void) {
         wide = TRUE;
     } else if (fieldSystem != NULL) {
         wide = WeatherLayers(fieldSystem, &objWrap, &wideBgs);
+        if (StartMenu_PortBarShown()) {
+            // X's menu: its gray bar (BG3, a vertical gradient) reaches the edges, its rows continued
+            edgeBgs |= 1 << 3;
+        }
     }
     // The cut-ins before a Gym Leader's, Silver's, an Elite Four member's or Lance's battle (encounter_effect_leaders.c),
     // as the Platinum fork widens its own

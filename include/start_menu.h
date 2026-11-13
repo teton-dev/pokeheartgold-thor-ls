@@ -80,6 +80,10 @@ void StartMenu_InitUnionRoom(FieldSystem *fieldSystem);
 void StartMenu_InitColosseum(FieldSystem *fieldSystem);
 void StartMenu_ReopenAfterScript(FieldSystem *fieldSystem);
 BOOL FieldSystem_ShouldDrawStartMenuIcon(FieldSystem *fieldSystem, StartMenuIcon icon);
+#ifdef SDK_PORT
+// The menu's gray bar on the top screen (BG3) is shown, for widescreen to continue it to the edges
+BOOL StartMenu_PortBarShown(void);
+#endif
 void StartMenu_SetExitTaskFunc(StartMenuTaskData *env, TaskFunc func);
 BOOL Task_StartMenu_HandleReturn_Pokemon(TaskManager *taskManager);
 BOOL Task_ReturnToMenuFromAppItem(TaskManager *taskManager);

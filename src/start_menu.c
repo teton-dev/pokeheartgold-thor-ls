@@ -104,6 +104,16 @@ static StartMenuTaskData *StartMenu_Create(void);
 static u32 FieldSystem_GetStartMenuButtonInhibitFlags_Normal(FieldSystem *fieldSystem);
 static u32 FieldSystem_GetStartMenuButtonInhibitFlags_Safari(FieldSystem *fieldSystem);
 static u32 FieldSystem_GetStartMenuButtonInhibitFlags_BugContest(FieldSystem *fieldSystem);
+#ifdef SDK_PORT
+// The menu's gray bar is on the top screen (BG3, while the cursor is active): lib/port/widescreen.c continues it to
+// the wide screen's edges
+static BOOL sPortBarShown = FALSE;
+
+BOOL StartMenu_PortBarShown(void) {
+    return sPortBarShown;
+}
+#endif
+
 static u32 FieldSystem_GetStartMenuButtonInhibitFlags_PalPark(FieldSystem *fieldSystem);
 static u32 FieldSystem_GetStartMenuButtonInhibitFlags_BattleTowerMultiPartnerSelectRoom(FieldSystem *fieldSystem);
 static u32 FieldSystem_GetStartMenuButtonInhibitFlags_Union(FieldSystem *fieldSystem);
@@ -423,6 +433,9 @@ static BOOL Task_StartMenu(TaskManager *taskManager) {
         startMenu->exitTaskFunc(taskManager);
         break;
     case START_MENU_STATE_18:
+#ifdef SDK_PORT
+        sPortBarShown = FALSE;
+#endif
         Heap_Free(startMenu);
         MapObjectManager_UnpauseAllMovement(fieldSystem->mapObjectManager);
         return TRUE;
@@ -465,6 +478,9 @@ static void Task_StartMenu_DrawCursor(TaskManager *taskManager) {
         }
     }
     startMenu->cursorActive = TRUE;
+#ifdef SDK_PORT
+    sPortBarShown = TRUE;
+#endif
     GfGfxLoader_LoadCharData(NARC_a_0_1_4, 12, fieldSystem->bgConfig, GF_BG_LYR_MAIN_3, 0, 0, TRUE, HEAP_ID_FIELD2);
     GfGfxLoader_GXLoadPal(NARC_a_0_1_4, 15, GF_PAL_LOCATION_MAIN_BG, (enum GFPalSlotOffset)0x1C0, 0x20, HEAP_ID_FIELD2);
     GfGfxLoader_LoadScrnData(NARC_a_0_1_4, 13, fieldSystem->bgConfig, GF_BG_LYR_MAIN_3, 0, 0, TRUE, HEAP_ID_FIELD2);
@@ -526,6 +542,9 @@ static void StartMenu_RemoveCursorAndIcons(StartMenuTaskData *startMenu, FieldSy
     StartMenu_DestroyCursor(startMenu);
     FillBgTilemapRect(fieldSystem->bgConfig, GF_BG_LYR_MAIN_3, 0, 0, 0, 0x20, 0x18, 0);
     startMenu->cursorActive = FALSE;
+#ifdef SDK_PORT
+    sPortBarShown = FALSE;
+#endif
 }
 
 static BOOL FieldSystem_StartMenuActionIsAvailable(FieldSystem *fieldSystem, StartMenuAction action) {
