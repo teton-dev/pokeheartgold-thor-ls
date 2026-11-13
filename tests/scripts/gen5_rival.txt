@@ -1,0 +1,22 @@
+# From new-game: out to New Bark Town, a level 50 Cyndaquil given, then Silver (trainer 1) in BW2's engine; his
+# town battles use the grass field with a dirt path (ArenaFromSetup), not its plain green default
+mash A until free
+walk LEFT 3
+walk UP 2
+walk LEFT 1
+mash A until map 63 timeout 3000
+walk DOWN 7
+walk DOWN 1
+mash A until map 60 timeout 3000
+wait 60
+give 155 50
+gen5 on
+trainer 1
+until battle timeout 600
+wait 100
+stillshot intro
+until command timeout 6000
+shot command
+mash A until free timeout 30000
+shot back
+exit

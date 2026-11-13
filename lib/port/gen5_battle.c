@@ -29,6 +29,7 @@
 #include "gen5.h"
 #include "gf_rtc.h"
 #include "item.h"
+#include "map_header.h"
 #include "msgdata.h"
 #include "options.h"
 #include "party.h"
@@ -703,6 +704,10 @@ static BOOL IsRocketClass(int trainerClass) {
         || trainerClass == TRAINERCLASS_ROCKET_BOSS;
 }
 
+static BOOL IsRivalClass(int trainerClass) {
+    return trainerClass == TRAINERCLASS_RIVAL;
+}
+
 static BOOL IsGymLeaderClass(int trainerClass) {
     return (trainerClass >= TRAINERCLASS_LEADER_MORTY && trainerClass <= TRAINERCLASS_LEADER_CLAIR)
         || trainerClass == TRAINERCLASS_LEADER_FALKNER || trainerClass == TRAINERCLASS_LEADER_BUGSY
@@ -724,6 +729,13 @@ static void ArenaFromSetup(const BattleSetup *setup, int *bg, int *terrain) {
         // BW2's Gym Leaders battle on a stone floor in a dark hall (Clay's), as the Platinum fork's do
         *bg = ARENA_BG_INDOORS;
         *terrain = 19;
+        return;
+    }
+    if (IsRivalClass(trainerClass) && MapHeader_GetMapType(setup->mapNumber) == MAP_TYPE_CITY_TOWN) {
+        // Silver: his first battle (outside the lab in New Bark Town) and any other he starts in a town get BW2's
+        // grass field with a dirt path (terrain 1), not the plain green one its own default terrain (0) gives
+        *bg = ARENA_BG_GRASS;
+        *terrain = 1;
         return;
     }
     // The Elite Four and Lance in BW2's Elite Four's and Champion's rooms (12 to 16), one each
