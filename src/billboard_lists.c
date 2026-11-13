@@ -9,6 +9,16 @@
 #include "heap.h"
 #include "texture_animation.h"
 
+#ifdef SDK_PORT
+#include <simulator/sim.h>
+
+// The overworld's sprites are nudged toward the camera for the depth test, up to this much at their tops (view
+// units; nothing at their feet), so a head clears the lower edge of a sign just behind it. On the DS the edge snaps
+// to its 256x192 pixels, which hides most of the overlap; at a higher resolution it shows. Feet are not nudged, so
+// tall grass still covers them. The Platinum fork's src/billboard.c (libntr_sprite_depth.patch)
+#define BILLBOARD_DEPTH_NUDGE (FX32_ONE * 8)
+#endif
+
 enum BillboardObjectType {
     BILLBOARD_OBJECT_FREE,
     BILLBOARD_OBJECT_NEW,
@@ -127,6 +137,10 @@ void BillboardLists_Delete(void) {
 void BillboardLists_Draw(void) {
     int i;
 
+#ifdef SDK_PORT
+    NNS_G3dGeFlushBuffer();
+    SIM_SetSpriteDepthBias(BILLBOARD_DEPTH_NUDGE);
+#endif
     for (i = 0; i < sBillboardLists.count; i++) {
         if (sBillboardLists.list[i].draw == 1) {
             Billboard_Draw(&sBillboardLists.list[i]);
@@ -135,6 +149,10 @@ void BillboardLists_Draw(void) {
             sBillboardLists.list[i].state = BILLBOARD_FREE_PENDING;
         }
     }
+#ifdef SDK_PORT
+    NNS_G3dGeFlushBuffer();
+    SIM_SetSpriteDepthBias(0);
+#endif
 }
 
 Billboard *Billboard_Create(BillboardCreateParams *params) {
