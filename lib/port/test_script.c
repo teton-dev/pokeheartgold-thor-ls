@@ -46,6 +46,7 @@ enum TestOp {
     OP_WILD,
     OP_TRAINER,
     OP_GIVE,
+    OP_GIRL,
     OP_SHOT,
     OP_LOG,
     OP_EXIT,
@@ -300,6 +301,12 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         // gen5 on|off: Settings > Gen 5 battles
         command->op = OP_GEN5_SETTING;
         command->x = strcmp(words[1], "on") == 0;
+        return TRUE;
+    } else if (strcmp(words[0], "girl") == 0) {
+        // girl: the player is a girl (Lyra) from now on: the save's gender flag, once the player is free
+        command->op = OP_GIRL;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
     } else if (strcmp(words[0], "give") == 0 && count >= 3) {
         // give SPECIES LEVEL: a new Pokémon into the party, the player's own (as a gift is)
@@ -634,6 +641,18 @@ static u16 Step(void) {
             printf("[test] Gen 5 battles %s\n", command->x ? "on" : "off");
             Next();
             continue;
+        case OP_GIRL: {
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free to be made a girl");
+                }
+                return 0;
+            }
+            PlayerProfile_SetTrainerGender(Save_PlayerData_GetProfile(FieldSystem_PortGet()->saveData), 1);
+            printf("[test] the player is a girl\n");
+            Next();
+            continue;
+        }
         case OP_GIVE: {
             if (!ConditionMet(command)) {
                 if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {

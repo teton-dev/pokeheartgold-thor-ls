@@ -1,0 +1,50 @@
+# Gen 5 battles in HGSS: the player's back sprite, Ethan or Lyra (gen5/art), through the send-out's throw in a wild
+# battle. From new-game (Ethan); a girl's save gives Lyra. The check is the shots, a frame apart.
+#
+#   tools/docker/desktop.sh test tests/scripts/gen5_player_back.txt --from new-game
+mash A until free
+give 155 5
+wild 19 5 gen5
+until battle
+wait 34
+wait 1
+shot wild-00
+wait 1
+shot wild-01
+wait 1
+shot wild-02
+wait 1
+shot wild-03
+wait 1
+shot wild-04
+wait 1
+shot wild-05
+wait 1
+shot wild-06
+wait 1
+shot wild-07
+wait 1
+shot wild-08
+wait 1
+shot wild-09
+wait 1
+shot wild-10
+wait 1
+shot wild-11
+wait 1
+shot wild-12
+wait 1
+shot wild-13
+wait 1
+shot wild-14
+wait 1
+shot wild-15
+wait 1
+shot wild-16
+wait 1
+shot wild-17
+wait 1
+shot wild-18
+wait 1
+shot wild-19
+exit
