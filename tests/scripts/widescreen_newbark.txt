@@ -1,0 +1,22 @@
+# From new-game: down the stairs, through Mom's Pokégear scene, out into New Bark Town; screenshots there. Run with
+# widescreen on: TEST_CONFIG='SecondaryScreen=true Widescreen=true WindowWidth=768 WindowHeight=432'
+mash A until free
+walk LEFT 3
+walk UP 2
+# The stairs are left of (3, 4)
+walk LEFT 1
+mash A until map 63 timeout 3000
+shot house
+walk DOWN 7
+# Out through the door: one more push down from the mat
+walk DOWN 1
+mash A until map 60 timeout 3000
+wait 60
+shot newbark
+walk DOWN 2
+wait 30
+shot newbark2
+walk RIGHT 4
+wait 30
+shot newbark3
+exit

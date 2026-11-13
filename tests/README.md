@@ -14,6 +14,7 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 | Script | From | Checks | Time |
 |---|---|---|---|
 | `new_game.txt` | nothing | a new game (past the info topics, a boy named ETHAN, Prof. Oak's introduction) to the bedroom in New Bark Town, saved there | ~1 min |
+| `widescreen_newbark.txt` | `new-game` | down the stairs and out into New Bark Town, with screenshots there; run it with widescreen on (`TEST_CONFIG`, below) to check the overworld fills the 16:9 window | ~2 min |
 
 ## Running
 
@@ -22,7 +23,8 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 - A run's data folder is `~/thor-dev/test-run-hg`: the extracted ROM linked from `~/thor-dev/desktop-hg`, no saves,
   and the default settings, with the 3D at the DS's own size.
 - `TEST_ID=name` gives the run a container and a data folder of its own; `TEST_CONFIG='Key=value ...'` adds libntr
-  settings to its `sim_config.ini`.
+  settings to its `sim_config.ini`. Widescreen: `TEST_CONFIG='SecondaryScreen=true Widescreen=true WindowWidth=768
+  WindowHeight=432'` (the bottom screen in its own window, the top one 16:9).
 - `--from FIXTURE` starts it from `~/thor-dev/fixtures/hg/FIXTURE/save.bin`; `--keep FIXTURE` keeps the save it ends
   with there, when it passes. Fixtures are saves: never commit them.
 - It prints the script's progress (`[test] ...`): each time the player is free, the map and tile
@@ -73,5 +75,7 @@ Tips:
 
 - The screenshots are of the whole 1280×800 display: the window shows the top screen above the touch screen, each
   at twice the DS's size, from x = 384; the touch screen's (X, Y) is ((x − 384) / 2, (y − 400) / 2).
+- Stairs and doors take one more push towards them once the player is on the tile before (the stairs in the
+  player's room are left of (3, 4); the house's door is below (3, 10)).
 - The game starts on the info topics; A walks into them, *No info needed* is the touch at (128, 160).
 - The naming screen's keyboard: A at (34, 99), 16 pixels a column, 19 a row; START is OK.

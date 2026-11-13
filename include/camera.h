@@ -79,6 +79,10 @@ Camera *Camera_New(enum HeapID heapID);
 void Camera_Delete(Camera *camera);
 void Camera_Copy(Camera *src, Camera *dest);
 void Camera_SetStaticPtr(Camera *camera);
+#ifdef SDK_PORT
+// The camera whose look-at is pushed (Camera_SetStaticPtr's), for the port's widescreen
+Camera *Camera_PortGetActive(void);
+#endif
 void Camera_UnsetStaticPtr(void);
 void Camera_PushLookAtToNNSGlb(void);
 void Camera_SetLookAtCamUp(VecFx32 *camUp, Camera *camera);

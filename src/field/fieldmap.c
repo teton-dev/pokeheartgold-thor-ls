@@ -65,6 +65,9 @@
 #include "comm_player_manager.h"
 #include "gymmick_collision.h"
 #include "vram_transfer_manager.h"
+#ifdef SDK_PORT
+#include "port_widescreen.h"
+#endif
 
 enum FieldMapInitState {
     FIELD_MAP_INIT_STATE_RESET = 0,
@@ -587,6 +590,9 @@ static void FieldMap_Render3D(FieldSystem *fieldSystem) {
 
     Thunk_G3X_Reset();
 
+#ifdef SDK_PORT
+    Widescreen_BeforeFieldRender(fieldSystem);
+#endif
     Camera_PushLookAtToNNSGlb();
 
     MapLoadManager_RenderLoadedMaps(fieldSystem->mapLoadManager, fieldSystem->modelAttributes);

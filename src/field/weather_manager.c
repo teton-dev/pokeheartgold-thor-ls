@@ -2434,3 +2434,15 @@ static void Weather_StopLoopSE(WeatherWork *work) {
     StopSE(work->sndSeq, 0);
     work->loopSEPlaying = 0;
 }
+
+#ifdef SDK_PORT
+void WeatherManager_PortLayers(u32 weather, BOOL *sprites, BOOL *bg2) {
+    if (weather >= NELEMS(sWeatherEntries)) {
+        *sprites = FALSE;
+        *bg2 = FALSE;
+        return;
+    }
+    *sprites = sWeatherEntries[weather].spriteResId != WEATHER_GFX_NONE;
+    *bg2 = sWeatherEntries[weather].bgGfxId != WEATHER_GFX_NONE;
+}
+#endif

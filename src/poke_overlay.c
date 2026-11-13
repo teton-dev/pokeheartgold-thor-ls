@@ -45,7 +45,16 @@ static PMiOverlayRegion GetOverlayLoadDestination(FSOverlayID id) {
     FSOverlayInfo info;
     u8 *end;
     u8 *start;
+#ifdef SDK_PORT
+    // The port runs the overlays as native code, and the overlay table libntr reads from header.bin doesn't fit the
+    // 64-bit FSOverlayInfoHeader (its pointers), so there is never any info. The assert would show the error screen
+    // and reset whenever communication is set up (GF_AssertFail): continuing a save did
+    if (!FS_LoadOverlayInfo(&info, MI_PROCESSOR_ARM9, id)) {
+        return OVY_REGION_MAIN;
+    }
+#else
     GF_ASSERT(FS_LoadOverlayInfo(&info, MI_PROCESSOR_ARM9, id) == TRUE);
+#endif
     start = (u8 *)HW_ITCM_IMAGE;
     end = (u8 *)HW_ITCM_END;
     if (info.header.ram_address <= end && info.header.ram_address >= start) {
@@ -154,7 +163,9 @@ static BOOL GetOverlayRamBounds(FSOverlayID ovyId, void **start, void **end) {
     FSOverlayInfo info;
 
     if (!FS_LoadOverlayInfo(&info, MI_PROCESSOR_ARM9, ovyId)) {
-        GF_ASSERT(FALSE);
+#ifndef SDK_PORT
+        GF_ASSERT(FALSE); // Never any info on the port (GetOverlayLoadDestination)
+#endif
         return FALSE;
     }
 
