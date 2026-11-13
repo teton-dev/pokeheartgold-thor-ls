@@ -17,6 +17,7 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 | `gen5_rom.txt` | nothing | imports the Black 2 or White 2 ROM (`GEN5_ROM`, or `~/thor-dev/PKMNB2.nds`) as Settings > Gen 5 battles does; BW2's own archive code reads it back. The files are kept in the data folder for the other Gen 5 scripts (`-Dpokebw2` builds) | ~30 s |
 | `gen5_wild.txt` | `new-game` | a Cyndaquil given, then a wild Rattata in BW2's engine (as the settings' button starts it): its command and move menus, RUN, back on the overworld with the party as the battle left it (`-Dpokebw2` builds, after `gen5_rom.txt`) | ~1 min |
 | `gen5_trainer.txt` | `new-game` | a level 50 Cyndaquil against a Team Rocket Grunt in BW2's engine (Rocket's arena, HGSS's Grunt sprite), A mashed until it is won | ~5 min |
+| `gen5_rival.txt` | `new-game` | out to New Bark Town, then Silver (trainer 1) in BW2's engine, in the grass field with a dirt path (ArenaFromSetup's town case), A mashed until it is won | ~5 min |
 | `widescreen_newbark.txt` | `new-game` | down the stairs and out into New Bark Town, with screenshots there; run it with widescreen on (`TEST_CONFIG`, below) to check the overworld fills the 16:9 window | ~2 min |
 
 ## Running
