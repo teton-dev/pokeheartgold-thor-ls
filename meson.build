@@ -218,6 +218,7 @@ hgss_port_lib_c = files(
     'lib/port/game_settings.c',
     'lib/port/gen5_battle.c',
     'lib/port/gen5_game.c',
+    'lib/port/gen5_rocket.c',
     'lib/port/heap_debug.c',
     'lib/port/msl_runtime.c',
     'lib/port/save_migrate_v1.c',

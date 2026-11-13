@@ -27,6 +27,8 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 - `TEST_ID=name` gives the run a container and a data folder of its own; `TEST_CONFIG='Key=value ...'` adds libntr
   settings to its `sim_config.ini`. Widescreen: `TEST_CONFIG='SecondaryScreen=true Widescreen=true WindowWidth=768
   WindowHeight=432'` (the bottom screen in its own window, the top one 16:9).
+- `TEST_ENV='NAME=value ...'` sets environment variables in the run. `POKEHEARTGOLD_GEN5_ARENA=bg,terrain` puts every
+  Gen 5 battle in that BW2 arena: `16,1` is Team Rocket's (`gen5_wild.txt` shows it).
 - `--from FIXTURE` starts it from `~/thor-dev/fixtures/hg/FIXTURE/save.bin`; `--keep FIXTURE` keeps the save it ends
   with there, when it passes. Fixtures are saves: never commit them.
 - It prints the script's progress (`[test] ...`): each time the player is free, the map and tile

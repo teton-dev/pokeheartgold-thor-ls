@@ -15,6 +15,7 @@
 #include "constants/battle.h"
 #include "constants/items.h"
 #include "constants/sndseq.h"
+#include "constants/trainer_class.h"
 
 #include "bag.h"
 #include "encounter.h"
@@ -31,6 +32,7 @@
 #include "pokemon_storage_system.h"
 #include "port_game_settings.h"
 #include "port_gen5_rom.h"
+#include "port_gen5_rocket.h"
 #include "port_test_script.h"
 #include "sound.h"
 #include "system.h"
@@ -260,7 +262,21 @@ enum {
     ARENA_BG_SEA = 8,
 };
 
+static BOOL IsRocketClass(int trainerClass) {
+    return trainerClass == TRAINERCLASS_TEAM_ROCKET || trainerClass == TRAINERCLASS_TEAM_ROCKET_F
+        || trainerClass == TRAINERCLASS_EXECUTIVE_ARIANA || trainerClass == TRAINERCLASS_EXECUTIVE_ARCHER
+        || trainerClass == TRAINERCLASS_EXECUTIVE_PROTON || trainerClass == TRAINERCLASS_EXECUTIVE_PETREL
+        || trainerClass == TRAINERCLASS_ROCKET_BOSS;
+}
+
 static void ArenaFromSetup(const BattleSetup *setup, int *bg, int *terrain) {
+    if ((setup->battleType & BATTLE_TYPE_TRAINER) && IsRocketClass(setup->trainer[BATTLER_ENEMY].data.trainerClass)) {
+        // Team Rocket's own arena (lib/port/gen5_rocket.c): BW2's Champion room, darkened, with Rocket red streaks, a
+        // rocket ship and the moon in its sky
+        *bg = GEN5_ROCKET_BG;
+        *terrain = GEN5_ROCKET_TERRAIN;
+        return;
+    }
     switch (setup->battleBg) {
     case BATTLE_BG_OCEAN:
         *bg = ARENA_BG_SEA;
@@ -339,6 +355,15 @@ static BOOL Init(OverlayManager *man, int *state) {
     TextToGen5(PlayerProfile_GetNamePtr(profile), PLAYER_NAME_LENGTH + 1, sBattle.player.name, 8);
     ArenaFromSetup(setup, &sBattle.arenaBg, &sBattle.arenaTerrain);
     {
+        // For looking at arenas: POKEHEARTGOLD_GEN5_ARENA=bg,terrain (16,1 is Team Rocket's)
+        const char *arena = getenv("POKEHEARTGOLD_GEN5_ARENA");
+        int bg, terrain;
+        if (arena != NULL && sscanf(arena, "%d,%d", &bg, &terrain) == 2) {
+            sBattle.arenaBg = bg;
+            sBattle.arenaTerrain = terrain;
+        }
+    }
+    {
         RTCTime now;
         GF_RTC_CopyTime(&now);
         sBattle.hour = now.hour;
@@ -374,6 +399,10 @@ static BOOL Init(OverlayManager *man, int *state) {
     // Seen, as HGSS's battle registers a wild Pokémon when it appears
     Pokedex_SetMonSeenFlag(setup->pokedex, Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0));
 
+    // HGSS takes White 2's light HP boxes (Platinum keeps Black 2's dark ones)
+    Gen5_SetWhiteGauges(1);
+    // Before every battle: BW2 takes the archives it reads at its first start
+    Gen5Rocket_PrepareArena();
     sFailed = !Gen5_BattleBegin(&sBattle, Gen5Rom_Dir());
     if (sFailed) {
         printf("Gen 5: the battle couldn't start\n");
