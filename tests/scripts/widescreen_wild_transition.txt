@@ -1,0 +1,17 @@
+# From new-game: out to New Bark Town, then a wild battle's own transition (the black tiles that flip the overworld
+# away, EncounterEffect_PortWildPlaying) caught mid-flip with a stillshot. Run with widescreen on:
+# TEST_CONFIG='SecondaryScreen=true Widescreen=true WindowWidth=768 WindowHeight=432'
+mash A until free
+walk LEFT 3
+walk UP 2
+walk LEFT 1
+mash A until map 63 timeout 3000
+walk DOWN 7
+walk DOWN 1
+mash A until map 60 timeout 3000
+wait 60
+give 155 5
+wild 19 5
+wait 40
+stillshot transition
+exit

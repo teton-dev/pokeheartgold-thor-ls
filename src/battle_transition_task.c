@@ -22,6 +22,16 @@ enum {
 
 static BOOL Task_BattleTransition(TaskManager *taskMan);
 
+#ifdef SDK_PORT
+// Effects 0-5 (gEncounterEffectFuncs) are the ordinary wild encounter's own transition (the grid or wave wipe),
+// confined to the DS's 256 pixels; widescreen.c widens it while this is TRUE
+static BOOL sPortWildPlaying = FALSE;
+
+BOOL EncounterEffect_PortWildPlaying(void) {
+    return sPortWildPlaying;
+}
+#endif
+
 // Plays the battle transition effect and starts the battle music, then waits for the effect to finish.
 static BOOL Task_BattleTransition(TaskManager *taskMan) {
     FieldSystem *fieldSystem = TaskManager_GetFieldSystem(taskMan);
@@ -32,10 +42,16 @@ static BOOL Task_BattleTransition(TaskManager *taskMan) {
         EncounterEffect_LoadOverlay(env->effect);
         EncounterEffect_Start(env->effect, fieldSystem, &env->done);
         Sound_SetSceneAndPlayBGM(5, env->bgm, 1);
+#ifdef SDK_PORT
+        sPortWildPlaying = env->effect <= 5;
+#endif
         env->state++;
         break;
     case BATTLE_TRANSITION_STATE_WAIT:
         if (env->done == 1) {
+#ifdef SDK_PORT
+            sPortWildPlaying = FALSE;
+#endif
             EncounterEffect_UnloadOverlay(env->effect);
             Heap_Free(env);
             return TRUE;

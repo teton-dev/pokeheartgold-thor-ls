@@ -21,6 +21,7 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 | `battle_particles.txt` | `new-game` | a Cyndaquil given, a wild Rattata in HGSS's own engine, Tackle: screenshots every 2 frames through its animation (the impact burst and dust are SPL particles) | ~1 min |
 | `starter_balls.txt` | `new-game` | out to Prof. Elm's lab, his introduction, the machine: screenshots of the three Poké Balls and the first one up close (each with one spotlight, not tiled) | ~2 min |
 | `widescreen_newbark.txt` | `new-game` | down the stairs and out into New Bark Town, with screenshots there; run it with widescreen on (`TEST_CONFIG`, below) to check the overworld fills the 16:9 window | ~2 min |
+| `widescreen_wild_transition.txt` | `new-game` | out to New Bark Town, a wild battle's own transition (the black tiles that flip the overworld away) caught mid-flip with a stillshot; run with widescreen on to check it fills the window too, not just the battle behind it | ~1 min |
 
 ## Running
 
