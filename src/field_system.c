@@ -52,6 +52,12 @@ typedef struct FieldSystemInitWork {
 
 static BOOL FieldSystem_Main(FieldSystem *fieldSystem);
 
+#ifdef SDK_PORT
+FieldSystem *FieldSystem_PortGet(void) {
+    return sFieldSysPtr;
+}
+#endif
+
 BOOL Field_Continue_AppInit(OverlayManager *man, int *unused) {
     FieldSystemInitWork *args = OverlayManager_GetArgs(man);
     sFieldSysPtr = FieldSystem_New(man);
@@ -84,6 +90,9 @@ extern OverlayManagerTemplate gApplication_TitleScreen;
 
 BOOL Field_AppExit(OverlayManager *man, int *unused) {
     FieldSystem_Delete(man);
+#ifdef SDK_PORT
+    sFieldSysPtr = NULL; // Not left pointing at the freed one (the port's code reads it)
+#endif
     RegisterMainOverlay(FS_OVERLAY_ID(intro_title), &gApplication_TitleScreen);
     return TRUE;
 }

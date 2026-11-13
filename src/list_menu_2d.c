@@ -12,6 +12,9 @@
 #include "system.h"
 #include "text.h"
 #include "sound_playback.h"
+#ifdef SDK_PORT
+#include "port_test_script.h"
+#endif
 
 static struct ListMenu2D *Create2dMenuInternalEx(const struct ListMenu2DTemplate *template, u8 x, u8 y, u8 initialSelection, u8 heapID, int cancelKey);
 static struct ListMenu2D *Create2dMenuInternal(const struct ListMenu2DTemplate *template, u8 x, u8 y, u8 initialSelection, u8 heapID, int cancelKey);
@@ -46,6 +49,9 @@ static struct ListMenu2D *Create2dMenuInternal(const struct ListMenu2DTemplate *
 }
 
 struct ListMenu2D *Create2dMenu(const struct ListMenu2DTemplate *template, u8 initialSelection, u8 heapID) {
+#ifdef SDK_PORT
+    TestScript_OnEvent(TEST_EVENT_MENU);
+#endif
     return Create2dMenuInternal(template, GetFontAttribute(template->fontId, 0), 0, initialSelection, heapID, PAD_BUTTON_B);
 }
 

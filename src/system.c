@@ -6,6 +6,9 @@
 #include "math_util.h"
 #include "touchpad.h"
 #include "system_card.h"
+#ifdef SDK_PORT
+#include "port_test_script.h"
+#endif
 
 struct System gSystem;
 struct FSCacheEntry gFileCache[128];
@@ -261,6 +264,9 @@ void ReadKeypadAndTouchpad(void) {
     }
 
     raw = PAD_Read() | gSystem.simulatedInputs;
+#ifdef SDK_PORT
+    raw |= TestScript_Keys();
+#endif
     gSystem.simulatedInputs = 0;
     gSystem.newKeysRaw = raw & (raw ^ gSystem.heldKeysRaw);
     gSystem.newAndRepeatedKeysRaw = raw & (raw ^ gSystem.heldKeysRaw);
@@ -284,6 +290,15 @@ void ReadKeypadAndTouchpad(void) {
         TP_GetLatestRawPointInAuto(&rawTpData);
     }
     TP_GetCalibratedPoint(&calibTpData, &rawTpData);
+#ifdef SDK_PORT
+    u16 testX, testY;
+    if (TestScript_Touch(&testX, &testY)) {
+        calibTpData.x = testX;
+        calibTpData.y = testY;
+        calibTpData.touch = TP_TOUCH_ON;
+        calibTpData.validity = TP_VALIDITY_VALID;
+    }
+#endif
     if (calibTpData.validity == TP_VALIDITY_VALID) {
         gSystem.touchX = calibTpData.x;
         gSystem.touchY = calibTpData.y;

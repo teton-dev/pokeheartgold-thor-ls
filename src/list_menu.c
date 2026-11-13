@@ -3,6 +3,9 @@
 #include "font.h"
 #include "system.h"
 #include "text.h"
+#ifdef SDK_PORT
+#include "port_test_script.h"
+#endif
 
 static void ListMenuPrintEntries(struct ListMenu *list, u16 startIndex, u16 yOffset, u16 count);
 static void ListMenuDrawCursor(struct ListMenu *list);
@@ -11,6 +14,9 @@ static void ListMenuCallSelectionChangedCallback(struct ListMenu *list, u8 onIni
 
 struct ListMenu *ListMenuInit(const struct ListMenuTemplate *template, u16 cursorPos, u16 itemsAbove, enum HeapID heapID) {
     struct ListMenu *list = Heap_Alloc(heapID, sizeof(struct ListMenu));
+#ifdef SDK_PORT
+    TestScript_OnEvent(TEST_EVENT_MENU);
+#endif
     list->template = *template;
     list->cursor = ListMenuCursorNew(heapID);
     list->cursorPos = cursorPos;

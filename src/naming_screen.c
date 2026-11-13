@@ -32,6 +32,9 @@
 #include "font_sprite.h"
 #include "palette_blink.h"
 #include "vram_transfer_manager.h"
+#ifdef SDK_PORT
+#include "port_test_script.h"
+#endif
 
 #define NAME_SCREEN_CONTROL_DAKU            0xD001 // unused
 #define NAME_SCREEN_CONTROL_HANDAKU         0xD002 // unused
@@ -477,6 +480,9 @@ BOOL NamingScreenApp_Init(OverlayManager *ovyMan, int *pState) {
     NARC *narc;
     switch ((NamingScreenInitState)*pState) {
     case NS_INIT_STATE_LOAD_GFX:
+#ifdef SDK_PORT
+        TestScript_OnEvent(TEST_EVENT_NAMING_SCREEN);
+#endif
         Main_SetVBlankIntrCB(NULL, NULL);
         HBlankInterruptDisable();
         GfGfx_DisableEngineAPlanes();
