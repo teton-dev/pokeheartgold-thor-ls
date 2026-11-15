@@ -221,6 +221,8 @@ hgss_port_lib_c = files(
     'lib/port/gen5_rocket.c',
     'lib/port/heap_debug.c',
     'lib/port/msl_runtime.c',
+    'lib/port/nuzlocke_heartgold.c',
+    'lib/port/nuzlocke_mode.c',
     'lib/port/save_migrate_v1.c',
     'lib/port/stats_upload_data.c',
     'lib/port/test_crash.c',
