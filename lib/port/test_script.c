@@ -70,6 +70,7 @@ enum TestOp {
     OP_SHOT,
     OP_LOG,
     OP_TEXT_WIDTHS,
+    OP_EDITOR,
     OP_EXIT,
 };
 
@@ -483,6 +484,15 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->op = OP_TEXT_WIDTHS;
         command->x = atoi(words[1]);
         command->y = atoi(words[2]);
+        return TRUE;
+    } else if ((strcmp(words[0], "editor") == 0 || strcmp(words[0], "debug") == 0) && rest != NULL) {
+        // editor WHAT ..., debug WHAT ...: once the player is free, the save editor's or the debug window's function
+        // (lib/port/test_editor.c); the test fails if it didn't do what it says
+        command->op = OP_EDITOR;
+        command->x = strcmp(words[0], "debug") == 0;
+        snprintf(command->text, sizeof(command->text), "%s", rest);
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
     } else if (strcmp(words[0], "log") == 0 && rest != NULL) {
         command->op = OP_LOG;
@@ -1064,6 +1074,27 @@ static u16 Step(void) {
                 return 0;
             }
             Next();
+            continue;
+        }
+        case OP_EDITOR: {
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free for the command");
+                }
+                return 0;
+            }
+            BOOL startedTask = FALSE;
+            printf("[test] %s %s\n", command->x ? "debug" : "editor", command->text);
+            const char *error = TestEditor_Run(command->x, command->text, &startedTask);
+            if (error != NULL) {
+                Fail(command, error);
+                return 0;
+            }
+            Next();
+            if (startedTask) {
+                sTest.freeFrames = 0;
+                return 0;
+            }
             continue;
         }
         case OP_LOG:

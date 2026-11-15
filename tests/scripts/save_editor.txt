@@ -1,0 +1,21 @@
+# The save editor (Settings > Save editor) as its page calls it: a shiny level 50 Cyndaquil given to the party, then
+# its level, nature, shininess, IVs and a move changed, its learnable moves listed, the bag, money and a Kanto badge
+# edited, and the Pokémon exported as a .pk4 and imported into the PC (and a broken .pk4 refused). Each command
+# checks the change was made. From new-game (no Pokémon).
+mash A until free
+editor give 155 50
+editor level 0 62
+editor nature 0 10
+editor shiny 0
+editor ivs 0
+editor move 0 89
+editor learnable 0
+editor dump
+editor item 17 7
+editor item 17 0
+editor money 123456
+editor badge 9 1
+editor badge 9 0
+editor pk4 0
+check party 1
+exit

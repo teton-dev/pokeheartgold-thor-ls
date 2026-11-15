@@ -144,7 +144,10 @@ void DrawGameCorner() {
 
 } // namespace
 
+void SaveEditor_Draw(); // save_editor_gui.cpp
+
 void SIM_Prj_SettingsPages() {
+    SIM::Settings::AddPage("Save editor", "Pokemon, items, money, badges", SaveEditor_Draw, 25);
     SIM::Settings::AddPage("Gameplay", "60 FPS", DrawGameplay, 30);
     SIM::Settings::AddPage("Game Corner", "The Japanese slot machines, from your own ROM", DrawGameCorner, 36);
 #ifdef GEN5_BATTLES
