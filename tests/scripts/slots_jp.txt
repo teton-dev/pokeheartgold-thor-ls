@@ -1,0 +1,21 @@
+# The Japanese Game Corner's slot machine: imports the Japanese ROM (POKEHEARTGOLD_SLOTS_ROM), turns the setting on,
+# starts a machine from the bedroom (as a machine's script does), takes screenshots of both screens, leaves with A
+# and checks the overworld comes back. From new-game.
+slots-import
+mash A until free
+slots on
+wait 60
+casino
+wait 120
+shot slots_open
+wait 60
+shot slots_open2
+press A
+until free timeout 1200
+wait 300
+# The screen only redraws once the player moves
+walk LEFT 1
+wait 60
+shot slots_walked
+log slots: ok
+exit 0

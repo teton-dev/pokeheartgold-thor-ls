@@ -225,6 +225,8 @@ test)
     # Gen 5 battles: the BW2 ROM a test's gen5-import imports (GEN5_ROM, or Black 2 / White 2 in THOR_DEV); its files
     # are kept in the data folder's gen5/ and linked into the next runs
     GEN5_ROM=${GEN5_ROM:-$(ls "$THOR_DEV"/PKMNB2.nds "$THOR_DEV"/PKMNW2.nds 2>/dev/null | head -n 1)}
+    # The Japanese Game Corner: the JP ROM a test's slots-import imports (SLOTS_ROM, or HEARTGOLD_JP.nds in THOR_DEV)
+    SLOTS_ROM=${SLOTS_ROM:-$(ls "$THOR_DEV"/HEARTGOLD_JP.nds 2>/dev/null | head -n 1)}
     printf '[General]\nInternalResolutionScale=1\n' > "$RUN/sim_config.ini"
     for setting in ${TEST_CONFIG:-}; do
         echo "$setting" >> "$RUN/sim_config.ini"
@@ -237,7 +239,7 @@ test)
     docker rm -f $TEST >/dev/null 2>&1 || true
     docker run -d --name $TEST --user "$(id -u):$(id -g)" -e HOME=/tmp -e DISPLAY=:1 -e SDL_AUDIODRIVER=dummy \
         -e LIBGL_ALWAYS_SOFTWARE=1 -e LIBNTR_TEST_MODE=1 -e POKEHEARTGOLD_TEST_SCRIPT="$SCRIPT" \
-        -e POKEHEARTGOLD_GEN5_ROM="$GEN5_ROM" $(for e in $TEST_ENV; do printf -- "-e %s " "$e"; done) $(mounts) -w "$RUN" \
+        -e POKEHEARTGOLD_GEN5_ROM="$GEN5_ROM" -e POKEHEARTGOLD_SLOTS_ROM="$SLOTS_ROM" $(for e in $TEST_ENV; do printf -- "-e %s " "$e"; done) $(mounts) -w "$RUN" \
         $IMAGE sh -c "Xvfb :1 -screen 0 ${SCREEN}x24 -nolisten tcp >/tmp/xvfb.log 2>&1 &
                       sleep 1
                       exec stdbuf -oL -eL '$BIN'" >/dev/null # Line-buffered: nothing lost if it dies

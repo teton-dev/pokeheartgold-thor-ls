@@ -149,7 +149,7 @@ static BOOL SlotApp_Init(OverlayManager *man, int *state) {
         break;
     case 1: {
         SlotAppData *work = OverlayManager_GetData(man);
-        BeginNormalPaletteFade(FADE_BOTH_SCREENS, FADE_TYPE_UNK_21, FADE_TYPE_UNK_21, RGB_BLACK, 6, 1, work->heapID);
+        BeginNormalPaletteFade(FADE_BOTH_SCREENS, FADE_TYPE_BRIGHTNESS_IN, FADE_TYPE_BRIGHTNESS_IN, RGB_BLACK, 6, 1, work->heapID);
         *state += 1;
         break;
     }
@@ -171,7 +171,7 @@ static BOOL SlotApp_Exit(OverlayManager *man, int *state) {
     SlotAppData *work = OverlayManager_GetData(man);
     switch (*state) {
     case 0:
-        BeginNormalPaletteFade(FADE_BOTH_SCREENS, FADE_TYPE_UNK_20, FADE_TYPE_UNK_20, RGB_BLACK, 6, 1, work->heapID);
+        BeginNormalPaletteFade(FADE_BOTH_SCREENS, FADE_TYPE_BRIGHTNESS_OUT, FADE_TYPE_BRIGHTNESS_OUT, RGB_BLACK, 6, 1, work->heapID);
         *state += 1;
         break;
     case 1:
