@@ -17,6 +17,8 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 | `gen5_rom.txt` | nothing | imports the Black 2 or White 2 ROM (`GEN5_ROM`, or `~/thor-dev/PKMNB2.nds`) as Settings > Gen 5 battles does; BW2's own archive code reads it back. The files are kept in the data folder for the other Gen 5 scripts (`-Dpokebw2` builds) | ~30 s |
 | `slots_jp.txt` | `new-game` | imports the Japanese HeartGold ROM (`SLOTS_ROM`, or `~/thor-dev/HEARTGOLD_JP.nds`) as Settings > Game Corner does, turns the Japanese Game Corner on, opens a machine as its script does (screenshots of both screens), leaves with A and walks on the overworld | ~1 min |
 | `slots_jp_bonus.txt` | `new-game` | the Japanese slot machine started in a bonus game: its pictures on the reels, all 15 spins, back to the base game, leaves with B | ~1 min |
+| `slots_jp_maps.txt` | `new-game` | with the Japanese Game Corner on, Goldenrod's Game Corner door leads to the Japanese map; its coin clerk (English text) gives a Coin Case and 50 Coins; a machine's own script starts the slot machine (50 Coins shown), one spin, back on the map | ~2 min |
+| `slots_jp_celadon.txt` | `new-game` | the same in Celadon: the door to the Japanese map, the clerk's Coin Case, and the clerk selling Coins once the player has one | ~2 min |
 | `gen5_wild.txt` | `new-game` | a Cyndaquil given, then a wild Rattata in BW2's engine (as the settings' button starts it): its command and move menus, RUN, back on the overworld with the party as the battle left it (`-Dpokebw2` builds, after `gen5_rom.txt`) | ~1 min |
 | `gen5_trainer.txt` | `new-game` | a level 50 Cyndaquil against a Team Rocket Grunt in BW2's engine (Rocket's arena, HGSS's Grunt sprite), A mashed until it is won | ~5 min |
 | `gen5_rival.txt` | `new-game` | out to New Bark Town, then Silver (trainer 1) in BW2's engine, in the grass field with a dirt path (ArenaFromSetup's town case), A mashed until it is won | ~5 min |
@@ -70,6 +72,7 @@ frame by frame, so a script does the same every time.
 | `wild SPECIES LEVEL [gen5]` | once the player is free, a wild battle as tall grass starts it; with `gen5` in BW2's engine, else as the setting says (`-Dpokebw2` builds) |
 | `slots-import` | imports the Japanese HeartGold or SoulSilver ROM in `POKEHEARTGOLD_SLOTS_ROM` (the harness's `SLOTS_ROM`) and waits; fails if it is refused |
 | `slots on\|off` | Settings > Game Corner > Japanese Game Corner |
+| `warp MAP X Z` | once the player is free, a warp there as the script command `Warp` does, facing up |
 | `coins N` | once the player is free, the Coin Case holds N coins |
 | `casino [bonus]` | once the player is free, a Game Corner machine as its script runs it (fade out, the Japanese slot machine, the overworld back); fails unless `slots on` and imported; with `bonus` the machine starts in a bonus game (15 spins) |
 | `trainer ID [ID2]` | once the player is free, a battle against trainer ID (and ID2: two trainers; ID twice: its double battle), as a script starts it; in BW2's engine when the setting is on (`gen5 on`; `-Dpokebw2` builds) |

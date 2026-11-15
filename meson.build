@@ -228,6 +228,7 @@ hgss_port_lib_c = files(
     'lib/port/slots/slot_app.c',
     'lib/port/slots/slot_assets.c',
     'lib/port/slots/slot_logic.c',
+    'lib/port/slots/slot_maps.c',
     'lib/port/stats_upload_data.c',
     'lib/port/test_crash.c',
     'lib/port/test_script.c',

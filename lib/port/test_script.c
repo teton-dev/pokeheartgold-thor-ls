@@ -28,6 +28,7 @@
 #include "port_gen5_rom.h"
 #include "port_slot_app.h"
 #include "field_overworld_transition.h"
+#include "field_warp_tasks.h"
 #include "task.h"
 #include "port_slots_rom.h"
 #endif
@@ -60,6 +61,7 @@ enum TestOp {
     OP_SLOTS_SETTING,
     OP_CASINO,
     OP_COINS,
+    OP_WARP,
     OP_SHOT,
     OP_LOG,
     OP_EXIT,
@@ -148,6 +150,22 @@ static u64 NowMs(void) {
 
 // The player is free on the overworld: the field map runs, with no application over it, no task (scripts and
 // events run as field tasks) and no pause
+// warp: a warp as the script command does, from a task of its own
+static struct {
+    int map, x, z;
+} sTestWarp;
+
+static BOOL Task_TestWarp(TaskManager *taskManager) {
+    static int sState = 0;
+    if (sState == 0) {
+        CallTask_ScriptWarp(taskManager, sTestWarp.map, -1, sTestWarp.x, sTestWarp.z, 0);
+        sState = 1;
+        return FALSE;
+    }
+    sState = 0;
+    return TRUE;
+}
+
 // A Game Corner machine as a script runs it: fade out and leave the overworld, the app, then the overworld back
 static BOOL Task_TestCasino(TaskManager *taskManager) {
     static int sState = 0;
@@ -347,6 +365,15 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         // slots on|off: Settings > Game Corner > Japanese Game Corner
         command->op = OP_SLOTS_SETTING;
         command->x = strcmp(words[1], "on") == 0;
+        return TRUE;
+    } else if (strcmp(words[0], "warp") == 0 && count >= 4) {
+        // warp MAP X Z: once the player is free, a warp there (as the script command Warp does), facing up
+        command->op = OP_WARP;
+        command->map = atoi(words[1]);
+        command->x = atoi(words[2]);
+        command->y = atoi(words[3]);
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
     } else if (strcmp(words[0], "coins") == 0 && count >= 2) {
         // coins N: once the player is free, the Coin Case holds N coins
@@ -760,6 +787,21 @@ static u16 Step(void) {
             printf("[test] Japanese Game Corner %s\n", command->x ? "on" : "off");
             Next();
             continue;
+        case OP_WARP:
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free for the warp");
+                }
+                return 0;
+            }
+            sTestWarp.map = command->map;
+            sTestWarp.x = command->x;
+            sTestWarp.z = command->y;
+            FieldSystem_CreateTask(FieldSystem_PortGet(), Task_TestWarp, NULL);
+            printf("[test] warp to map %d at (%d, %d)\n", command->map, command->x, command->y);
+            sTest.freeFrames = 0;
+            Next();
+            return 0;
         case OP_COINS:
             if (!ConditionMet(command)) {
                 if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {

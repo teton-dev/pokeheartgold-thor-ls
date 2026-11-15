@@ -1,0 +1,36 @@
+# The Japanese Game Corner maps: with the setting on, Goldenrod's Game Corner door leads to the Japanese one (its
+# 21 machines, the English text), and its coin clerk gives a Coin Case and 50 Coins to a player without one.
+# From new-game (no Coin Case).
+slots-import
+mash A until free
+slots on
+warp 76 351 362
+until free timeout 3000
+shot goldenrod
+walk UP 2
+until map 183 timeout 3000
+shot jp_corner
+walk UP 11
+shot at_counter
+press A
+wait 60
+shot clerk_1
+mash A until free timeout 3000
+shot after_clerk
+# A machine: the one at (9, 7), from (8, 7). Its script needs the Coin Case and 3 Coins, then starts the slot machine
+walk DOWN 2
+walk RIGHT 1
+press RIGHT
+wait 10
+press A
+wait 240
+shot machine
+press A
+mash A until slots timeout 600
+wait 30
+shot machine_spun
+press B
+until free timeout 3000
+shot back
+log slots maps: ok
+exit 0

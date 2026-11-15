@@ -1,0 +1,24 @@
+# The Japanese Game Corner maps, Celadon: with the setting on, the Game Corner door leads to the Japanese one, whose
+# coin clerk gives a Coin Case and 50 Coins to a player without one. From new-game (no Coin Case).
+slots-import
+mash A until free
+slots on
+warp 55 1218 251
+until free timeout 3000
+walk UP 2
+until map 381 timeout 3000
+shot celadon_corner
+walk UP 5
+wait 30
+press A
+wait 60
+shot celadon_clerk
+mash A until free timeout 3000
+wait 30
+# Again, with the Coin Case: the clerk as the game has it (Coins for sale)
+press A
+wait 90
+shot celadon_clerk_again
+mash B until free timeout 3000
+log slots celadon: ok
+exit 0
