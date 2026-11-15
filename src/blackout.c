@@ -21,6 +21,10 @@
 #include "field_warp_reset.h"
 #include "use_item_on_mon.h"
 
+#ifdef SDK_PORT
+#include "port_nuzlocke_mode.h"
+#endif
+
 static void Blackout_InitDisplays(BgConfig *bgConfig);
 static void Blackout_DrawMessage(FieldSystem *fieldSystem, TaskManager *taskManager);
 static BOOL Task_ShowPrintedBlackoutMessage(TaskManager *taskManager);
@@ -195,6 +199,10 @@ BOOL Task_Blackout(TaskManager *taskManager) {
 
     switch (*state) {
     case STATE_BLACKOUT_TASK_INIT:
+#ifdef SDK_PORT
+        // Nuzlocke mode: whiting out ends the run, for good (before the Center heals the party)
+        NuzlockeMode_Drop();
+#endif
         localFieldData = Save_LocalFieldData_Get(fieldSystem->saveData);
         deathSpawn = LocalFieldData_GetBlackoutSpawn(localFieldData);
         GetDeathWarpData(deathSpawn, &deathWarp);

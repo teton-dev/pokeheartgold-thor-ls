@@ -27,6 +27,10 @@
 #include "pokepic_anim.h"
 #include "wifi_club.h"
 
+#ifdef SDK_PORT
+#include "port_nuzlocke_mode.h"
+#endif
+
 void MonEncryptSegment(void *data, u32 size, u32 key);
 void MonDecryptSegment(void *data, u32 size, u32 key);
 u32 CalcMonChecksum(void *data, u32 size);
@@ -885,6 +889,14 @@ static u32 GetBoxMonDataInternal(BoxPokemon *boxMon, int attr, void *dest) {
 
 void SetMonData(Pokemon *mon, int attr, const void *value) {
     u32 checksum;
+#ifdef SDK_PORT
+    // Nuzlocke mode: a dead Pokemon's HP stays 0 (Centers, PC withdrawal, ...); fainting kills
+    u16 portHP;
+    if (attr == MON_DATA_HP) {
+        portHP = (u16)NuzlockeMode_FilterHP(mon, *(const u16 *)value);
+        value = &portHP;
+    }
+#endif
     if (!mon->box.partyDecrypted) {
         DECRYPT_PTY(mon);
         DECRYPT_BOX(&mon->box);
@@ -902,6 +914,11 @@ void SetMonData(Pokemon *mon, int attr, const void *value) {
         mon->box.checksum = CHECKSUM(&mon->box);
         ENCRYPT_BOX(&mon->box);
     }
+#ifdef SDK_PORT
+    if (attr == MON_DATA_HP) {
+        NuzlockeMode_OnHPSet(mon, portHP);
+    }
+#endif
 }
 
 static void SetMonDataInternal(Pokemon *mon, int attr, const void *value) {
@@ -1351,6 +1368,11 @@ static void SetBoxMonDataInternal(BoxPokemon *boxMon, int attr, const void *valu
 
 void AddMonData(Pokemon *mon, int attr, int value) {
     u32 checksum;
+#ifdef SDK_PORT
+    if (attr == MON_DATA_HP && value > 0 && NuzlockeMode_FilterHP(mon, 1) == 0) {
+        return; // a dead Pokemon (Nuzlocke mode)
+    }
+#endif
     if (!mon->box.partyDecrypted) {
         DECRYPT_PTY(mon);
         DECRYPT_BOX(&mon->box);
