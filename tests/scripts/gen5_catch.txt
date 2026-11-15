@@ -1,0 +1,28 @@
+# From new-game: catching in BW2's engine, then HGSS's naming screen. A level 50 Cyndaquil and three Master Balls; a
+# wild Pidgey: BAG, POKE BALLS, the Master Ball, USE. After the battle the naming screen opens (a stillshot); OK with no
+# name keeps the species' name. The Pidgey is in the party (two Pokemon), the Cyndaquil first.
+mash A until free
+give 155 50
+editor item 1 3
+wild 16 3 gen5
+until battle timeout 600
+until command timeout 6000
+wait 60
+touch 40 180
+wait 60
+touch 192 48
+wait 60
+touch 64 33
+wait 60
+touch 108 175
+mash B until naming timeout 6000
+wait 90
+stillshot naming
+press START
+wait 30
+press A
+mash B until free timeout 6000
+check party 2
+editor species 1 16
+check item 1 2
+exit

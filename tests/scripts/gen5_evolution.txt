@@ -1,0 +1,13 @@
+# From new-game: evolving after a battle in BW2's engine, as after HGSS's own. A level 15 Charmander one experience
+# point short of level 16 beats a wild Rattata (A mashed: Scratch, its first move); at 16 it learns Dragon Rage in the
+# battle (A mashed: a move forgotten for it), then HGSS's evolution scene follows (a stillshot) and it comes back a
+# Charmeleon.
+mash A until free
+editor give 4 15
+editor almost 0
+wild 19 5 gen5
+until battle timeout 600
+until command timeout 6000
+mash A until free timeout 40000
+editor species 0 5
+exit

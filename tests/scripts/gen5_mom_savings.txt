@@ -1,0 +1,14 @@
+# From new-game: Mom's savings after a trainer battle in BW2's engine, as after HGSS's. With 3000 money and Mom saving
+# (flag FLAG_SYS_MOMS_SAVINGS, 0x986), a level 50 Cyndaquil beats a Team Rocket Grunt (trainer 12); a quarter of the
+# prize goes to Mom and the rest to the player.
+mash A until free
+give 155 50
+editor money 3000
+flag 2438
+gen5 on
+trainer 12
+until battle timeout 600
+until command timeout 6000
+mash A until free timeout 30000
+editor mom 3000
+exit

@@ -12,9 +12,11 @@
 
 #include <simulator/sim.h>
 
+#include "constants/balls.h"
 #include "constants/battle.h"
 #include "constants/items.h"
 #include "constants/sndseq.h"
+#include "constants/species.h"
 #include "constants/trainer_class.h"
 #include "constants/trainers.h"
 
@@ -23,6 +25,8 @@
 #include "bag.h"
 #include "blackout.h"
 #include "encounter.h"
+#include "battle/battle_system.h"
+#include "evolution_scene.h"
 #include "field_system.h"
 #include "filesystem.h"
 #include "game_stats.h"
@@ -31,6 +35,7 @@
 #include "item.h"
 #include "map_header.h"
 #include "msgdata.h"
+#include "naming_screen.h"
 #include "options.h"
 #include "party.h"
 #include "pm_string.h"
@@ -649,6 +654,17 @@ static void TrainerToGen5(BattleSetup *setup, int battler, Gen5Trainer *dest) {
         dest->className[0] = 0xFFFF;
     }
 
+    // What the trainer says during the battle (first hit, half HP, last Pokémon, last at half HP), as HGSS's battle shows
+    // TRMSG_HIT_POKE_FIRST_TIME to TRMSG_LAST_POKE_HALF; BW2 shows them at the same moments (btl_client.c's hints)
+    for (int k = 0; k < 4; k++) {
+        dest->hintText[k][0] = 0xFFFF;
+        if (TrainerMessageWithIdPairExists(id, TRMSG_HIT_POKE_FIRST_TIME + k, HEAP_ID_FIELD2)) {
+            GetTrainerMessageByIdPair(id, TRMSG_HIT_POKE_FIRST_TIME + k, text, HEAP_ID_FIELD2);
+            TextToGen5(String_cstr(text), String_GetLength(text) + 1, dest->hintText[k], GEN5_TEXT_LENGTH);
+            printf("Gen 5: trainer %d has line %d\n", id, TRMSG_HIT_POKE_FIRST_TIME + k);
+        }
+    }
+
     dest->defeatText[0] = 0xFFFF;
     if (TrainerMessageWithIdPairExists(id, TRMSG_LOSE, HEAP_ID_FIELD2)) {
         GetTrainerMessageByIdPair(id, TRMSG_LOSE, text, HEAP_ID_FIELD2);
@@ -872,6 +888,8 @@ static BOOL Init(OverlayManager *man, int *state) {
 
     TestScript_OnEvent(TEST_EVENT_BATTLE);
     memset(&sBattle, 0, sizeof(sBattle));
+    sBattle.apricornBalls = TRUE; // HGSS's Apricorn Balls' rules (btl_server_flow_sub.c's patch)
+    sBattle.fishing = setup->isFishing != FALSE;
     TextToGen5(PlayerProfile_GetNamePtr(profile), PLAYER_NAME_LENGTH + 1, sBattle.player.name, 8);
     ArenaFromSetup(setup, &sBattle.arenaBg, &sBattle.arenaTerrain);
     {
@@ -971,7 +989,20 @@ static void StoreCaught(BattleSetup *setup) {
     Pokemon *mon = Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0);
 
     PokemonFromGen5(mon, &sBattle.caughtMon);
-    MonSetCatchData(mon, setup->profile[BATTLER_PLAYER], sBattle.caughtMon.ball, setup->mapSection, setup->terrain, HEAP_ID_FIELD2);
+    // BW2 gives the ball's number (constants/balls.h); HGSS's catch data takes its item, which for the Apricorn Balls
+    // is another number (the Fast Ball is ball 17, item 492)
+    u32 ballItem = sBattle.caughtMon.ball;
+    if (ballItem >= BALL_FAST && ballItem <= BALL_SPORT) {
+        ballItem = ballItem - BALL_FAST + ITEM_FAST_BALL;
+    } else if (ballItem < BALL_MASTER || ballItem > BALL_CHERISH) {
+        ballItem = ITEM_POKE_BALL;
+    }
+    MonSetCatchData(mon, setup->profile[BATTLER_PLAYER], ballItem, setup->mapSection, setup->terrain, HEAP_ID_FIELD2);
+    // A Friend Ball's catch starts friendly, as HGSS's catch sets it (battle_command.c)
+    if (ballItem == ITEM_FRIEND_BALL) {
+        u8 friendship = FRIENDSHIP_TIER_HI_MIN;
+        SetMonData(mon, MON_DATA_FRIENDSHIP, &friendship);
+    }
     Pokedex_SetMonCaughtFlag(setup->pokedex, mon);
     GameStats_Inc(setup->gameStats, GAME_STAT_CAUGHT_MON);
     setup->caughtBattlerId = BATTLER_ENEMY;
@@ -1038,8 +1069,7 @@ static void Finish(BattleSetup *setup) {
         setup->winFlag = BATTLE_OUTCOME_LOSE;
         break;
     case GEN5_BATTLE_CAUGHT:
-        setup->winFlag = BATTLE_OUTCOME_MON_CAUGHT;
-        StoreCaught(setup);
+        setup->winFlag = BATTLE_OUTCOME_MON_CAUGHT; // stored after its naming screen (Main)
         break;
     default:
         // Ran, or failed: back to the overworld as if the player ran
@@ -1093,27 +1123,106 @@ static void PlayVictoryMusic(void) {
     PlayBGM(seq);
 }
 
+// After BW2's battle, as after HGSS's (battle_command.c's catch, battle_022378C0.c's end): the caught Pokémon's naming
+// screen (left empty, it keeps its species' name), then each Pokémon that gained a level and evolves now
+enum {
+    STATE_BATTLE,
+    STATE_NAMING,
+    STATE_CHECK_EVOLUTION,
+    STATE_EVOLUTION,
+};
+
+static NamingScreenArgs *sNamingArgs;
+static OverlayManager *sNamingApp;
+
+static void StartNaming(BattleSetup *setup) {
+    Pokemon *mon = Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0);
+    PokemonFromGen5(mon, &sBattle.caughtMon);
+    Heap_Create(HEAP_ID_3, HEAP_ID_BATTLE, 0x30000);
+    sNamingArgs = NamingScreen_CreateArgs(HEAP_ID_BATTLE, NAME_SCREEN_POKEMON, GetMonData(mon, MON_DATA_SPECIES, NULL),
+        POKEMON_NAME_LENGTH, setup->options, NULL);
+    // A full party: "{0} was transferred to someone's/Bill's PC!" under the name
+    sNamingArgs->battleMsgId = Party_GetCount(setup->party[BATTLER_PLAYER]) < PARTY_SIZE ? 0 : 0x496 + (setup->metBill != FALSE);
+    sNamingArgs->monForm = GetMonData(mon, MON_DATA_FORM, NULL);
+    sNamingArgs->pcStorage = setup->storagePC;
+    sNamingArgs->monGender = GetMonData(mon, MON_DATA_GENDER, NULL);
+    sNamingApp = OverlayManager_New(&gOverlayTemplate_NamingScreen, sNamingArgs, HEAP_ID_BATTLE);
+}
+
+static void FinishNaming(BattleSetup *setup) {
+    Pokemon *mon = Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0);
+    if (!sNamingArgs->noInput) {
+        SetMonData(mon, MON_DATA_NICKNAME_STRING_AND_FLAG, sNamingArgs->nameInputString);
+        GameStats_Inc(setup->gameStats, GAME_STAT_NICKNAMES_GIVEN);
+    }
+    NamingScreen_DeleteArgs(sNamingArgs);
+    OverlayManager_Delete(sNamingApp);
+    sNamingArgs = NULL;
+    sNamingApp = NULL;
+    Heap_Destroy(HEAP_ID_BATTLE);
+    StoreCaught(setup);
+}
+
 static BOOL Main(OverlayManager *man, int *state) {
     BattleSetup *setup = OverlayManager_GetArgs(man);
-    (void)state;
 
-    if (!sFailed) {
-        // The keys and touch the game read this frame (the test scripts' among them)
-        Gen5_SetInput(gSystem.heldKeysRaw, gSystem.touchHeld, gSystem.touchX, gSystem.touchY);
-        Gen5_SetWidescreen(SIM_IsWidescreenActive() ? SIM_WidescreenRatio() : 1.0f);
-        const BOOL running = Gen5_BattleFrame();
-        const unsigned events = Gen5_TakeEvents();
-        if (events & GEN5_EVENT_COMMAND) {
-            TestScript_OnEvent(TEST_EVENT_BATTLE_COMMAND);
+    switch (*state) {
+    case STATE_BATTLE:
+        if (!sFailed) {
+            // The keys and touch the game read this frame (the test scripts' among them)
+            Gen5_SetInput(gSystem.heldKeysRaw, gSystem.touchHeld, gSystem.touchX, gSystem.touchY);
+            Gen5_SetWidescreen(SIM_IsWidescreenActive() ? SIM_WidescreenRatio() : 1.0f);
+            const BOOL running = Gen5_BattleFrame();
+            const unsigned events = Gen5_TakeEvents();
+            if (events & GEN5_EVENT_COMMAND) {
+                TestScript_OnEvent(TEST_EVENT_BATTLE_COMMAND);
+            }
+            if (events & GEN5_EVENT_VICTORY_MUSIC) {
+                PlayVictoryMusic();
+            }
+            if (running) {
+                return FALSE;
+            }
         }
-        if (events & GEN5_EVENT_VICTORY_MUSIC) {
-            PlayVictoryMusic();
+        Finish(setup);
+        if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT) {
+            StartNaming(setup);
+            *state = STATE_NAMING;
+        } else {
+            *state = STATE_CHECK_EVOLUTION;
         }
-        if (running) {
-            return FALSE;
+        return FALSE;
+    case STATE_NAMING:
+        if (OverlayManager_Run(sNamingApp)) {
+            FinishNaming(setup);
+            *state = STATE_CHECK_EVOLUTION;
         }
+        return FALSE;
+    case STATE_CHECK_EVOLUTION: {
+        int slot;
+        int condition;
+        const int species = BattleSystem_CheckEvolution(setup, &slot, &condition);
+        if (species == SPECIES_NONE) {
+            return TRUE;
+        }
+        printf("Gen 5: party %d evolves into species %d\n", slot, species);
+        Heap_Create(HEAP_ID_3, HEAP_ID_EVOLUTION, 0x30000);
+        Pokemon *mon = Party_GetMonByIndex(setup->party[BATTLER_PLAYER], slot);
+        setup->evolutionTaskData = EvolutionScene_New(setup->party[BATTLER_PLAYER], mon, species, setup->options,
+            setup->unk_164, setup->pokedex, setup->bag, setup->gameStats, condition,
+            EVO_FLAG_CAN_CANCEL | EVO_FLAG_PRINT_WHAT, HEAP_ID_EVOLUTION);
+        *state = STATE_EVOLUTION;
+        return FALSE;
     }
-    Finish(setup);
+    case STATE_EVOLUTION:
+        if (EvolutionScene_IsDone(setup->evolutionTaskData)) {
+            EvolutionScene_Delete(setup->evolutionTaskData);
+            setup->evolutionTaskData = NULL;
+            Heap_Destroy(HEAP_ID_EVOLUTION);
+            *state = STATE_CHECK_EVOLUTION;
+        }
+        return FALSE;
+    }
     return TRUE;
 }
 
@@ -1135,6 +1244,7 @@ const OverlayManagerTemplate gGen5BattleOverlayTemplate = {
 typedef struct {
     int species;
     int level;
+    u32 winFlag;
 } WildStart;
 
 static BOOL Task_StartWild(TaskManager *taskManager) {
@@ -1144,8 +1254,16 @@ static BOOL Task_StartWild(TaskManager *taskManager) {
     switch (*state) {
     case 0:
         (*state)++;
-        SetupAndStartWildBattle(taskManager, start->species, start->level, NULL, TRUE, FALSE);
+        SetupAndStartWildBattle(taskManager, start->species, start->level, &start->winFlag, TRUE, FALSE);
         return FALSE;
+    case 1:
+        (*state)++;
+        // The encounter leaves a loss to its caller, as a script's wild battle does (it whites out)
+        if (!IsBattleResultWin(start->winFlag)) {
+            CallTask_Blackout(taskManager);
+            return FALSE;
+        }
+        return TRUE;
     default:
         return TRUE;
     }
@@ -1168,6 +1286,7 @@ BOOL Gen5Battle_StartWild(int species, int level, BOOL gen5) {
     WildStart *start = &sStart;
     start->species = species;
     start->level = level;
+    start->winFlag = 0;
     FieldSystem_CreateTask(fieldSystem, Task_StartWild, start);
     return TRUE;
 }
