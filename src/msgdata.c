@@ -7,6 +7,10 @@
 #include "heap.h"
 #include "message_format.h"
 
+#ifdef PORT_SLOTS
+#include "port_slot_maps.h"
+#endif
+
 static void CopyEncryptedMessage16(u16 *dest, const u16 *src, MAT_ENTRY *alloc);
 static void ReadMsgData_ExistingNarc_ExistingString(NARC *narc, u32 group, u32 num, enum HeapID heapID, String *dest);
 static String *ReadMsgData_ExistingNarc_NewString(NARC *narc, u32 group, u32 num, enum HeapID heapID);
@@ -232,6 +236,14 @@ void DestroyMsgData(MsgData *msgData) {
 }
 
 void ReadMsgDataIntoString(MsgData *msgData, s32 msg_no, String *dest) {
+#ifdef PORT_SLOTS
+    u32 length;
+    const u16 *text = SlotMaps_Message(msgData->narc_id, msgData->file_id, msg_no, &length);
+    if (text != NULL) {
+        CopyU16ArrayToStringN(dest, text, length);
+        return;
+    }
+#endif
     switch (msgData->type) {
     case MSGDATA_LOAD_DIRECT:
         ReadMsgData_ExistingTable_ExistingString(msgData->direct, msg_no, dest);
@@ -243,6 +255,17 @@ void ReadMsgDataIntoString(MsgData *msgData, s32 msg_no, String *dest) {
 }
 
 String *NewString_ReadMsgData(MsgData *msgData, s32 msg_no) {
+#ifdef PORT_SLOTS
+    u32 length;
+    const u16 *text = SlotMaps_Message(msgData->narc_id, msgData->file_id, msg_no, &length);
+    if (text != NULL) {
+        String *string = String_New(length + 1, (enum HeapID)msgData->heapID);
+        if (string != NULL) {
+            CopyU16ArrayToStringN(string, text, length);
+        }
+        return string;
+    }
+#endif
     switch (msgData->type) {
     case MSGDATA_LOAD_DIRECT:
         return ReadMsgData_ExistingTable_NewString(msgData->direct, msg_no, (enum HeapID)msgData->heapID);
@@ -256,8 +279,14 @@ String *NewString_ReadMsgData(MsgData *msgData, s32 msg_no) {
 u32 MsgDataGetCount(MsgData *msgData) {
     switch (msgData->type) {
     case MSGDATA_LOAD_DIRECT:
+#ifdef PORT_SLOTS
+        return SlotMaps_MessageCount(msgData->narc_id, msgData->file_id, GetMsgCount_ExistingTable(msgData->direct));
+#endif
         return GetMsgCount_ExistingTable(msgData->direct);
     case MSGDATA_LOAD_LAZY:
+#ifdef PORT_SLOTS
+        return SlotMaps_MessageCount(msgData->narc_id, msgData->file_id, GetMsgCount_TableFromNarc((NarcId)msgData->narc_id, msgData->file_id));
+#endif
         return GetMsgCount_TableFromNarc((NarcId)msgData->narc_id, msgData->file_id);
     default:
         return 0;
@@ -265,6 +294,14 @@ u32 MsgDataGetCount(MsgData *msgData) {
 }
 
 void ReadMsgDataIntoU16Array(MsgData *msgData, u32 msg_no, u16 *dest) {
+#ifdef PORT_SLOTS
+    u32 length;
+    const u16 *text = SlotMaps_Message(msgData->narc_id, msgData->file_id, msg_no, &length);
+    if (text != NULL) {
+        MI_CpuCopy16(text, dest, (length + 1) * 2);
+        return;
+    }
+#endif
     switch (msgData->type) {
     case MSGDATA_LOAD_DIRECT:
         ReadMsgData_ExistingTable_ExistingArray(msgData->direct, msg_no, dest);

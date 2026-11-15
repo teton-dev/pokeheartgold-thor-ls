@@ -12,6 +12,11 @@
 #include "map_object.h"
 #include "save_vars_flags.h"
 #include "script_manager.h"
+
+#ifdef PORT_SLOTS
+#include "filesystem.h"
+#include "port_slot_maps.h"
+#endif
 #include "task.h"
 
 struct ScriptBankMapping {
@@ -344,7 +349,13 @@ void ScriptRunByIndex(ScriptContext *ctx, int idx) {
 }
 
 u8 *LoadScriptsForCurrentMap(u32 mapno) {
+#ifdef PORT_SLOTS
+    // The Japanese Game Corners' coin clerk gives a Coin Case (lib/port/slots/slot_maps.c)
+    u8 *scripts = AllocAndReadWholeNarcMemberByIdPair(NARC_fielddata_script_scr_seq, MapHeader_GetScriptsBank(mapno), HEAP_ID_FIELD2);
+    return SlotMaps_PatchScripts(mapno, scripts, GetNarcMemberSizeByIdPair(NARC_fielddata_script_scr_seq, MapHeader_GetScriptsBank(mapno)), HEAP_ID_FIELD2);
+#else
     return AllocAndReadWholeNarcMemberByIdPair(NARC_fielddata_script_scr_seq, MapHeader_GetScriptsBank(mapno), HEAP_ID_FIELD2);
+#endif
 }
 
 u32 GetCurrentMapMessageBank(u32 mapno) {

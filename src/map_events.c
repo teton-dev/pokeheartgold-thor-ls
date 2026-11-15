@@ -2,6 +2,10 @@
 
 #include "global.h"
 
+#ifdef PORT_SLOTS
+#include "port_slot_maps.h"
+#endif
+
 #include "encounter_tables_narc.h"
 #include "field_system.h"
 #include "filesystem.h"
@@ -179,6 +183,10 @@ static void MapEvents_ComputeRamHeader(MapEvents *events) {
     } else {
         events->warp_events = NULL;
     }
+#ifdef PORT_SLOTS
+    // With the Japanese Game Corner on, the Game Corners' doors lead to the Japanese maps (lib/port/slots/slot_maps.c)
+    SlotMaps_RedirectWarps(events->warp_events, events->num_warp_events);
+#endif
     ptr += events->num_warp_events * sizeof(WarpEvent);
 
     events->num_coord_events = *(u32 *)ptr;
