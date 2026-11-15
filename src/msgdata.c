@@ -240,7 +240,7 @@ void ReadMsgDataIntoString(MsgData *msgData, s32 msg_no, String *dest) {
     u32 length;
     const u16 *text = SlotMaps_Message(msgData->narc_id, msgData->file_id, msg_no, &length);
     if (text != NULL) {
-        CopyU16ArrayToStringN(dest, text, length);
+        CopyU16ArrayToStringN(dest, text, length + 1); // the length with the end marker, as the game passes it
         return;
     }
 #endif
@@ -261,7 +261,7 @@ String *NewString_ReadMsgData(MsgData *msgData, s32 msg_no) {
     if (text != NULL) {
         String *string = String_New(length + 1, (enum HeapID)msgData->heapID);
         if (string != NULL) {
-            CopyU16ArrayToStringN(string, text, length);
+            CopyU16ArrayToStringN(string, text, length + 1);
         }
         return string;
     }
