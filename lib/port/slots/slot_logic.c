@@ -14,6 +14,9 @@
 #define TBL_MISS        0x021EA184u // per (bet, type) 3 bytes
 #define TBL_RETURN      0x021EA124u // per (bet, outcome)
 #define TBL_LINES       0x021EA0E8u // 5 lines x 3 (reel, row)
+#define TBL_BONUS_SLIP  0x021EA10Cu // the bonus game's slip onto the picture, by speed tier
+#define TBL_BONUS_PAY   0x021EA084u // the bonus game's coins per picture
+#define TBL_ROUND_START 0x021EA118u // the balance a round starts from, by streak
 #define TBL_PAYOUT      0x021EA098u // coins per symbol 0 to 6
 #define TBL_STRIPS      0x021EA32Cu // 6 strips x 21 u32
 #define TBL_ASSIST      0x021EA1A8u // bytes: 15 per streak (0 to 5), 5 per phase
@@ -102,19 +105,21 @@ void Slot_DrawBonusSpin(SlotGame *g) {
     }
     uint32_t b = TBL_ASSIST + 15 * level + 5 * phase;
     g->symbol = (uint8_t)Slot_Rand(g, 3);
+    // What it pays (JP 0x021E7198 in bonus play): the table, and more the more pictures this game has lined up
+    g->bonusCoins = (uint8_t)(T8(g, TBL_BONUS_PAY + g->symbol) + (g->bonusWins / 2) * ((g->streak >> 2) + 1));
     for (int i = 0; i < 3; i++) {
         g->reelHit[i] = Slot_Rand(g, 100) < T8(g, b + 4) ? 0 : 1;
     }
     int r = Slot_Rand(g, 100);
     if (r < T8(g, b + 2)) {
-        g->bonusPayout = 8;
-        g->bonusKind = 0;
+        g->reelSpeed = 8;
+        g->speedTier = 0;
     } else if (r < T8(g, b + 2) + T8(g, b + 3)) {
-        g->bonusPayout = 12;
-        g->bonusKind = 1;
+        g->reelSpeed = 12;
+        g->speedTier = 1;
     } else {
-        g->bonusPayout = 24;
-        g->bonusKind = 2;
+        g->reelSpeed = 24;
+        g->speedTier = 2;
     }
     r = Slot_Rand(g, 100);
     if (r < T8(g, b)) {
@@ -212,7 +217,109 @@ void Slot_AddCoins(SlotGame *g, uint32_t amount) {
 }
 
 uint8_t Slot_ReelCell(const SlotGame *g, int reel, int row) {
-    return Slot_StripSymbol(g->tables, reel, g->reelStop[reel] + row);
+    return Slot_StripSymbol(g->tables, reel + (Slot_InBonus(g) ? 3 : 0), g->reelStop[reel] + row);
+}
+
+int Slot_InBonus(const SlotGame *g) {
+    return (g->flags & SLOT_FLAG_BONUS) != 0;
+}
+
+void Slot_StartBonus(SlotGame *g, uint8_t winSymbol) {
+    g->flags |= SLOT_FLAG_BONUS;
+    g->flags &= ~SLOT_FLAG_JACKSYM;
+    g->bet = 1;
+    g->spinLimit = winSymbol == 6 ? 15 : 8;
+    g->spin = 0;
+    g->bonusWins = 0;
+    g->bonusTotal = 0;
+    g->bonusCoins = 0;
+    g->jackpot[0] = g->jackpot[1] = 0;
+    for (int i = 0; i < 3; i++) {
+        g->reelFlags[i] = g->reelHit[i] = 0;
+    }
+}
+
+void Slot_EndBonus(SlotGame *g) {
+    g->flags &= ~(SLOT_FLAG_BONUS | SLOT_FLAG_JACKSYM);
+    g->spinLimit = 0;
+    g->betIndex = 1;
+    g->bet = 3;
+    const uint8_t start = g->streak <= 5 ? T8(g, TBL_ROUND_START + g->streak % 3) : T8(g, TBL_ROUND_START + 2);
+    g->balance = (int8_t)-(start + g->bonusWins);
+    g->flags |= SLOT_FLAG_HOT;
+    if (g->streak < 10) {
+        g->streak++;
+    }
+    g->spin = 0;
+    g->bonusWins = 0;
+    g->jackpot[0] = g->jackpot[1] = 0;
+}
+
+// The bonus pictures: 3x3 sprite cells from 7 + 9 * picture (Chikorita, Cyndaquil, Totodile), a column per reel; the
+// middle row lines up on the middle line (JP 0x021EA0A0: reels 0 to 2 at row 2)
+static uint8_t Slot_BonusCell(const SlotGame *g, int reel) {
+    return (uint8_t)(10 + reel + 9 * g->symbol);
+}
+
+// Which way a reel turns: the strip index falls (the symbols move down) unless JP +0x53 is set for it in the bonus game
+static int Slot_ReelStep(const SlotGame *g, int reel) {
+    return Slot_InBonus(g) && g->reelHit[reel] ? 1 : -1;
+}
+
+static int Slot_Wrap(int index) {
+    return ((index % SLOT_REEL_LENGTH) + SLOT_REEL_LENGTH) % SLOT_REEL_LENGTH;
+}
+
+int Slot_ReelDirection(const SlotGame *g, int reel) {
+    return Slot_ReelStep(g, reel);
+}
+
+int Slot_ChooseBonusStop(SlotGame *g, int reel, int pressed) {
+    const int step = Slot_ReelStep(g, reel);
+    const uint8_t target = Slot_BonusCell(g, reel);
+    g->reelStopped[reel] = 1;
+    // How far on the picture's column is (JP 0x021E9334)
+    int distance = 0;
+    for (; distance < SLOT_REEL_LENGTH; distance++) {
+        g->reelStop[reel] = (uint8_t)Slot_Wrap(pressed + step * distance);
+        if (Slot_ReelCell(g, reel, 2) == target) {
+            break;
+        }
+    }
+    // The reels that stop by themselves land on it; the player's slip onto it from close enough (JP 0x021E9D18)
+    if (distance < SLOT_REEL_LENGTH && (g->reelFlags[reel] || distance <= T8(g, TBL_BONUS_SLIP + g->speedTier))) {
+        return g->reelStop[reel];
+    }
+    g->reelStop[reel] = (uint8_t)Slot_Wrap(pressed);
+    if (reel == 2) {
+        // The last reel: if another picture would line up, it slips 1 or 2 on
+        for (int picture = 0; picture < 3; picture++) {
+            if (picture == g->symbol) {
+                continue;
+            }
+            int lined = 1;
+            for (int r = 0; r < 3; r++) {
+                lined &= Slot_ReelCell(g, r, 2) == (uint8_t)(10 + r + 9 * picture);
+            }
+            if (lined) {
+                g->reelStop[reel] = (uint8_t)Slot_Wrap(pressed + step * (1 + Slot_Rand(g, 2)));
+                break;
+            }
+        }
+    }
+    return g->reelStop[reel];
+}
+
+int Slot_JudgeBonus(SlotGame *g) {
+    for (int reel = 0; reel < 3; reel++) {
+        if (Slot_ReelCell(g, reel, 2) != Slot_BonusCell(g, reel)) {
+            return 0;
+        }
+    }
+    g->bonusWins++;
+    g->bonusTotal = (uint16_t)(g->bonusTotal + g->bonusCoins > 999 ? 999 : g->bonusTotal + g->bonusCoins);
+    Slot_AddCoins(g, g->bonusCoins);
+    return 1;
 }
 
 // Does symbol (1 to 6) win with the stopped reels: all of them on a line show it (only reel 1 for berries); with

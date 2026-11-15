@@ -16,6 +16,7 @@
 #include "overlay_manager.h"
 #include "port_game_settings.h"
 #include "port_slots_rom.h"
+#include "port_test_script.h"
 #include "screen_fade.h"
 #include "slot_assets.h"
 #include "slot_logic.h"
@@ -55,7 +56,9 @@ typedef struct SlotAppData {
     SlotGame game;
     BOOL freeSpin; // after a Replay
     u32 shownCredit, shownPayout; // what the face's digits show (the credit counts up to the coins after a win)
-    u32 payout; // the last win
+    u32 payout; // the last win (in the bonus game, its total so far)
+    int speed; // the reels' pixels a frame this spin
+    int autoStopTimer; // frames until the bonus game's self-stopping reels stop
 } SlotAppData;
 
 // The face's 7-segment digits: glyphs of its own tiles (a/1/2/7 file 24 lays them out), 8x16, the top half tile
@@ -68,7 +71,8 @@ typedef struct SlotAppData {
 
 static void SlotApp_UpdateDigits(SlotAppData *work, BOOL force);
 
-static u32 sSlotLuck; // SlotLuckiness's value for the machine launched (the odds tables' type)
+static u32 sSlotLuck;
+static BOOL sStartInBonus; // tests: the next machine starts in a bonus game (SlotApp_TestStartInBonus) // SlotLuckiness's value for the machine launched (the odds tables' type)
 
 static const struct GraphicsModes sSlotModes = {
     GX_DISPMODE_GRAPHICS,
@@ -189,7 +193,7 @@ static void SlotApp_DrawReel(SlotAppData *work, int reel) {
     const int first = r->pos / REEL_SYMBOL_HEIGHT, offset = r->pos % REEL_SYMBOL_HEIGHT;
     u16 map[REEL_ROWS * 3][4];
     for (int row = 0; row < REEL_ROWS; row++) {
-        const int cell = Slot_StripSymbol(&work->tables, reel, first + row);
+        const int cell = Slot_StripSymbol(&work->tables, reel + (Slot_InBonus(&work->game) ? 3 : 0), first + row);
         for (int y = 0; y < 3; y++) {
             for (int x = 0; x < 4; x++) {
                 u16 entry = 0;
@@ -245,6 +249,10 @@ static BOOL SlotApp_Create(OverlayManager *man) {
     SlotApp_InitLayer(work, GF_BG_LYR_SUB_0, GX_BG_SCRBASE_0x0000, GX_BG_CHARBASE_0x04000, 1);
     SlotApp_ShowScreen(work, GF_BG_LYR_MAIN_0, GF_PAL_LOCATION_MAIN_BG, GFX_FACE_PAL, GFX_FACE_TILES, GFX_FACE_SCREEN);
     SlotApp_ShowScreen(work, GF_BG_LYR_SUB_0, GF_PAL_LOCATION_SUB_BG, GFX_FRAME_PAL, GFX_FRAME_TILES, GFX_FRAME_SCREEN);
+    if (sStartInBonus) {
+        sStartInBonus = FALSE;
+        Slot_StartBonus(&work->game, 6);
+    }
     work->shownCredit = work->game.coins;
     SlotApp_UpdateDigits(work, TRUE);
     if (SlotApp_LoadReelGfx(work)) {
@@ -315,20 +323,36 @@ static void SlotApp_UpdateDigits(SlotAppData *work, BOOL force) {
     }
 }
 
-// A spin: 3 coins (or the Replay's free spin), the draw, the reels started
+static void SlotApp_DrawAllReels(SlotAppData *work) {
+    for (int i = 0; i < REEL_COUNT; i++) {
+        SlotApp_DrawReel(work, i);
+    }
+}
+
+// A spin: 3 coins (or the Replay's free spin; 1 coin in the bonus game), the draw, the reels started
 static BOOL SlotApp_StartSpin(SlotAppData *work) {
     SlotGame *g = &work->game;
-    if (!work->freeSpin) {
-        if (g->coins < SLOT_BET) {
+    const BOOL bonus = Slot_InBonus(g);
+    const u32 bet = bonus ? 1 : SLOT_BET;
+    if (!work->freeSpin || bonus) {
+        if (g->coins < bet) {
             return FALSE;
         }
-        g->coins -= SLOT_BET;
+        g->coins -= bet;
         *work->coins = (u16)g->coins;
     }
     work->freeSpin = FALSE;
-    work->payout = 0;
-    g->flags = 0;
-    Slot_DrawSymbol(g);
+    if (bonus) {
+        Slot_DrawBonusSpin(g);
+        work->speed = g->reelSpeed;
+        work->autoStopTimer = 4; // the reels that stop by themselves, after 4 frames (JP state 19)
+    } else {
+        work->payout = 0;
+        g->flags &= SLOT_FLAG_HOT;
+        Slot_DrawSymbol(g);
+        work->speed = REEL_SPEED;
+        work->autoStopTimer = 0;
+    }
     for (int i = 0; i < REEL_COUNT; i++) {
         g->reelStopped[i] = 0;
         work->reels[i].spinning = TRUE;
@@ -338,18 +362,50 @@ static BOOL SlotApp_StartSpin(SlotAppData *work) {
     return TRUE;
 }
 
-// A stop pressed: the rules choose where, up to 4 symbols on
+// A stop: the rules choose where (the base game slips up to 4; the bonus game as its reels' rules say)
 static void SlotApp_StopReel(SlotAppData *work, int reel) {
     SlotReel *r = &work->reels[reel];
-    const int pressed = r->pos / REEL_SYMBOL_HEIGHT; // the next symbol to reach the top row
-    const int index = Slot_ChooseStop(&work->game, reel, pressed);
+    SlotGame *g = &work->game;
+    // The next symbol to reach the top row, the way the reel turns
+    const int pressed = Slot_ReelDirection(g, reel) < 0 ? r->pos / REEL_SYMBOL_HEIGHT
+                                                         : ((r->pos + REEL_SYMBOL_HEIGHT - 1) / REEL_SYMBOL_HEIGHT) % SLOT_REEL_LENGTH;
+    const int index = Slot_InBonus(g) ? Slot_ChooseBonusStop(g, reel, pressed) : Slot_ChooseStop(g, reel, pressed);
     r->target = index * REEL_SYMBOL_HEIGHT;
     r->stopping = TRUE;
 }
 
-// The reels stand: what they show pays, or the machine's mode moves (the payout decision, JP state 10)
+// The next reel A stops: left to right, skipping those that stop by themselves
+static int SlotApp_NextPlayerReel(SlotAppData *work) {
+    const SlotGame *g = &work->game;
+    for (int i = 0; i < REEL_COUNT; i++) {
+        if (work->reels[i].spinning && !work->reels[i].stopping && !(Slot_InBonus(g) && g->reelFlags[i])) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// The reels stand: what they show pays, or the machine's mode moves (the payout decision, JP state 10); a Poke Ball
+// or 7 starts the bonus game, which ends after its spins
 static void SlotApp_EndSpin(SlotAppData *work) {
     SlotGame *g = &work->game;
+    TestScript_OnEvent(TEST_EVENT_SLOTS);
+    if (Slot_InBonus(g)) {
+        const int won = Slot_JudgeBonus(g);
+        work->payout = g->bonusTotal;
+        *work->coins = (u16)g->coins;
+        g->spin++;
+        printf("[slots] bonus spin %d/%d: picture %d, speed %d, auto %d%d%d, reels %d %d %d, %s: %d coins, total %d, %u left\n",
+            g->spin, g->spinLimit, g->symbol, g->reelSpeed, g->reelFlags[0], g->reelFlags[1], g->reelFlags[2],
+            g->reelStop[0], g->reelStop[1], g->reelStop[2], won ? "lined up" : "missed", won ? g->bonusCoins : 0,
+            g->bonusTotal, (unsigned)g->coins);
+        if (g->spin >= g->spinLimit || g->coins < 1) {
+            printf("[slots] bonus game over: %d pictures, %d coins\n", g->bonusWins, g->bonusTotal);
+            Slot_EndBonus(g);
+            SlotApp_DrawAllReels(work);
+        }
+        return;
+    }
     int line = 0;
     const int win = Slot_Judge(g, &line);
     int paid = 0;
@@ -369,17 +425,23 @@ static void SlotApp_EndSpin(SlotAppData *work) {
     printf("[slots] drew %d (class %d), reels %d %d %d, won %d on line %d: %d coins, %u left, mode %d\n",
         g->symbol, g->outcomeClass, g->reelStop[0], g->reelStop[1], g->reelStop[2], win, line, paid,
         (unsigned)g->coins, g->betIndex);
+    if (Slot_IsJackpotSymbol((uint8_t)win) && g->coins >= 1) {
+        Slot_StartBonus(g, (uint8_t)win);
+        printf("[slots] bonus game: %d spins\n", g->spinLimit);
+        SlotApp_DrawAllReels(work);
+    }
 }
 
 static BOOL SlotApp_Main(OverlayManager *man, int *state) {
     SlotAppData *work = OverlayManager_GetData(man);
+    SlotGame *g = &work->game;
     SlotApp_UpdateDigits(work, FALSE);
     BOOL spinning = FALSE;
     for (int i = 0; i < REEL_COUNT; i++) {
         spinning |= work->reels[i].spinning;
     }
     if (!spinning) {
-        if (gSystem.newKeys & PAD_BUTTON_B) {
+        if ((gSystem.newKeys & PAD_BUTTON_B) && !Slot_InBonus(g)) {
             return TRUE;
         }
         if (gSystem.newKeys & PAD_BUTTON_A) {
@@ -387,8 +449,18 @@ static BOOL SlotApp_Main(OverlayManager *man, int *state) {
         }
         return FALSE;
     }
-    if ((gSystem.newKeys & PAD_BUTTON_A) && work->nextStop < REEL_COUNT) {
-        SlotApp_StopReel(work, work->nextStop++);
+    if (work->autoStopTimer > 0 && --work->autoStopTimer == 0) {
+        for (int i = 0; i < REEL_COUNT; i++) {
+            if (g->reelFlags[i]) {
+                SlotApp_StopReel(work, i);
+            }
+        }
+    }
+    if (gSystem.newKeys & PAD_BUTTON_A) {
+        const int reel = SlotApp_NextPlayerReel(work);
+        if (reel >= 0) {
+            SlotApp_StopReel(work, reel);
+        }
     }
     for (int i = 0; i < REEL_COUNT; i++) {
         SlotReel *r = &work->reels[i];
@@ -399,7 +471,7 @@ static BOOL SlotApp_Main(OverlayManager *man, int *state) {
             r->spinning = FALSE;
             continue;
         }
-        r->pos = (r->pos + REEL_TURN - REEL_SPEED) % REEL_TURN;
+        r->pos = (r->pos + REEL_TURN + work->speed * Slot_ReelDirection(g, i)) % REEL_TURN;
         SlotApp_DrawReel(work, i);
     }
     if (!work->reels[0].spinning && !work->reels[1].spinning && !work->reels[2].spinning) {
@@ -449,4 +521,8 @@ VoltorbFlipArgs *SlotApp_LaunchApp(FieldSystem *fieldSystem, u32 luck) {
     args->saveData = fieldSystem->saveData;
     FieldSystem_LaunchApplication(fieldSystem, &sTemplate, args);
     return args;
+}
+
+void SlotApp_TestStartInBonus(void) {
+    sStartInBonus = TRUE;
 }

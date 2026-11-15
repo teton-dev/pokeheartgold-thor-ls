@@ -134,6 +134,7 @@ static const char *sConditionNames[] = {
     [TEST_EVENT_NAMING_SCREEN] = "naming",
     [TEST_EVENT_BATTLE] = "battle",
     [TEST_EVENT_BATTLE_COMMAND] = "command",
+    [TEST_EVENT_SLOTS] = "slots",
     [COND_FREE] = "free",
     [COND_MAP] = "map",
     [COND_NONE] = "end",
@@ -355,6 +356,8 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
     } else if (strcmp(words[0], "casino") == 0) {
+        // casino [bonus]: (with bonus, the machine starts in a bonus game)
+        command->x = count >= 2 && strcmp(words[1], "bonus") == 0;
         // casino: once the player is free, a Game Corner machine as the script starts it (the Japanese slot machine
         // when "slots on", else Voltorb Flip)
         command->op = OP_CASINO;
@@ -777,6 +780,9 @@ static u16 Step(void) {
             }
             printf("[test] casino: slots %s\n", SlotApp_IsEnabled() ? "on" : "off");
             if (SlotApp_IsEnabled()) {
+                if (command->x) {
+                    SlotApp_TestStartInBonus();
+                }
                 FieldSystem_CreateTask(FieldSystem_PortGet(), Task_TestCasino, NULL);
             } else {
                 Fail(command, "the Japanese slot machine isn't enabled");

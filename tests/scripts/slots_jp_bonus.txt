@@ -1,0 +1,64 @@
+# The Japanese slot machine's bonus game: a machine started in one (as after a 7: 15 spins of 1 coin), its big
+# pictures on the reels; spins stopped at once and a little later, until it ends. From new-game.
+slots-import
+mash A until free
+slots on
+coins 30
+wait 60
+casino bonus
+wait 120
+shot bonus_open
+press A
+wait 8
+stillshot bonus_spinning
+mash A until slots timeout 600
+wait 30
+shot bonus_stopped
+# The other 14 spins: start, then A until the reels stand (A on a reel that stops by itself does nothing)
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+press A
+mash A until slots timeout 600
+wait 30
+shot bonus_over
+press B
+until free timeout 1200
+log slots bonus: ok
+exit 0
