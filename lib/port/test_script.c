@@ -26,6 +26,10 @@
 #include "player_data.h"
 #include "port_gen5_battle.h"
 #include "port_gen5_rom.h"
+#include "port_slot_app.h"
+#include "field_overworld_transition.h"
+#include "task.h"
+#include "port_slots_rom.h"
 #endif
 
 #define MAX_COMMANDS 1024
@@ -52,6 +56,9 @@ enum TestOp {
     OP_GIRL,
     OP_FLAG,
     OP_NUZLOCKE,
+    OP_SLOTS_IMPORT,
+    OP_SLOTS_SETTING,
+    OP_CASINO,
     OP_SHOT,
     OP_LOG,
     OP_EXIT,
@@ -139,6 +146,32 @@ static u64 NowMs(void) {
 
 // The player is free on the overworld: the field map runs, with no application over it, no task (scripts and
 // events run as field tasks) and no pause
+// A Game Corner machine as a script runs it: fade out and leave the overworld, the app, then the overworld back
+static BOOL Task_TestCasino(TaskManager *taskManager) {
+    static int sState = 0;
+    FieldSystem *fieldSystem = TaskManager_GetFieldSystem(taskManager);
+    switch (sState) {
+    case 0:
+        CallTask_FadeOutAndLeaveOverworld(taskManager);
+        sState = 1;
+        break;
+    case 1:
+        SlotApp_LaunchApp(fieldSystem, 0);
+        sState = 2;
+        break;
+    case 2:
+        if (!FieldSystem_ApplicationIsRunning(fieldSystem)) {
+            CallTask_RestoreOverworldAndFadeIn(taskManager);
+            sState = 3;
+        }
+        break;
+    case 3:
+        sState = 0;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 static BOOL PlayerIsFree(void) {
     FieldSystem *fieldSystem = FieldSystem_PortGet();
     return fieldSystem != NULL
@@ -301,6 +334,24 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         // The Black 2 or White 2 ROM in POKEHEARTGOLD_GEN5_ROM, imported as the settings do
         command->op = OP_GEN5_IMPORT;
         command->timeout = 9000;
+        return TRUE;
+    } else if (strcmp(words[0], "slots-import") == 0) {
+        // slots-import: the Japanese HeartGold or SoulSilver ROM in POKEHEARTGOLD_SLOTS_ROM, imported as Settings >
+        // Game Corner does
+        command->op = OP_SLOTS_IMPORT;
+        command->timeout = 9000;
+        return TRUE;
+    } else if (strcmp(words[0], "slots") == 0 && count >= 2) {
+        // slots on|off: Settings > Game Corner > Japanese Game Corner
+        command->op = OP_SLOTS_SETTING;
+        command->x = strcmp(words[1], "on") == 0;
+        return TRUE;
+    } else if (strcmp(words[0], "casino") == 0) {
+        // casino: once the player is free, a Game Corner machine as the script starts it (the Japanese slot machine
+        // when "slots on", else Voltorb Flip)
+        command->op = OP_CASINO;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
     } else if (strcmp(words[0], "gen5") == 0 && count >= 2) {
         // gen5 on|off: Settings > Gen 5 battles
@@ -668,6 +719,53 @@ static u16 Step(void) {
             Next();
             continue;
         }
+        case OP_SLOTS_IMPORT: {
+            if (elapsed == 0) {
+                const char *rom = getenv("POKEHEARTGOLD_SLOTS_ROM");
+                if (rom == NULL || rom[0] == '\0') {
+                    Fail(command, "no POKEHEARTGOLD_SLOTS_ROM to import");
+                    return 0;
+                }
+                SlotsRom_Import(rom, FALSE);
+                return 0;
+            }
+            SlotsRom_Update();
+            if (SlotsRom_State() == SLOTS_ROM_IMPORTING) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the import is taking too long");
+                }
+                return 0;
+            }
+            printf("[test] slots: %s\n", SlotsRom_Status());
+            if (SlotsRom_State() != SLOTS_ROM_READY) {
+                Fail(command, "the import failed");
+                return 0;
+            }
+            Next();
+            continue;
+        }
+        case OP_SLOTS_SETTING:
+            GameSettings_Get()->japaneseGameCorner = command->x;
+            printf("[test] Japanese Game Corner %s\n", command->x ? "on" : "off");
+            Next();
+            continue;
+        case OP_CASINO:
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free for the casino");
+                }
+                return 0;
+            }
+            printf("[test] casino: slots %s\n", SlotApp_IsEnabled() ? "on" : "off");
+            if (SlotApp_IsEnabled()) {
+                FieldSystem_CreateTask(FieldSystem_PortGet(), Task_TestCasino, NULL);
+            } else {
+                Fail(command, "the Japanese slot machine isn't enabled");
+                return 0;
+            }
+            sTest.freeFrames = 0;
+            Next();
+            return 0;
         case OP_GEN5_SETTING:
             GameSettings_Get()->gen5Battles = command->x;
             printf("[test] Gen 5 battles %s\n", command->x ? "on" : "off");
