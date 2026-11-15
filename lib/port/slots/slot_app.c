@@ -1,12 +1,16 @@
 // The Japanese Game Corner's slot machine (overlay 77 of the JP HeartGold/SoulSilver), rewritten as an app of the
-// port. So far: the machine's two screens from the imported files and the three reels, which A spins and stops
-// one by one (B leaves); the rules are in slot_logic.c and come next, with the coins, sound and text.
+// port. So far: the machine's two screens from the imported files and the three reels. A bets 3 coins and spins
+// (a Replay's spin is free), A stops the reels one by one, where the rules (slot_logic.c) let them land, and a win
+// pays its coins into the Coin Case; B leaves. The digits, sound, text and the bonus game come next.
 #include "port_slot_app.h"
 
 #include <stdlib.h>
 
+#include <stdio.h>
+
 #include "global.h"
 #include "bg_window.h"
+#include "coins.h"
 #include "constants/heap.h"
 #include "gf_gfx_planes.h"
 #include "overlay_manager.h"
@@ -32,7 +36,10 @@ typedef struct SlotReel {
     int pos; // pixels along the strip, 0 to REEL_TURN - 1; going down the strip, the symbols move down
     BOOL spinning;
     BOOL stopping;
+    int target; // where it stops (pixels), once stopping
 } SlotReel;
+
+#define SLOT_BET 3 // the JP game's bet: always 3 coins a spin (JP state 2)
 
 typedef struct SlotAppData {
     enum HeapID heapID;
@@ -45,7 +52,11 @@ typedef struct SlotAppData {
     u8 cellPal[REEL_CELLS];
     SlotReel reels[REEL_COUNT];
     int nextStop; // the reel A stops next
+    SlotGame game;
+    BOOL freeSpin; // after a Replay
 } SlotAppData;
+
+static u32 sSlotLuck; // SlotLuckiness's value for the machine launched (the odds tables' type)
 
 static const struct GraphicsModes sSlotModes = {
     GX_DISPMODE_GRAPHICS,
@@ -210,6 +221,7 @@ static BOOL SlotApp_Create(OverlayManager *man) {
     work->overlay = overlay;
     work->tables.data = overlay;
     work->tables.size = overlaySize;
+    Slot_Init(&work->game, &work->tables, OS_GetTick() ^ (u32)(uintptr_t)work, (uint8_t)sSlotLuck, Coins_GetValue(work->coins));
 
     work->bgConfig = BgConfig_Alloc(work->heapID);
     const struct GraphicsModes modes = sSlotModes;
@@ -256,6 +268,60 @@ static BOOL SlotApp_Init(OverlayManager *man, int *state) {
     return FALSE;
 }
 
+// A spin: 3 coins (or the Replay's free spin), the draw, the reels started
+static BOOL SlotApp_StartSpin(SlotAppData *work) {
+    SlotGame *g = &work->game;
+    if (!work->freeSpin) {
+        if (g->coins < SLOT_BET) {
+            return FALSE;
+        }
+        g->coins -= SLOT_BET;
+        *work->coins = (u16)g->coins;
+    }
+    work->freeSpin = FALSE;
+    g->flags = 0;
+    Slot_DrawSymbol(g);
+    for (int i = 0; i < REEL_COUNT; i++) {
+        g->reelStopped[i] = 0;
+        work->reels[i].spinning = TRUE;
+        work->reels[i].stopping = FALSE;
+    }
+    work->nextStop = 0;
+    return TRUE;
+}
+
+// A stop pressed: the rules choose where, up to 4 symbols on
+static void SlotApp_StopReel(SlotAppData *work, int reel) {
+    SlotReel *r = &work->reels[reel];
+    const int pressed = r->pos / REEL_SYMBOL_HEIGHT; // the next symbol to reach the top row
+    const int index = Slot_ChooseStop(&work->game, reel, pressed);
+    r->target = index * REEL_SYMBOL_HEIGHT;
+    r->stopping = TRUE;
+}
+
+// The reels stand: what they show pays, or the machine's mode moves (the payout decision, JP state 10)
+static void SlotApp_EndSpin(SlotAppData *work) {
+    SlotGame *g = &work->game;
+    int line = 0;
+    const int win = Slot_Judge(g, &line);
+    int paid = 0;
+    if (win == 1) {
+        work->freeSpin = TRUE; // Replay
+    } else if (win > 1) {
+        paid = Slot_WinPayout(g, (uint8_t)win);
+        Slot_AddCoins(g, (uint32_t)paid);
+        *work->coins = (u16)g->coins;
+    } else {
+        Slot_PayoutDecision(g);
+        if (g->outcome < 3) {
+            g->betIndex = g->outcome;
+        }
+    }
+    printf("[slots] drew %d (class %d), reels %d %d %d, won %d on line %d: %d coins, %u left, mode %d\n",
+        g->symbol, g->outcomeClass, g->reelStop[0], g->reelStop[1], g->reelStop[2], win, line, paid,
+        (unsigned)g->coins, g->betIndex);
+}
+
 static BOOL SlotApp_Main(OverlayManager *man, int *state) {
     SlotAppData *work = OverlayManager_GetData(man);
     BOOL spinning = FALSE;
@@ -267,28 +333,27 @@ static BOOL SlotApp_Main(OverlayManager *man, int *state) {
             return TRUE;
         }
         if (gSystem.newKeys & PAD_BUTTON_A) {
-            // For now A spins the reels and then stops them one by one, left to right; the rules come next
-            for (int i = 0; i < REEL_COUNT; i++) {
-                work->reels[i].spinning = TRUE;
-                work->reels[i].stopping = FALSE;
-            }
-            work->nextStop = 0;
+            SlotApp_StartSpin(work);
         }
         return FALSE;
     }
     if ((gSystem.newKeys & PAD_BUTTON_A) && work->nextStop < REEL_COUNT) {
-        work->reels[work->nextStop++].stopping = TRUE;
+        SlotApp_StopReel(work, work->nextStop++);
     }
     for (int i = 0; i < REEL_COUNT; i++) {
         SlotReel *r = &work->reels[i];
         if (!r->spinning) {
             continue;
         }
-        r->pos = (r->pos + REEL_TURN - REEL_SPEED) % REEL_TURN;
-        if (r->stopping && r->pos % REEL_SYMBOL_HEIGHT == 0) {
+        if (r->stopping && r->pos == r->target) {
             r->spinning = FALSE;
+            continue;
         }
+        r->pos = (r->pos + REEL_TURN - REEL_SPEED) % REEL_TURN;
         SlotApp_DrawReel(work, i);
+    }
+    if (!work->reels[0].spinning && !work->reels[1].spinning && !work->reels[2].spinning) {
+        SlotApp_EndSpin(work);
     }
     return FALSE;
 }
@@ -323,7 +388,7 @@ static BOOL SlotApp_Exit(OverlayManager *man, int *state) {
 
 VoltorbFlipArgs *SlotApp_LaunchApp(FieldSystem *fieldSystem, u32 luck) {
     static const OverlayManagerTemplate sTemplate = { SlotApp_Init, SlotApp_Main, SlotApp_Exit, FS_OVERLAY_ID_NONE };
-    (void)luck;
+    sSlotLuck = luck;
     VoltorbFlipArgs *args = Heap_AllocAtEnd(HEAP_ID_FIELD2, sizeof(VoltorbFlipArgs));
     MI_CpuFill8(args, 0, sizeof(VoltorbFlipArgs));
     SaveData *saveData = FieldSystem_GetSaveData(fieldSystem);

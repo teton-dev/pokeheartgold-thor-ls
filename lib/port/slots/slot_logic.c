@@ -1,5 +1,7 @@
 #include "slot_logic.h"
 
+#include <stddef.h>
+
 // JP addresses of the tables, in overlay 77
 #define TBL_ODDS        0x021EA284u // 4 types x 3 bets x 7 u16 weights (sum 1000), from the top of 0..999
 #define TBL_CLASS       0x021EA204u // 7 symbols x 3 bets x 3 u16
@@ -11,6 +13,8 @@
 #define TBL_KEEP        0x021EA16Cu // per (reach flag, type, bet)
 #define TBL_MISS        0x021EA184u // per (bet, type) 3 bytes
 #define TBL_RETURN      0x021EA124u // per (bet, outcome)
+#define TBL_LINES       0x021EA0E8u // 5 lines x 3 (reel, row)
+#define TBL_PAYOUT      0x021EA098u // coins per symbol 0 to 6
 #define TBL_STRIPS      0x021EA32Cu // 6 strips x 21 u32
 #define TBL_ASSIST      0x021EA1A8u // bytes: 15 per streak (0 to 5), 5 per phase
 #define JACKPOT_CAP     899
@@ -205,4 +209,111 @@ void Slot_AddCoins(SlotGame *g, uint32_t amount) {
     if (g->coins > SLOT_COINS_MAX) {
         g->coins = SLOT_COINS_MAX;
     }
+}
+
+uint8_t Slot_ReelCell(const SlotGame *g, int reel, int row) {
+    return Slot_StripSymbol(g->tables, reel, g->reelStop[reel] + row);
+}
+
+// Does symbol (1 to 6) win with the stopped reels: all of them on a line show it (only reel 1 for berries); with
+// partial, whether the stopped ones still could
+static int Slot_LineShows(const SlotGame *g, int symbol, int line, int partial) {
+    const uint8_t cell = (uint8_t)(symbol - 1);
+    const int reels = symbol == 4 ? 1 : 3;
+    if (symbol == 4 && line > 2) {
+        return 0;
+    }
+    for (int i = 0; i < reels; i++) {
+        const int reel = T8(g, TBL_LINES + 6 * line + 2 * i), row = T8(g, TBL_LINES + 6 * line + 2 * i + 1);
+        if (!g->reelStopped[reel]) {
+            if (partial) {
+                continue;
+            }
+            return 0;
+        }
+        if (Slot_ReelCell(g, reel, row) != cell) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int Slot_Judge(const SlotGame *g, int *line) {
+    for (int symbol = 1; symbol <= 6; symbol++) {
+        for (int l = 0; l < 5; l++) {
+            if (Slot_LineShows(g, symbol, l, 0)) {
+                if (line != NULL) {
+                    *line = l;
+                }
+                return symbol;
+            }
+        }
+    }
+    return 0;
+}
+
+// With the reels stopped so far: could the drawn symbol still win, and has anything else won already
+static int Slot_StopKeepsTarget(const SlotGame *g) {
+    if (g->symbol == 0 || g->symbol > 6) {
+        return 1;
+    }
+    for (int l = 0; l < 5; l++) {
+        if (Slot_LineShows(g, g->symbol, l, 1)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int Slot_StopAvoidsOthers(const SlotGame *g) {
+    for (int symbol = 1; symbol <= 6; symbol++) {
+        if (symbol == g->symbol) {
+            continue;
+        }
+        for (int l = 0; l < 5; l++) {
+            // A complete line, or berries on reel 1 (which win on their own)
+            const int complete = symbol == 4 ? g->reelStopped[0] : (g->reelStopped[0] && g->reelStopped[1] && g->reelStopped[2]);
+            if (complete && Slot_LineShows(g, symbol, l, 0)) {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+int Slot_ChooseStop(SlotGame *g, int reel, int pressed) {
+    int fallback = -1;
+    g->reelStopped[reel] = 1;
+    for (int slip = 0; slip <= 4; slip++) {
+        int index = (pressed - slip) % SLOT_REEL_LENGTH;
+        if (index < 0) {
+            index += SLOT_REEL_LENGTH;
+        }
+        g->reelStop[reel] = (uint8_t)index;
+        if (!Slot_StopAvoidsOthers(g)) {
+            continue;
+        }
+        if (Slot_StopKeepsTarget(g)) {
+            return index;
+        }
+        if (fallback < 0) {
+            fallback = index;
+        }
+    }
+    if (fallback < 0) {
+        fallback = ((pressed % SLOT_REEL_LENGTH) + SLOT_REEL_LENGTH) % SLOT_REEL_LENGTH;
+    }
+    g->reelStop[reel] = (uint8_t)fallback;
+    return fallback;
+}
+
+int Slot_WinPayout(const SlotGame *g, uint8_t symbol) {
+    if (symbol > 6) {
+        return 0;
+    }
+    int coins = T8(g, TBL_PAYOUT + symbol);
+    if (Slot_IsJackpotSymbol(symbol)) {
+        coins += g->jackpot[symbol - 5];
+    }
+    return coins;
 }

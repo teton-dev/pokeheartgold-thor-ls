@@ -59,6 +59,7 @@ enum TestOp {
     OP_SLOTS_IMPORT,
     OP_SLOTS_SETTING,
     OP_CASINO,
+    OP_COINS,
     OP_SHOT,
     OP_LOG,
     OP_EXIT,
@@ -345,6 +346,13 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         // slots on|off: Settings > Game Corner > Japanese Game Corner
         command->op = OP_SLOTS_SETTING;
         command->x = strcmp(words[1], "on") == 0;
+        return TRUE;
+    } else if (strcmp(words[0], "coins") == 0 && count >= 2) {
+        // coins N: once the player is free, the Coin Case holds N coins
+        command->op = OP_COINS;
+        command->x = atoi(words[1]);
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
     } else if (strcmp(words[0], "casino") == 0) {
         // casino: once the player is free, a Game Corner machine as the script starts it (the Japanese slot machine
@@ -747,6 +755,17 @@ static u16 Step(void) {
         case OP_SLOTS_SETTING:
             GameSettings_Get()->japaneseGameCorner = command->x;
             printf("[test] Japanese Game Corner %s\n", command->x ? "on" : "off");
+            Next();
+            continue;
+        case OP_COINS:
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free for the coins");
+                }
+                return 0;
+            }
+            *Save_PlayerData_GetCoinsAddr(FieldSystem_PortGet()->saveData) = (u16)command->x;
+            printf("[test] %d coins\n", command->x);
             Next();
             continue;
         case OP_CASINO:
