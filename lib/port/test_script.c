@@ -17,6 +17,9 @@
 #include "heap.h"
 #include "map_header.h"
 #include "bag.h"
+#include "font.h"
+#include "msgdata.h"
+#include "msgdata/msg.naix"
 #include "party.h"
 #include "player_avatar.h"
 #include "pokemon.h"
@@ -66,6 +69,7 @@ enum TestOp {
     OP_WARP,
     OP_SHOT,
     OP_LOG,
+    OP_TEXT_WIDTHS,
     OP_EXIT,
 };
 
@@ -472,6 +476,13 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->op = OP_SHOT;
         command->frames = strcmp(words[0], "stillshot") == 0;
         snprintf(command->text, sizeof(command->text), "%s", words[1]);
+        return TRUE;
+    } else if (strcmp(words[0], "textwidths") == 0 && count >= 3) {
+        // textwidths FILE MAX: every line of message bank FILE (files/msgdata/msg/msg_FILE_...) measured in the field's
+        // message font; prints the widest and fails if a line is wider than MAX pixels. Buffers (names, items) count 0.
+        command->op = OP_TEXT_WIDTHS;
+        command->x = atoi(words[1]);
+        command->y = atoi(words[2]);
         return TRUE;
     } else if (strcmp(words[0], "log") == 0 && rest != NULL) {
         command->op = OP_LOG;
@@ -1012,6 +1023,49 @@ static u16 Step(void) {
             sTest.pauseUntil = NowMs() + SHOT_PAUSE_MS;
             Next();
             return 0;
+        case OP_TEXT_WIDTHS: {
+            MsgData *msgData = NewMsgDataFromNarc(MSGDATA_LOAD_LAZY, NARC_msgdata_msg, command->x, HEAP_ID_FIELD1);
+            static u16 text[1024], line[1024];
+            u32 widest = 0, over = 0;
+            for (u32 row = 0; row < MsgDataGetCount(msgData); row++) {
+                ReadMsgDataIntoU16Array(msgData, row, text);
+                u32 n = 0, part = 0;
+                for (u32 i = 0;; i++) {
+                    const u16 c = text[i];
+                    if (c == EOS || c == CHAR_LF || c == 0x25BC || c == 0x25BD) {
+                        line[n] = EOS;
+                        const u32 width = n == 0 ? 0 : FontID_FlatArray_GetWidth(1, line, 0);
+                        widest = width > widest ? width : widest;
+                        if (width > (u32)command->y) {
+                            printf("[test] msg %d row %u line %u: %u px\n", command->x, row, part, width);
+                            over++;
+                        }
+                        if (c == EOS) {
+                            break;
+                        }
+                        n = 0;
+                        part++;
+                    } else if (c == 0xFFFE) {
+                        // A control code: copied whole (the width skips it)
+                        const u32 length = 3 + text[i + 2];
+                        for (u32 k = 0; k < length; k++) {
+                            line[n++] = text[i + k];
+                        }
+                        i += length - 1;
+                    } else {
+                        line[n++] = c;
+                    }
+                }
+            }
+            DestroyMsgData(msgData);
+            printf("[test] msg %d: widest line %u px, %u over %d\n", command->x, widest, over, command->y);
+            if (over > 0) {
+                Fail(command, "lines too wide");
+                return 0;
+            }
+            Next();
+            continue;
+        }
         case OP_LOG:
             printf("[test] %s\n", command->text);
             Next();

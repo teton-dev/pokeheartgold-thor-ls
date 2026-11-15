@@ -20,6 +20,7 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 | `slots_jp_maps.txt` | `new-game` | with the Japanese Game Corner on, Goldenrod's Game Corner door leads to the Japanese map; its coin clerk (English text) gives a Coin Case and 50 Coins; a machine's own script starts the slot machine (50 Coins shown), one spin, back on the map | ~2 min |
 | `slots_jp_celadon.txt` | `new-game` | the same in Celadon: the door to the Japanese map, the clerk's Coin Case, and the clerk selling Coins once the player has one | ~2 min |
 | `slots_jp_prizes.txt` | `new-game` | Goldenrod's Japanese prize counters: buys Substitute and the Silk Scarf, then Abra, through their English menus, and checks the coins, bag and party | ~2 min |
+| `slots_jp_text.txt` | `new-game` | the Japanese Game Corner's English text: every line measured against the message box, then the slot fan's long talk on screen | ~1 min |
 | `gen5_wild.txt` | `new-game` | a Cyndaquil given, then a wild Rattata in BW2's engine (as the settings' button starts it): its command and move menus, RUN, back on the overworld with the party as the battle left it (`-Dpokebw2` builds, after `gen5_rom.txt`) | ~1 min |
 | `gen5_trainer.txt` | `new-game` | a level 50 Cyndaquil against a Team Rocket Grunt in BW2's engine (Rocket's arena, HGSS's Grunt sprite), A mashed until it is won | ~5 min |
 | `gen5_rival.txt` | `new-game` | out to New Bark Town, then Silver (trainer 1) in BW2's engine, in the grass field with a dirt path (ArenaFromSetup's town case), A mashed until it is won | ~5 min |
@@ -76,6 +77,7 @@ frame by frame, so a script does the same every time.
 | `warp MAP X Z` | once the player is free, a warp there as the script command `Warp` does, facing up |
 | `coins N` | once the player is free, the Coin Case holds N coins |
 | `check coins N`, `check party N`, `check item ITEM N` | once the player is free, fails unless the Coin Case holds N coins, the party has N Pokémon, or the bag holds N of item ITEM |
+| `textwidths FILE MAX` | every line of message bank FILE measured in the field's message font; prints the widest and fails if one is wider than MAX pixels (216 fills the field's message box) |
 | `casino [bonus]` | once the player is free, a Game Corner machine as its script runs it (fade out, the Japanese slot machine, the overworld back); fails unless `slots on` and imported; with `bonus` the machine starts in a bonus game (15 spins) |
 | `trainer ID [ID2]` | once the player is free, a battle against trainer ID (and ID2: two trainers; ID twice: its double battle), as a script starts it; in BW2's engine when the setting is on (`gen5 on`; `-Dpokebw2` builds) |
 | `gen5 on\|off` | Settings > Gen 5 battles > Gen 5 battles |
