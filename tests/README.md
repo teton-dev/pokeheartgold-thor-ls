@@ -69,6 +69,7 @@ frame by frame, so a script does the same every time.
 | `wild SPECIES LEVEL [gen5]` | once the player is free, a wild battle as tall grass starts it; with `gen5` in BW2's engine, else as the setting says (`-Dpokebw2` builds) |
 | `slots-import` | imports the Japanese HeartGold or SoulSilver ROM in `POKEHEARTGOLD_SLOTS_ROM` (the harness's `SLOTS_ROM`) and waits; fails if it is refused |
 | `slots on\|off` | Settings > Game Corner > Japanese Game Corner |
+| `coins N` | once the player is free, the Coin Case holds N coins |
 | `casino` | once the player is free, a Game Corner machine as its script runs it (fade out, the Japanese slot machine, the overworld back); fails unless `slots on` and imported |
 | `trainer ID [ID2]` | once the player is free, a battle against trainer ID (and ID2: two trainers; ID twice: its double battle), as a script starts it; in BW2's engine when the setting is on (`gen5 on`; `-Dpokebw2` builds) |
 | `gen5 on\|off` | Settings > Gen 5 battles > Gen 5 battles |

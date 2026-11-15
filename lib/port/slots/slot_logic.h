@@ -31,7 +31,10 @@ typedef struct SlotGame {
     uint32_t coins; // cap 50000
     uint8_t type; // 0 to 3: which odds table (lucky machines are 1 to 3)
     uint8_t bet; // 1 or 3
-    uint8_t betIndex; // 0 to 2
+    uint8_t betIndex; // JP +0x39: the machine's mode, 0 to 2 (the odds tables' row), which the payout decision moves
+    uint8_t reelStop[3]; // each reel's strip index at row 0 (rows 1 to 3 are the window: top, middle, bottom)
+    uint8_t reelStopped[3];
+    uint8_t winSymbol, winLine; // the last spin's result: 0 none
     uint8_t machineId; // JP +0xA0: the bonus machine's Pokemon
     uint8_t symbol; // 0 to 6
     uint8_t outcome; // 3 = no payout
@@ -66,6 +69,18 @@ void Slot_DrawBonusSpin(SlotGame *g);
 int Slot_BonusRoll(SlotGame *g);
 // The hot/cold payout decision: sets g->outcome, returns the bonus level (JP 0x021E6EE0)
 int Slot_PayoutDecision(SlotGame *g);
+// The symbol (sprite cell, 0 to 5) a reel shows at a row (0 to 4)
+uint8_t Slot_ReelCell(const SlotGame *g, int reel, int row);
+// Where a reel stops when the player presses its stop at strip index pressed: up to 4 symbols further on (the reel
+// moves to lower indices), so that the drawn symbol lines up when it can and nothing else wins (JP 0x021E95A4 and
+// the functions after it do this with per-symbol rules not read yet; this follows the same aim)
+int Slot_ChooseStop(SlotGame *g, int reel, int pressed);
+// The result once the reels stand: the first of symbols 1 to 6 on one of the 5 lines (berries: on reel 1 of the
+// top, middle or bottom line), as JP 0x021E8E48 checks them; 0 for none. *line: the line
+int Slot_Judge(const SlotGame *g, int *line);
+// Coins for a win in the base game (JP 0x021E7198): the table, plus the jackpot counter for symbols 5 and 6
+int Slot_WinPayout(const SlotGame *g, uint8_t symbol);
+
 // Coins for a winning symbol (the JP's table {0, 0, 15, 10, 2, 100, 100}) at a bet
 int Slot_SymbolPayout(uint8_t symbol, uint8_t bet);
 // Add coins, capped
