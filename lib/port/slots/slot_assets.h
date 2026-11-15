@@ -29,6 +29,10 @@ SlotBlock SlotGfx_Palette(SlotBlock file);
 SlotBlock SlotGfx_Tiles(SlotBlock file);
 SlotBlock SlotGfx_Screen(SlotBlock file);
 
+// A sprite cell (NCER) as the reels use them: a 32x16 object over a 32x8 one, i.e. 4x3 tiles from firstTile on, in
+// palette bank pal. 0 if the cell isn't that shape
+int SlotGfx_ReelCell(SlotBlock ncer, unsigned cell, uint16_t *firstTile, uint8_t *pal);
+
 // The whole of a file (ov77.bin), malloc'd; NULL on failure
 uint8_t *SlotAssets_ReadFile(const char *dir, const char *name, uint32_t *size);
 

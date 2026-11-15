@@ -133,3 +133,33 @@ SlotBlock SlotGfx_Screen(SlotBlock file) {
     }
     return out;
 }
+
+int SlotGfx_ReelCell(SlotBlock ncer, unsigned cell, uint16_t *firstTile, uint8_t *pal) {
+    uint32_t n;
+    const uint8_t *k = Section(ncer, "KBEC", &n);
+    if (k == NULL || n < 12) {
+        return 0;
+    }
+    unsigned count = k[0] | k[1] << 8, extended = k[2] | k[3] << 8;
+    uint32_t tableOffset = R32(k + 4), entrySize = extended == 1 ? 16 : 8;
+    if (cell >= count || tableOffset + count * entrySize > n) {
+        return 0;
+    }
+    const uint8_t *entry = k + tableOffset + cell * entrySize;
+    unsigned objCount = entry[0] | entry[1] << 8;
+    uint32_t oam = tableOffset + count * entrySize + R32(entry + 4);
+    if (objCount != 2 || oam + 12 > n) {
+        return 0;
+    }
+    const uint8_t *o = k + oam;
+    uint16_t a0 = o[0] | o[1] << 8, a1 = o[2] | o[3] << 8, a2 = o[4] | o[5] << 8;
+    uint16_t b0 = o[6] | o[7] << 8, b1 = o[8] | o[9] << 8, b2 = o[10] | o[11] << 8;
+    // 32x16 (shape 1, size 2) then 32x8 (shape 1, size 1), 8 tiles further on, same palette
+    if ((a0 >> 14) != 1 || (a1 >> 14) != 2 || (b0 >> 14) != 1 || (b1 >> 14) != 1
+        || (b2 & 0x3FF) != (a2 & 0x3FF) + 8 || (b2 >> 12) != (a2 >> 12)) {
+        return 0;
+    }
+    *firstTile = a2 & 0x3FF;
+    *pal = (uint8_t)(a2 >> 12);
+    return 1;
+}
