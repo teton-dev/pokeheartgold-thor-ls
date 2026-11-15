@@ -54,7 +54,19 @@ typedef struct SlotAppData {
     int nextStop; // the reel A stops next
     SlotGame game;
     BOOL freeSpin; // after a Replay
+    u32 shownCredit, shownPayout; // what the face's digits show (the credit counts up to the coins after a win)
+    u32 payout; // the last win
 } SlotAppData;
+
+// The face's 7-segment digits: glyphs of its own tiles (a/1/2/7 file 24 lays them out), 8x16, the top half tile
+// 1 + glyph and the bottom 0x21 + glyph; glyph 0 is blank, 1 a minus, 2 to 11 the digits. CREDIT and PAYOUT have 5
+// cells each on tile rows 18 and 19
+#define DIGIT_ROW 18
+#define DIGIT_COUNT 5
+#define CREDIT_COLUMN 10
+#define PAYOUT_COLUMN 23
+
+static void SlotApp_UpdateDigits(SlotAppData *work, BOOL force);
 
 static u32 sSlotLuck; // SlotLuckiness's value for the machine launched (the odds tables' type)
 
@@ -233,6 +245,8 @@ static BOOL SlotApp_Create(OverlayManager *man) {
     SlotApp_InitLayer(work, GF_BG_LYR_SUB_0, GX_BG_SCRBASE_0x0000, GX_BG_CHARBASE_0x04000, 1);
     SlotApp_ShowScreen(work, GF_BG_LYR_MAIN_0, GF_PAL_LOCATION_MAIN_BG, GFX_FACE_PAL, GFX_FACE_TILES, GFX_FACE_SCREEN);
     SlotApp_ShowScreen(work, GF_BG_LYR_SUB_0, GF_PAL_LOCATION_SUB_BG, GFX_FRAME_PAL, GFX_FRAME_TILES, GFX_FRAME_SCREEN);
+    work->shownCredit = work->game.coins;
+    SlotApp_UpdateDigits(work, TRUE);
     if (SlotApp_LoadReelGfx(work)) {
         for (int i = 0; i < REEL_COUNT; i++) {
             SlotApp_DrawReel(work, i);
@@ -268,6 +282,39 @@ static BOOL SlotApp_Init(OverlayManager *man, int *state) {
     return FALSE;
 }
 
+static void SlotApp_DrawNumber(SlotAppData *work, u8 column, u32 value) {
+    u16 map[2][DIGIT_COUNT];
+    for (int i = DIGIT_COUNT - 1; i >= 0; i--) {
+        // Leading cells blank; a 0 shows as one 0
+        const int glyph = (value > 0 || i == DIGIT_COUNT - 1) ? 2 + (int)(value % 10) : 0;
+        map[0][i] = (u16)(1 + glyph);
+        map[1][i] = (u16)(0x21 + glyph);
+        value /= 10;
+    }
+    CopyToBgTilemapRect(work->bgConfig, GF_BG_LYR_MAIN_0, column, DIGIT_ROW, DIGIT_COUNT, 2, map, 0, 0, DIGIT_COUNT, 2);
+    ScheduleBgTilemapBufferTransfer(work->bgConfig, GF_BG_LYR_MAIN_0);
+}
+
+// The digits: the credit follows the coins (down at once, up a coin a frame, as the JP game counts a win in)
+static void SlotApp_UpdateDigits(SlotAppData *work, BOOL force) {
+    const u32 coins = work->game.coins;
+    BOOL changed = force;
+    if (work->shownCredit > coins) {
+        work->shownCredit = coins;
+        changed = TRUE;
+    } else if (work->shownCredit < coins) {
+        work->shownCredit++;
+        changed = TRUE;
+    }
+    if (changed) {
+        SlotApp_DrawNumber(work, CREDIT_COLUMN, work->shownCredit);
+    }
+    if (force || work->shownPayout != work->payout) {
+        work->shownPayout = work->payout;
+        SlotApp_DrawNumber(work, PAYOUT_COLUMN, work->shownPayout);
+    }
+}
+
 // A spin: 3 coins (or the Replay's free spin), the draw, the reels started
 static BOOL SlotApp_StartSpin(SlotAppData *work) {
     SlotGame *g = &work->game;
@@ -279,6 +326,7 @@ static BOOL SlotApp_StartSpin(SlotAppData *work) {
         *work->coins = (u16)g->coins;
     }
     work->freeSpin = FALSE;
+    work->payout = 0;
     g->flags = 0;
     Slot_DrawSymbol(g);
     for (int i = 0; i < REEL_COUNT; i++) {
@@ -309,6 +357,7 @@ static void SlotApp_EndSpin(SlotAppData *work) {
         work->freeSpin = TRUE; // Replay
     } else if (win > 1) {
         paid = Slot_WinPayout(g, (uint8_t)win);
+        work->payout = (u32)paid;
         Slot_AddCoins(g, (uint32_t)paid);
         *work->coins = (u16)g->coins;
     } else {
@@ -324,6 +373,7 @@ static void SlotApp_EndSpin(SlotAppData *work) {
 
 static BOOL SlotApp_Main(OverlayManager *man, int *state) {
     SlotAppData *work = OverlayManager_GetData(man);
+    SlotApp_UpdateDigits(work, FALSE);
     BOOL spinning = FALSE;
     for (int i = 0; i < REEL_COUNT; i++) {
         spinning |= work->reels[i].spinning;
