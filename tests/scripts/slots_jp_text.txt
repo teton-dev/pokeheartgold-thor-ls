@@ -1,0 +1,68 @@
+# The Japanese Game Corner's English text: every line of the translated banks (599 Goldenrod, 508 Celadon) measured
+# in the field's message font against the message box (216 px: the US game's widest lines, bank 600's, are that wide;
+# names and items in the lines count 0). Then the slot fan in Goldenrod (13, 8), talked to from below,, whose long talk scrolls over many
+# boxes, read on screen. From new-game.
+slots-import
+mash A until free
+slots on
+textwidths 599 216
+textwidths 508 216
+warp 76 351 362
+until free timeout 3000
+walk UP 2
+until map 183 timeout 3000
+walk UP 4
+walk RIGHT 6
+walk UP 3
+wait 30
+press UP
+wait 30
+press A
+mash A until menu timeout 1200
+wait 10
+stillshot fan_ask
+press A
+wait 120
+stillshot fan_31
+press A
+wait 120
+stillshot fan_31_00
+press A
+wait 120
+stillshot fan_31_01
+press A
+wait 120
+stillshot fan_31_02
+press A
+wait 120
+stillshot fan_31_03
+press A
+wait 120
+stillshot fan_31_04
+press A
+wait 120
+stillshot fan_31_05
+press A
+wait 120
+stillshot fan_31_06
+press A
+wait 120
+stillshot fan_31_07
+press A
+wait 120
+stillshot fan_31_08
+press A
+wait 120
+stillshot fan_31_09
+press A
+wait 120
+stillshot fan_31_10
+press A
+wait 120
+stillshot fan_31_11
+mash A until menu timeout 2400
+wait 10
+stillshot fan_ask_more
+press B
+mash A until free timeout 1200
+exit 0
