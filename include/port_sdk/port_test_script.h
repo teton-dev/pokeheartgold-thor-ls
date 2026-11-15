@@ -21,6 +21,7 @@ enum TestScriptEvent {
     TEST_EVENT_NAMING_SCREEN, // A naming screen opened
     TEST_EVENT_BATTLE, // A battle started
     TEST_EVENT_BATTLE_COMMAND, // A battle asks the player what to do
+    TEST_EVENT_SLOTS, // The Japanese slot machine's reels all stand (lib/port/slots/slot_app.c)
     TEST_EVENT_COUNT,
 };
 

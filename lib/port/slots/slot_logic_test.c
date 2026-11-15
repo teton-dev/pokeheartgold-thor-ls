@@ -31,6 +31,26 @@ int main(int argc, char **v) {
         for (int w = 0; w < 7; w++) printf(" %6d", got[s][w]);
         printf("\n");
     }
+    // Bonus games: random presses, the assisted reels lining up the picture
+    long bonusGames = 0, bonusWins = 0, bonusSpins = 0, bonusCoins = 0;
+    for (int game = 0; game < 2000; game++) {
+        Slot_StartBonus(&g, game % 2 ? 6 : 5);
+        bonusGames++;
+        for (int spin = 0; spin < g.spinLimit; spin++) {
+            g.spin = (uint8_t)spin;
+            Slot_DrawBonusSpin(&g);
+            for (int r = 0; r < 3; r++) Slot_ChooseBonusStop(&g, r, rand() % SLOT_REEL_LENGTH);
+            uint32_t before = g.coins;
+            g.coins = 1000;
+            bonusWins += Slot_JudgeBonus(&g);
+            bonusCoins += g.coins - 1000;
+            g.coins = before;
+            bonusSpins++;
+        }
+        Slot_EndBonus(&g);
+    }
+    printf("bonus: %ld games, %ld spins, %ld pictures lined up (%.1f%%), %.1f coins a game for %.1f bet\n", bonusGames,
+        bonusSpins, bonusWins, 100.0 * bonusWins / bonusSpins, (double)bonusCoins / bonusGames, (double)bonusSpins / bonusGames);
     printf("return: %.1f%% (paid %ld for %ld bet; replays not counted as free)\n", 100.0 * paid / bet, paid, bet);
     return 0;
 }
