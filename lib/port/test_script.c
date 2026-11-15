@@ -16,6 +16,7 @@
 #include "overlay_01.h"
 #include "heap.h"
 #include "map_header.h"
+#include "bag.h"
 #include "party.h"
 #include "player_avatar.h"
 #include "pokemon.h"
@@ -61,6 +62,7 @@ enum TestOp {
     OP_SLOTS_SETTING,
     OP_CASINO,
     OP_COINS,
+    OP_CHECK,
     OP_WARP,
     OP_SHOT,
     OP_LOG,
@@ -382,6 +384,16 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
+    } else if (strcmp(words[0], "check") == 0 && count >= 3) {
+        // check coins N, check party N, check item ITEM N: once the player is free, the test fails unless the Coin
+        // Case holds N coins, the party has N Pokémon, or the bag holds N of item ITEM (include/constants/items.h)
+        command->op = OP_CHECK;
+        command->y = strcmp(words[1], "coins") == 0 ? 0 : strcmp(words[1], "party") == 0 ? 1 : 2;
+        command->frames = command->y == 2 ? atoi(words[2]) : 0;
+        command->x = atoi(words[command->y == 2 ? 3 : 2]);
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        return command->y != 2 || count >= 4;
     } else if (strcmp(words[0], "casino") == 0) {
         // casino [bonus]: (with bonus, the machine starts in a bonus game)
         command->x = count >= 2 && strcmp(words[1], "bonus") == 0;
@@ -813,6 +825,28 @@ static u16 Step(void) {
             printf("[test] %d coins\n", command->x);
             Next();
             continue;
+        case OP_CHECK: {
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free for the check");
+                }
+                return 0;
+            }
+            SaveData *saveData = FieldSystem_PortGet()->saveData;
+            static const char *const kWhat[] = { "coins", "Pokémon in the party", "of the item" };
+            int value = command->y == 0 ? *Save_PlayerData_GetCoinsAddr(saveData)
+                : command->y == 1       ? Party_GetCount(SaveArray_Party_Get(saveData))
+                                        : Bag_GetQuantity(Save_Bag_Get(saveData), (u16)command->frames, HEAP_ID_FIELD1);
+            printf("[test] %d %s\n", value, kWhat[command->y]);
+            if (value != command->x) {
+                char message[96];
+                snprintf(message, sizeof(message), "%d %s, not %d", value, kWhat[command->y], command->x);
+                Fail(command, message);
+                return 0;
+            }
+            Next();
+            continue;
+        }
         case OP_CASINO:
             if (!ConditionMet(command)) {
                 if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {

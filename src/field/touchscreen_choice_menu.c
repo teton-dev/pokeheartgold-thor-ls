@@ -28,6 +28,9 @@
 #include "sound_playback.h"
 #include "sprite.h"
 #include "sprite_resource.h"
+#ifdef SDK_PORT
+#include "port_test_script.h"
+#endif
 #include "sprite_resource_header.h"
 #include "sprite_transfer.h"
 #include "sys_task.h"
@@ -364,6 +367,9 @@ BOOL TouchscreenChoiceMenu_State_ShowYesNo(TouchscreenChoiceMenuData *data) {
     TouchscreenChoiceMenu_SetYesNoCursorPos(data, data->selection);
     Sprite_SetAnimCtrlSeq(data->cursorSprite, 1);
     data->state = TOUCHSCREEN_CHOICE_MENU_STATE_YES_NO_INPUT;
+#ifdef SDK_PORT
+    TestScript_OnEvent(TEST_EVENT_MENU); // the bottom screen's yes/no or list takes input from now on
+#endif
     return FALSE;
 }
 
@@ -406,6 +412,9 @@ BOOL TouchscreenChoiceMenu_State_Idle(TouchscreenChoiceMenuData *data) {
 
 BOOL TouchscreenChoiceMenu_State_ShowList(TouchscreenChoiceMenuData *data) {
     data->state = TOUCHSCREEN_CHOICE_MENU_STATE_LIST_INPUT;
+#ifdef SDK_PORT
+    TestScript_OnEvent(TEST_EVENT_MENU); // the bottom screen's yes/no or list takes input from now on
+#endif
     data->selection = 0;
     TouchscreenChoiceMenu_ShowList(data);
     Sprite_SetDrawFlag(data->cursorSprite, TRUE);

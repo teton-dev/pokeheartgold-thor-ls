@@ -17,7 +17,7 @@ extern "C" {
 
 // What the scripts can wait for, besides the player being free on the overworld
 enum TestScriptEvent {
-    TEST_EVENT_MENU, // A menu or list opened (ListMenuInit, Create2dMenu, YesNoPrompt_Create)
+    TEST_EVENT_MENU, // A menu or list opened (ListMenuInit, Create2dMenu, YesNoPrompt_Create, the touchscreen choice menus)
     TEST_EVENT_NAMING_SCREEN, // A naming screen opened
     TEST_EVENT_BATTLE, // A battle started
     TEST_EVENT_BATTLE_COMMAND, // A battle asks the player what to do

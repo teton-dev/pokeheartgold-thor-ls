@@ -1,0 +1,93 @@
+# The Japanese Game Corner's prize counters (Goldenrod): the TM and held item counter at (19, 4) and the Pokémon
+# counter at (19, 6), with their English menus. Buys Substitute (TM90, 2,000 Coins), the Silk Scarf (1,000) and Abra
+# (200) with 20,000 Coins, and checks that 16,800 are left, the two items are in the bag and Abra in the party.
+# From new-game (no Coin Case: the coin clerk gives one, and no Pokémon).
+slots-import
+mash A until free
+slots on
+warp 76 351 362
+until free timeout 3000
+walk UP 2
+until map 183 timeout 3000
+walk UP 11
+press A
+wait 60
+mash A until free timeout 3000
+coins 20000
+check party 0
+# From the clerk's counter at (7, 5), along the row above the machines, to (17, 4), across the counter from the first
+# prize woman
+walk RIGHT 10
+walk UP 1
+wait 30
+press RIGHT
+wait 30
+press A
+mash A until menu timeout 1200
+wait 10
+stillshot prize_menu
+# TMs > Substitute > yes
+press A
+until menu timeout 600
+wait 10
+stillshot tm_menu
+press A
+mash A until menu timeout 1200
+wait 10
+stillshot tm_confirm
+press A
+mash A until menu timeout 1200
+wait 10
+stillshot tm_menu_again
+# Back to the first menu, then Held items > Silk Scarf > yes
+press B
+until menu timeout 600
+wait 10
+press DOWN
+wait 10
+press A
+until menu timeout 600
+wait 10
+stillshot item_menu
+press A
+mash A until menu timeout 1200
+wait 10
+press A
+mash A until menu timeout 1200
+wait 10
+stillshot item_menu_again
+# Back out of both menus: she says goodbye
+press B
+until menu timeout 600
+wait 10
+press B
+wait 60
+stillshot goodbye
+mash A until free timeout 1200
+check coins 17000
+check item 417 1
+check item 251 1
+# The Pokémon counter at (19, 6), from (17, 6): Abra > yes
+walk DOWN 2
+wait 30
+press RIGHT
+wait 30
+press A
+mash A until menu timeout 1200
+wait 10
+stillshot mon_menu
+press A
+mash A until menu timeout 1200
+wait 10
+stillshot mon_confirm
+press A
+mash A until menu timeout 1200
+wait 10
+stillshot mon_menu_again
+press B
+wait 60
+mash A until free timeout 1200
+check coins 16800
+check party 1
+log slots prizes: ok
+exit 0

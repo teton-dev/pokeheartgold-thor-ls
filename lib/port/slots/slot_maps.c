@@ -40,7 +40,7 @@ void SlotMaps_RedirectWarps(WarpEvent *warps, u32 count) {
 
 // Written as UTF-8 with the message escapes: \n a new line, \r the next box, \f the box scrolled on, {YESNO} and
 // {CMD hhhh p...} the game's control codes (0xFFFE, code, parameter count, parameters), as the Japanese text has them
-// ({CMD 0103 0} the player's name, {CMD 0108 0} an item, {CMD 0100 1} a prize, {CMD 0112 1} a pocket).
+// ({CMD 0203 90} the text at x 90, {CMD 0103 0} the player's name, {CMD 0108 0} an item, {CMD 0100 1} a prize, {CMD 0112 1} a pocket).
 
 static const char *const sGoldenrodText[] = {
     /* 00 */ "Welcome!\nThis is the Game Corner!\r",
@@ -92,10 +92,10 @@ static const char *const sGoldenrodText[] = {
     /* 46 */ "Wide Lens\n1,000 Coins",
     /* 47 */ "Zoom Lens\n1,000 Coins",
     /* 48 */ "Metronome\n1,000 Coins",
-    /* 49 */ "Abra 200 Coins",
-    /* 50 */ "Ekans 700 Coins",
-    /* 51 */ "Dratini 2,100 Coins",
-    /* 52 */ "Sandshrew 700 Coins",
+    /* 49 */ "Abra{CMD 0203 90}200 Coins",
+    /* 50 */ "Ekans{CMD 0203 90}700 Coins",
+    /* 51 */ "Dratini{CMD 0203 90}2,100 Coins",
+    /* 52 */ "Sandshrew{CMD 0203 90}700 Coins",
     // The port's own: the clerk's Coin Case
     /* 53 */ "Hm? You don't have a Coin Case?\nThat won't do at all!\rHere, take this one.\nIt's on the house!\r",
     /* 54 */ "And here are 50 Coins\nto get you started!\rGood luck at the slots!",
