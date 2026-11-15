@@ -1,0 +1,13 @@
+# From new-game: a trainer's lines during a battle in BW2's engine, as HGSS's battle shows them. A level 100
+# Typhlosion with Swift first (it never misses: Falkner's birds use Sand-Attack) against Falkner (trainer 20), A
+# mashed: when his Pidgeotto, his last Pokemon, comes out he says his TRMSG_LAST_POKE line (the log's "says its line
+# 19"), then the battle is won.
+mash A until free
+give 157 100
+editor firstmove 0 129
+gen5 on
+trainer 20
+until battle timeout 600
+until command timeout 6000
+mash A until free timeout 30000
+exit

@@ -1,0 +1,10 @@
+# From new-game: losing a wild battle in BW2's engine (as the debug window and the test scripts start one). A level 2
+# Magikarp against a level 60 Rattata, A mashed: it faints, and the player whites out, back on the overworld (at home,
+# Mom's house) with the party healed, not stuck without one.
+mash A until free
+editor give 129 2
+wild 20 60 gen5
+until battle timeout 600
+mash A until free timeout 40000
+check party 1
+exit

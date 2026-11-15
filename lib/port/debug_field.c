@@ -411,17 +411,28 @@ BOOL DebugField_BattleTrainer(int trainerId) {
 typedef struct {
     int species;
     int level;
+    u32 winFlag;
 } WildStart;
 
 static BOOL Task_DebugWild(TaskManager *taskManager) {
     WildStart *start = TaskManager_GetEnvironment(taskManager);
     u32 *state = TaskManager_GetStatePtr(taskManager);
-    if (*state == 0) {
+    switch (*state) {
+    case 0:
         (*state)++;
-        SetupAndStartWildBattle(taskManager, start->species, start->level, NULL, TRUE, FALSE);
+        SetupAndStartWildBattle(taskManager, start->species, start->level, &start->winFlag, TRUE, FALSE);
         return FALSE;
+    case 1:
+        (*state)++;
+        // The encounter leaves a loss to its caller, as a script's wild battle does (it whites out)
+        if (!IsBattleResultWin(start->winFlag)) {
+            CallTask_Blackout(taskManager);
+            return FALSE;
+        }
+        return TRUE;
+    default:
+        return TRUE;
     }
-    return TRUE;
 }
 
 BOOL DebugField_WildBattle(int species, int level) {
@@ -432,6 +443,7 @@ BOOL DebugField_WildBattle(int species, int level) {
     static WildStart sStart;
     sStart.species = species;
     sStart.level = level;
+    sStart.winFlag = 0;
     FieldSystem_CreateTask(fieldSystem, Task_DebugWild, &sStart);
     printf("[debug] wild battle: species %d, level %d\n", species, level);
     return TRUE;

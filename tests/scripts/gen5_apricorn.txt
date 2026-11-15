@@ -1,0 +1,48 @@
+# From new-game: an Apricorn Ball in BW2's engine. A level 50 Smeargle with False Swipe and Spore, and three Level
+# Balls, against a wild level 2 Pidgey: False Swipe leaves it 1 HP, Spore puts it to sleep, and a Level Ball (in the
+# battle bag's Poke Balls, with its own name and icon) is then a sure catch. The Pidgey comes out in a Level Ball
+# (ball 18), not item 18's number, and two Level Balls are left.
+mash A until free
+editor give 235 50
+editor firstmove 0 206
+editor move 0 147
+editor dump
+editor item 493 3
+wild 16 2 gen5
+until battle timeout 600
+until command timeout 6000
+# False Swipe: FIGHT, the first move (touched: the pad's first press only shows the cursor)
+wait 60
+touch 128 95
+wait 60
+touch 64 57
+until command timeout 6000
+# Spore: FIGHT, the second move
+wait 60
+touch 128 95
+wait 60
+touch 191 57
+until command timeout 6000
+# BAG, POKE BALLS, the Level Ball, USE
+wait 60
+touch 40 180
+wait 60
+touch 192 48
+wait 60
+stillshot balls
+touch 64 33
+wait 60
+stillshot use
+touch 108 175
+wait 90
+stillshot thrown
+mash B until naming timeout 6000
+wait 90
+press START
+wait 30
+press A
+mash B until free timeout 6000
+check party 2
+editor ball 1 18
+check item 493 2
+exit

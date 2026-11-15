@@ -6,6 +6,12 @@
 
 #include "global.h"
 
+#include "field_system.h"
+#include "party.h"
+#include "pokemon.h"
+#include "save_arrays.h"
+#include "save_pokegear.h"
+
 #include "port_debug_field.h"
 #include "port_save_editor.h"
 #include "port_test_script.h"
@@ -39,6 +45,38 @@ static const char *Editor(char **words, int count) {
     SaveEdMon mon;
     const SaveEdRef ref = { SAVE_ED_PARTY, a };
 
+    if (strcmp(what, "almost") == 0) { // almost SLOT: one experience point short of its next level
+        Pokemon *mon = Party_GetMonByIndex(SaveArray_Party_Get(FieldSystem_PortGet()->saveData), a);
+        const int level = GetMonData(mon, MON_DATA_LEVEL, NULL);
+        u32 exp = GetMonExpBySpeciesAndLevel(GetMonData(mon, MON_DATA_SPECIES, NULL), level + 1) - 1;
+        SetMonData(mon, MON_DATA_EXPERIENCE, &exp);
+        CalcMonLevelAndStats(mon);
+        return (int)GetMonData(mon, MON_DATA_LEVEL, NULL) == level ? NULL : "the level changed";
+    }
+    if (strcmp(what, "species") == 0) { // species SLOT N: the party's Pokemon in SLOT is species N
+        SaveEd_GetMon(ref, &mon);
+        printf("[test] party %d: %s (species %d), level %d\n", a, mon.name, mon.species, mon.level);
+        return mon.species == b ? NULL : Failed("species %d, not %d", mon.species, b);
+    }
+    if (strcmp(what, "mom") == 0) { // mom MONEY: Mom's savings hold some, and the player has MONEY (a quarter of the
+                                     // prize went to Mom: the money before, plus the prize, less Mom's)
+        const u32 savings = PhoneCallPersistentState_MomSavings_BalanceAction(
+            SaveData_GetPhoneCallPersistentState(FieldSystem_PortGet()->saveData), MOMS_BALANCE_GET, 0);
+        SaveEdTrainer trainer;
+        SaveEd_GetTrainer(&trainer);
+        printf("[test] Mom's savings %u, the player's money %u\n", (unsigned)savings, (unsigned)trainer.money);
+        if (savings == 0) {
+            return "Mom saved nothing";
+        }
+        // The prize was 4/3 of what the player kept beyond MONEY... checked as HGSS splits it: Mom has a quarter
+        const u32 prize = trainer.money - (u32)a + savings;
+        return savings == prize / 4 ? NULL : Failed("Mom has %d of a prize of %d, not a quarter", (int)savings, (int)prize);
+    }
+    if (strcmp(what, "ball") == 0) { // ball SLOT N: the party's Pokemon in SLOT is in ball N (constants/balls.h)
+        SaveEd_GetMon(ref, &mon);
+        printf("[test] party %d: %s in ball %d, friendship %d\n", a, mon.name, mon.ball, mon.friendship);
+        return mon.ball == b ? NULL : Failed("ball %d, not %d", mon.ball, b);
+    }
     if (strcmp(what, "dump") == 0) {
         PrintParty();
         return NULL;
@@ -101,6 +139,11 @@ static const char *Editor(char **words, int count) {
         SaveEd_SetMove(ref, slot, (u16)b);
         SaveEd_GetMon(ref, &mon);
         return mon.moves[slot] == b && mon.pp[slot] > 0 ? NULL : Failed("move slot %d holds %d", slot, mon.moves[slot]);
+    }
+    if (strcmp(what, "firstmove") == 0) { // firstmove SLOT MOVE: its first move becomes MOVE (what mashing A uses)
+        SaveEd_SetMove(ref, 0, (u16)b);
+        SaveEd_GetMon(ref, &mon);
+        return mon.moves[0] == b ? NULL : Failed("its first move is %d, not %d", mon.moves[0], b);
     }
     if (strcmp(what, "learnable") == 0) { // learnable SLOT: its level-up and TM moves
         SaveEd_GetMon(ref, &mon);
