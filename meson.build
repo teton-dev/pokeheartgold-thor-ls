@@ -281,9 +281,9 @@ hgss_game = static_library('hgss_game',
 
 # The game's pages in libntr's settings screen: C++ (libntr's SIM::UI widgets, Dear ImGui), built apart from the game
 # code, whose include/assert.h would hide the C library's from ImGui's headers
-hgss_settings_ui_sources = files('lib/port/settings_pages.cpp')
+hgss_settings_ui_sources = files('lib/port/settings_pages.cpp', 'lib/port/slots/slots_rom.cpp', 'lib/port/slots/slots_rom_core.cpp')
 hgss_settings_ui_args = hgss_common_args + nitrosdk_defines
-hgss_settings_ui_includes = [include_directories('include/port_sdk')]
+hgss_settings_ui_includes = [include_directories('include/port_sdk', 'lib/port/slots')]
 if get_option('pokebw2') != ''
     # The Black 2 / White 2 ROM's import (the Platinum fork's src/port/gen5_rom.cpp)
     hgss_settings_ui_sources += files('lib/port/gen5_rom.cpp')

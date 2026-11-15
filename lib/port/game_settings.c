@@ -35,6 +35,8 @@ static int IniHandler(void *user, const char *section, const char *name, const c
         settings->drawEveryFrame = StringToBool(value);
     } else if (strcmp(name, "Gen5Battles") == 0) {
         settings->gen5Battles = StringToBool(value);
+    } else if (strcmp(name, "JapaneseGameCorner") == 0) {
+        settings->japaneseGameCorner = StringToBool(value);
     }
     return 1;
 }
@@ -47,6 +49,7 @@ GameSettings *GameSettings_Get(void) {
         sSettings.enable60fpsEverywhere = FALSE;
         sSettings.drawEveryFrame = FALSE;
         sSettings.gen5Battles = FALSE;
+        sSettings.japaneseGameCorner = FALSE;
         if (ini_parse(SIM_SettingsPath(SETTINGS_FILE), IniHandler, &sSettings) < 0) {
             GameSettings_Save();
         }
@@ -65,5 +68,6 @@ void GameSettings_Save(void) {
     fprintf(file, "60FpsEverywhere=%s\n", BoolToString(sSettings.enable60fpsEverywhere));
     fprintf(file, "DrawEveryFrame=%s\n", BoolToString(sSettings.drawEveryFrame));
     fprintf(file, "Gen5Battles=%s\n", BoolToString(sSettings.gen5Battles));
+    fprintf(file, "JapaneseGameCorner=%s\n", BoolToString(sSettings.japaneseGameCorner));
     fclose(file);
 }

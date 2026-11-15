@@ -2,8 +2,12 @@
 // settings (its src/port/gui_settings.cpp)
 #include <simulator/sim_settings.hpp>
 #include <simulator/sim_ui.hpp>
+#include <simulator/sim_files.h>
+
+#include <string>
 
 #include "port_game_settings.h"
+#include "port_slots_rom.h"
 #ifdef GEN5_BATTLES
 #include <simulator/sim_files.h>
 
@@ -94,10 +98,55 @@ void DrawGen5() {
 }
 #endif
 
+// --- The Japanese Game Corner: a Japanese HeartGold or SoulSilver ROM -------------------------------------------
+
+void OnSlotsRomPicked(const char *path, void *) {
+    if (path != nullptr) {
+#ifdef SDK_BUILD_ANDROID
+        SlotsRom_Import(path, TRUE);
+#else
+        SlotsRom_Import(path, FALSE);
+#endif
+    }
+}
+
+void DrawGameCorner() {
+    SlotsRom_Update();
+    const enum SlotsRomState state = SlotsRom_State();
+    const char *game = SlotsRom_GameName();
+    GameSettings *settings = GameSettings_Get();
+    Section("Game Corner");
+    SettingToggle("Japanese Game Corner", "The Japanese games' slot machines in the Game Corners, in place of Voltorb "
+        "Flip. Needs the Japanese ROM below.", &settings->japaneseGameCorner, game != nullptr);
+    Section("Japanese HeartGold or SoulSilver");
+    if (game != nullptr) {
+        std::string title = std::string("Pokemon ") + game + " (Japan)";
+        Card(title.c_str(), "Its slot machine files are in the app's folder (under 1 MB).", true);
+    }
+    if (state == SLOTS_ROM_IMPORTING) {
+        Status(SlotsRom_Status());
+    } else if (state == SLOTS_ROM_FAILED) {
+        Status(SlotsRom_Status(), true);
+    }
+    const bool busy = state == SLOTS_ROM_IMPORTING || SIM_Files_IsBusy() != FALSE;
+    if (Button(game == nullptr ? "Add the Japanese ROM" : "Replace it",
+            "Your own dump of Pokemon HeartGold or SoulSilver (Japan): the slot machine's graphics and rules come "
+            "from it. Only those files are kept; the ROM isn't.",
+            false, !busy)) {
+        SIM_Files_PickToOpen("HeartGold or SoulSilver, Japan (.nds)", ".nds,.*", OnSlotsRomPicked, nullptr);
+    }
+    if (game != nullptr && Button("Remove it", "Deletes the extracted files.", false, !busy)) {
+        SlotsRom_Remove();
+        settings->japaneseGameCorner = FALSE;
+        GameSettings_Save();
+    }
+}
+
 } // namespace
 
 void SIM_Prj_SettingsPages() {
     SIM::Settings::AddPage("Gameplay", "60 FPS", DrawGameplay, 30);
+    SIM::Settings::AddPage("Game Corner", "The Japanese slot machines, from your own ROM", DrawGameCorner, 36);
 #ifdef GEN5_BATTLES
     SIM::Settings::AddPage("Gen 5 battles", "Black 2 and White 2's battles, from your own ROM", DrawGen5, 35);
 #endif
