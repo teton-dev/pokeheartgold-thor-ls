@@ -214,6 +214,7 @@ hgss_lib_c = files(
 # Port-only replacements for what the DS build links from MSL, the mwcc runtime and
 # lib/dsprot (lib/port/ is not part of the make build)
 hgss_port_lib_c = files(
+    'lib/port/debug_field.c',
     'lib/port/dsprot_port.c',
     'lib/port/frame_rate.c',
     'lib/port/game_settings.c',
@@ -224,6 +225,7 @@ hgss_port_lib_c = files(
     'lib/port/msl_runtime.c',
     'lib/port/nuzlocke_heartgold.c',
     'lib/port/nuzlocke_mode.c',
+    'lib/port/save_editor.c',
     'lib/port/save_migrate_v1.c',
     'lib/port/slots/slot_app.c',
     'lib/port/slots/slot_assets.c',
@@ -231,6 +233,7 @@ hgss_port_lib_c = files(
     'lib/port/slots/slot_maps.c',
     'lib/port/stats_upload_data.c',
     'lib/port/test_crash.c',
+    'lib/port/test_editor.c',
     'lib/port/test_script.c',
     'lib/port/widescreen.c',
 )
@@ -286,7 +289,8 @@ hgss_game = static_library('hgss_game',
 
 # The game's pages in libntr's settings screen: C++ (libntr's SIM::UI widgets, Dear ImGui), built apart from the game
 # code, whose include/assert.h would hide the C library's from ImGui's headers
-hgss_settings_ui_sources = files('lib/port/settings_pages.cpp', 'lib/port/slots/slots_rom.cpp', 'lib/port/slots/slots_rom_core.cpp')
+hgss_settings_ui_sources = files('lib/port/settings_pages.cpp', 'lib/port/save_editor_gui.cpp', 'lib/port/debug_window.cpp',
+    'lib/port/slots/slots_rom.cpp', 'lib/port/slots/slots_rom_core.cpp')
 hgss_settings_ui_args = hgss_common_args + nitrosdk_defines
 hgss_settings_ui_includes = [include_directories('include/port_sdk', 'lib/port/slots')]
 if get_option('pokebw2') != ''

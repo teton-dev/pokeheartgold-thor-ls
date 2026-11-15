@@ -1,0 +1,40 @@
+# The debug window (libntr's developer windows > Application) as its buttons call it: on Route 30, the trainers on
+# the map; Go to the first puts the player in front of it, and it challenges the player as in the game (a stillshot;
+# HGSS's engine, A mashed until it's won, and it's marked beaten); Battle on the second, then it's unmarked; Youngster
+# Joey (trainer 8) by number in BW2's engine; a wild battle; a warp to Goldenrod City. From new-game, with a level 50
+# Cyndaquil from the save editor.
+mash A until free
+editor give 155 50
+warp 34 553 340
+until free timeout 3000
+debug trainers 2
+debug goto 0
+wait 60
+stillshot trainer
+mash A until battle timeout 3000
+mash A until free timeout 30000
+debug beaten 0 1
+debug battle 1
+until battle timeout 600
+mash A until free timeout 30000
+debug beaten 1 1
+debug unbeat 1
+debug beaten 1 0
+gen5 on
+debug trainer 8
+until battle timeout 600
+until command timeout 6000
+stillshot gen5
+mash A until free timeout 30000
+gen5 off
+debug wild 19 5
+until battle timeout 600
+mash A until free timeout 30000
+debug towns
+debug town 5
+until free timeout 3000
+wait 30
+stillshot goldenrod
+debug map 76
+debug trainers 0
+exit
