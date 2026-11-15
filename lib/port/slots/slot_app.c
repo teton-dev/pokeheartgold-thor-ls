@@ -1,7 +1,9 @@
 // The Japanese Game Corner's slot machine (overlay 77 of the JP HeartGold/SoulSilver), rewritten as an app of the
-// port. This is the skeleton: it shows the machine's two screens from the imported files; the rules are in
-// slot_logic.c and the reels, input and sound come next.
+// port. So far: the machine's two screens from the imported files and the three reels, which A spins and stops
+// one by one (B leaves); the rules are in slot_logic.c and come next, with the coins, sound and text.
 #include "port_slot_app.h"
+
+#include <stdlib.h>
 
 #include "global.h"
 #include "bg_window.h"
@@ -12,13 +14,37 @@
 #include "port_slots_rom.h"
 #include "screen_fade.h"
 #include "slot_assets.h"
+#include "slot_logic.h"
 #include "system.h"
+
+// The reels: each one is a BG layer of its own (main 1 to 3) behind the face (main 0), whose reel windows are
+// transparent. The JP game draws them as sprites (cells of a/1/2/7 file 6) at x = 88, 128, 168 and rows 24 px apart;
+// here the same cells' tiles are written into the layer's tilemap and the layer scrolls.
+#define REEL_COUNT 3
+#define REEL_SYMBOL_HEIGHT 24
+#define REEL_TURN (SLOT_REEL_LENGTH * REEL_SYMBOL_HEIGHT)
+#define REEL_ROWS 6 // symbols written per reel: the 3 in the window and those half seen above and below
+#define REEL_SPEED 8 // pixels a frame (a divisor of 24, so a stop lands on a symbol)
+#define REEL_CELLS 36
+#define REEL_PAL_BANK 9 // the symbols' palette banks 0 to 6 go to the main BG's 9 to 15 (the face uses 0 to 8)
+
+typedef struct SlotReel {
+    int pos; // pixels along the strip, 0 to REEL_TURN - 1; going down the strip, the symbols move down
+    BOOL spinning;
+    BOOL stopping;
+} SlotReel;
 
 typedef struct SlotAppData {
     enum HeapID heapID;
     BgConfig *bgConfig;
     SlotNarc gfx;
     u16 *coins;
+    uint8_t *overlay;
+    SlotTables tables;
+    u16 cellTile[REEL_CELLS];
+    u8 cellPal[REEL_CELLS];
+    SlotReel reels[REEL_COUNT];
+    int nextStop; // the reel A stops next
 } SlotAppData;
 
 static const struct GraphicsModes sSlotModes = {
@@ -49,7 +75,12 @@ enum {
     GFX_FRAME_PAL = 8,
     GFX_FRAME_TILES = 9,
     GFX_FRAME_SCREEN = 10,
+    GFX_REEL_PAL = 4, // the reel symbols' sprite set: palette, tiles, cells
+    GFX_REEL_TILES = 5,
+    GFX_REEL_CELLS = 6,
 };
+
+static const u8 sReelLayers[REEL_COUNT] = { GF_BG_LYR_MAIN_1, GF_BG_LYR_MAIN_2, GF_BG_LYR_MAIN_3 };
 
 BOOL SlotApp_IsEnabled(void) {
     return GameSettings_Get()->japaneseGameCorner && SlotsRom_State() == SLOTS_ROM_READY;
@@ -69,7 +100,7 @@ static void SlotApp_VBlank(void *data) {
     OS_SetIrqCheckFlag(OS_IE_V_BLANK);
 }
 
-static void SlotApp_InitLayer(SlotAppData *work, GFBgLayer layer, u32 screenBase, u32 charBase) {
+static void SlotApp_InitLayer(SlotAppData *work, GFBgLayer layer, u32 screenBase, u32 charBase, u8 priority) {
     BgTemplate template = {
         .x = 0,
         .y = 0,
@@ -80,7 +111,7 @@ static void SlotApp_InitLayer(SlotAppData *work, GFBgLayer layer, u32 screenBase
         .screenBase = screenBase,
         .charBase = charBase,
         .bgExtPltt = GX_BG_EXTPLTT_01,
-        .priority = 1,
+        .priority = priority,
         .areaOver = GX_BG_AREAOVER_XLU,
         .dummy = 0,
         .mosaic = FALSE,
@@ -105,10 +136,62 @@ static void SlotApp_ShowScreen(SlotAppData *work, GFBgLayer layer, enum GFPalLoa
     BgCommitTilemapBufferToVram(work->bgConfig, layer);
 }
 
+// The reels' symbols: the sprite set's palette and tiles, and where each cell's tiles start
+static BOOL SlotApp_LoadReelGfx(SlotAppData *work) {
+    SlotBlock palette = SlotGfx_Palette(SlotNarc_Member(&work->gfx, GFX_REEL_PAL));
+    SlotBlock chars = SlotGfx_Tiles(SlotNarc_Member(&work->gfx, GFX_REEL_TILES));
+    SlotBlock cells = SlotNarc_Member(&work->gfx, GFX_REEL_CELLS);
+    if (palette.size < (16 - REEL_PAL_BANK) * 32 || chars.size == 0) {
+        return FALSE;
+    }
+    for (int i = 0; i < REEL_CELLS; i++) {
+        uint16_t tile;
+        uint8_t pal;
+        if (SlotGfx_ReelCell(cells, i, &tile, &pal) && pal < 16 - REEL_PAL_BANK) {
+            work->cellTile[i] = tile;
+            work->cellPal[i] = pal;
+        } else {
+            work->cellTile[i] = 0xFFFF; // drawn blank
+        }
+    }
+    BG_LoadPlttData(GF_PAL_LOCATION_MAIN_BG, palette.data, (16 - REEL_PAL_BANK) * 32, REEL_PAL_BANK * 32);
+    // From tile 1: tile 0 stays blank, for the rest of the layers (the reels share their tiles)
+    BG_LoadCharTilesData(work->bgConfig, sReelLayers[0], chars.data, chars.size, 1);
+    return TRUE;
+}
+
+// A reel's symbols around its position into its layer, and the layer's scroll for the pixels in between
+static void SlotApp_DrawReel(SlotAppData *work, int reel) {
+    const SlotReel *r = &work->reels[reel];
+    const int first = r->pos / REEL_SYMBOL_HEIGHT, offset = r->pos % REEL_SYMBOL_HEIGHT;
+    u16 map[REEL_ROWS * 3][4];
+    for (int row = 0; row < REEL_ROWS; row++) {
+        const int cell = Slot_StripSymbol(&work->tables, reel, first + row);
+        for (int y = 0; y < 3; y++) {
+            for (int x = 0; x < 4; x++) {
+                u16 entry = 0;
+                if (cell < REEL_CELLS && work->cellTile[cell] != 0xFFFF) {
+                    entry = (u16)((1 + work->cellTile[cell] + y * 4 + x) | (REEL_PAL_BANK + work->cellPal[cell]) << 12);
+                }
+                map[row * 3 + y][x] = entry;
+            }
+        }
+    }
+    // The column under the reel's window: centred on x = 88 + 40 * reel
+    const u8 column = (u8)((88 + 40 * reel - 16) / 8);
+    CopyToBgTilemapRect(work->bgConfig, sReelLayers[reel], column, 0, 4, REEL_ROWS * 3, map, 0, 0, 4, REEL_ROWS * 3);
+    ScheduleBgTilemapBufferTransfer(work->bgConfig, sReelLayers[reel]);
+    // Row 1 is the window's top symbol: on screen at y = 48 - (the pixels past it), the symbols in rows 24 px apart
+    ScheduleSetBgPosText(work->bgConfig, sReelLayers[reel], BG_POS_OP_SET_Y, (offset - REEL_SYMBOL_HEIGHT) & 0xFF);
+}
+
 static BOOL SlotApp_Create(OverlayManager *man) {
     VoltorbFlipArgs *args = OverlayManager_GetArgs(man);
     SlotNarc gfx;
-    if (!SlotNarc_Open(&gfx, SlotsRom_Dir(), "a/1/2/7")) {
+    uint32_t overlaySize;
+    uint8_t *overlay = SlotAssets_ReadFile(SlotsRom_Dir(), "ov77.bin", &overlaySize);
+    if (overlay == NULL || !SlotNarc_Open(&gfx, SlotsRom_Dir(), "a/1/2/7")) {
+        free(overlay);
         return FALSE;
     }
 
@@ -124,14 +207,25 @@ static BOOL SlotApp_Create(OverlayManager *man) {
     work->heapID = HEAP_ID_VOLTORB_FLIP;
     work->gfx = gfx;
     work->coins = args->coins;
+    work->overlay = overlay;
+    work->tables.data = overlay;
+    work->tables.size = overlaySize;
 
     work->bgConfig = BgConfig_Alloc(work->heapID);
     const struct GraphicsModes modes = sSlotModes;
     SetBothScreensModesAndDisable(&modes);
-    SlotApp_InitLayer(work, GF_BG_LYR_MAIN_0, GX_BG_SCRBASE_0x0000, GX_BG_CHARBASE_0x04000);
-    SlotApp_InitLayer(work, GF_BG_LYR_SUB_0, GX_BG_SCRBASE_0x0000, GX_BG_CHARBASE_0x04000);
+    SlotApp_InitLayer(work, GF_BG_LYR_MAIN_0, GX_BG_SCRBASE_0x0000, GX_BG_CHARBASE_0x04000, 0);
+    SlotApp_InitLayer(work, GF_BG_LYR_MAIN_1, GX_BG_SCRBASE_0x0800, GX_BG_CHARBASE_0x08000, 1);
+    SlotApp_InitLayer(work, GF_BG_LYR_MAIN_2, GX_BG_SCRBASE_0x1000, GX_BG_CHARBASE_0x08000, 1);
+    SlotApp_InitLayer(work, GF_BG_LYR_MAIN_3, GX_BG_SCRBASE_0x1800, GX_BG_CHARBASE_0x08000, 1);
+    SlotApp_InitLayer(work, GF_BG_LYR_SUB_0, GX_BG_SCRBASE_0x0000, GX_BG_CHARBASE_0x04000, 1);
     SlotApp_ShowScreen(work, GF_BG_LYR_MAIN_0, GF_PAL_LOCATION_MAIN_BG, GFX_FACE_PAL, GFX_FACE_TILES, GFX_FACE_SCREEN);
     SlotApp_ShowScreen(work, GF_BG_LYR_SUB_0, GF_PAL_LOCATION_SUB_BG, GFX_FRAME_PAL, GFX_FRAME_TILES, GFX_FRAME_SCREEN);
+    if (SlotApp_LoadReelGfx(work)) {
+        for (int i = 0; i < REEL_COUNT; i++) {
+            SlotApp_DrawReel(work, i);
+        }
+    }
 
     ResetVisibleHardwareWindows(PM_LCD_TOP);
     ResetVisibleHardwareWindows(PM_LCD_BOTTOM);
@@ -163,8 +257,40 @@ static BOOL SlotApp_Init(OverlayManager *man, int *state) {
 }
 
 static BOOL SlotApp_Main(OverlayManager *man, int *state) {
-    // A or B (or a touch) leaves, for now
-    return (gSystem.newKeys & (PAD_BUTTON_A | PAD_BUTTON_B)) != 0 || gSystem.touchNew;
+    SlotAppData *work = OverlayManager_GetData(man);
+    BOOL spinning = FALSE;
+    for (int i = 0; i < REEL_COUNT; i++) {
+        spinning |= work->reels[i].spinning;
+    }
+    if (!spinning) {
+        if (gSystem.newKeys & PAD_BUTTON_B) {
+            return TRUE;
+        }
+        if (gSystem.newKeys & PAD_BUTTON_A) {
+            // For now A spins the reels and then stops them one by one, left to right; the rules come next
+            for (int i = 0; i < REEL_COUNT; i++) {
+                work->reels[i].spinning = TRUE;
+                work->reels[i].stopping = FALSE;
+            }
+            work->nextStop = 0;
+        }
+        return FALSE;
+    }
+    if ((gSystem.newKeys & PAD_BUTTON_A) && work->nextStop < REEL_COUNT) {
+        work->reels[work->nextStop++].stopping = TRUE;
+    }
+    for (int i = 0; i < REEL_COUNT; i++) {
+        SlotReel *r = &work->reels[i];
+        if (!r->spinning) {
+            continue;
+        }
+        r->pos = (r->pos + REEL_TURN - REEL_SPEED) % REEL_TURN;
+        if (r->stopping && r->pos % REEL_SYMBOL_HEIGHT == 0) {
+            r->spinning = FALSE;
+        }
+        SlotApp_DrawReel(work, i);
+    }
+    return FALSE;
 }
 
 static BOOL SlotApp_Exit(OverlayManager *man, int *state) {
@@ -178,9 +304,13 @@ static BOOL SlotApp_Exit(OverlayManager *man, int *state) {
         if (IsPaletteFadeFinished()) {
             Main_SetVBlankIntrCB(NULL, NULL);
             FreeBgTilemapBuffer(work->bgConfig, GF_BG_LYR_MAIN_0);
+            for (int i = 0; i < REEL_COUNT; i++) {
+                FreeBgTilemapBuffer(work->bgConfig, sReelLayers[i]);
+            }
             FreeBgTilemapBuffer(work->bgConfig, GF_BG_LYR_SUB_0);
             Heap_Free(work->bgConfig);
             SlotNarc_Close(&work->gfx);
+            free(work->overlay);
             SlotApp_RenderingOff();
             OverlayManager_FreeData(man);
             Heap_Destroy(HEAP_ID_VOLTORB_FLIP);

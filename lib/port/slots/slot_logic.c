@@ -11,6 +11,7 @@
 #define TBL_KEEP        0x021EA16Cu // per (reach flag, type, bet)
 #define TBL_MISS        0x021EA184u // per (bet, type) 3 bytes
 #define TBL_RETURN      0x021EA124u // per (bet, outcome)
+#define TBL_STRIPS      0x021EA32Cu // 6 strips x 21 u32
 #define TBL_ASSIST      0x021EA1A8u // bytes: 15 per streak (0 to 5), 5 per phase
 #define JACKPOT_CAP     899
 
@@ -21,6 +22,15 @@ static uint8_t T8(const SlotGame *g, uint32_t addr) {
 static uint16_t T16(const SlotGame *g, uint32_t addr) {
     const uint8_t *p = &g->tables->data[addr - SLOT_OVERLAY_BASE];
     return (uint16_t)(p[0] | p[1] << 8);
+}
+
+uint8_t Slot_StripSymbol(const SlotTables *tables, int strip, int index) {
+    index %= SLOT_REEL_LENGTH;
+    if (index < 0) {
+        index += SLOT_REEL_LENGTH;
+    }
+    uint32_t at = TBL_STRIPS - SLOT_OVERLAY_BASE + (uint32_t)(strip * SLOT_REEL_LENGTH + index) * 4;
+    return at < tables->size ? tables->data[at] : 0;
 }
 
 void Slot_Init(SlotGame *g, const SlotTables *tables, uint32_t seed, uint8_t type, uint32_t coins) {

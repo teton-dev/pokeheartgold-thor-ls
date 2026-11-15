@@ -49,6 +49,11 @@ typedef struct SlotGame {
 
 #define SLOT_COINS_MAX 50000
 
+// Reel strips: 0 to 2 the normal reels (symbols 0 to 5, which are also their sprite cells), 3 to 5 the bonus game's
+// (sprite cells of the big pictures, 6 blank). 21 places each
+#define SLOT_REEL_LENGTH 21
+uint8_t Slot_StripSymbol(const SlotTables *tables, int strip, int index);
+
 void Slot_Init(SlotGame *g, const SlotTables *tables, uint32_t seed, uint8_t type, uint32_t coins);
 uint16_t Slot_Rand(SlotGame *g, uint16_t n); // 0 to n - 1
 int Slot_IsJackpotSymbol(uint8_t symbol);
