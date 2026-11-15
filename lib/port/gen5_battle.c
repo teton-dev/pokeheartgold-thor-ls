@@ -41,6 +41,7 @@
 #include "port_game_settings.h"
 #include "port_gen5_rom.h"
 #include "port_gen5_rocket.h"
+#include "port_nuzlocke_mode.h"
 #include "port_test_script.h"
 #include "sound.h"
 #include "system.h"
@@ -239,6 +240,9 @@ static void PokemonToGen5(Pokemon *mon, Gen5Pokemon *dest) {
     dest->otGender = GetMonData(mon, MON_DATA_OT_GENDER, NULL);
     dest->isEgg = GetMonData(mon, MON_DATA_IS_EGG, NULL);
     dest->hasNickname = GetMonData(mon, MON_DATA_HAS_NICKNAME, NULL);
+#ifdef SDK_PORT
+    dest->dead = NuzlockeMode_IsDead(mon);
+#endif
     GetMonData(mon, MON_DATA_NICKNAME, name);
     TextToGen5(name, POKEMON_NAME_LENGTH + 1, dest->nickname, GEN5_NAME_LENGTH);
     GetMonData(mon, MON_DATA_OT_NAME, otName);
@@ -840,6 +844,26 @@ static void VBlank(void *data) {
 // The pockets with what a battle can use
 static const u8 sBattlePockets[] = { POCKET_ITEMS, POCKET_MEDICINE, POCKET_BALLS, POCKET_BERRIES, POCKET_BATTLE_ITEMS };
 
+// Nuzlocke mode's rules, for BW2's engine (gen5/src/runtime.c and its patches). HGSS has no doubles-wild support
+// yet (no wild2) and no Hard level-cap setting (Platinum's Gear_LevelCap), so this is simpler than that fork's
+static void PortNuzlockeToGen5(BattleSetup *setup)
+{
+    sBattle.levelCap = NuzlockeMode_LevelCap();
+    sBattle.critGuard = NuzlockeMode_CritGuard();
+    if (!sBattle.isTrainer) {
+        // The catch rule (NuzlockeMode_OnWildBattleStart ran before the battle, in encounter.c)
+        Pokemon *wild = Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0);
+        sBattle.wildCatchRefused = !NuzlockeMode_CatchAllowed(GetMonData(wild, MON_DATA_SPECIES, NULL), MonIsShiny(wild));
+    }
+    // BW2's text: Unicode, 0xFFFE a new line, 0xFFFF the end
+    static const char kText[] = NUZLOCKE_CATCH_REFUSED_TEXT;
+    int length = 0;
+    for (const char *c = kText; *c != '\0' && length < GEN5_PORT_TEXT_LENGTH - 1; c++) {
+        sBattle.catchRefusedText[length++] = (unsigned char)*c;
+    }
+    sBattle.catchRefusedText[length] = 0xFFFF;
+}
+
 static BOOL Init(OverlayManager *man, int *state) {
     (void)state;
     BattleSetup *setup = OverlayManager_GetArgs(man);
@@ -897,6 +921,7 @@ static BOOL Init(OverlayManager *man, int *state) {
     } else {
         PokemonToGen5(Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), &sBattle.wild);
     }
+    PortNuzlockeToGen5(setup);
     for (int p = 0; p < (int)NELEMS(sBattlePockets); p++) {
         ItemSlot *slot;
         for (int i = 0; (slot = Bag_GetPocketSlotN(setup->bag, sBattlePockets[p], i)) != NULL && sBattle.itemCount < GEN5_ITEMS_MAX; i++) {

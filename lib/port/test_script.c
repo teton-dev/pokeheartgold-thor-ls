@@ -15,10 +15,12 @@
 #include "field_system.h"
 #include "overlay_01.h"
 #include "heap.h"
+#include "map_header.h"
 #include "party.h"
 #include "player_avatar.h"
 #include "pokemon.h"
 #include "port_game_settings.h"
+#include "port_nuzlocke_mode.h"
 #include "save_vars_flags.h"
 #ifdef GEN5_BATTLES
 #include "player_data.h"
@@ -49,6 +51,7 @@ enum TestOp {
     OP_GIVE,
     OP_GIRL,
     OP_FLAG,
+    OP_NUZLOCKE,
     OP_SHOT,
     OP_LOG,
     OP_EXIT,
@@ -310,6 +313,25 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
+    } else if (strcmp(words[0], "nuzlocke") == 0 && count >= 2) {
+        // nuzlocke simple|normal|hard|off, nuzlocke crit on|off, nuzlocke state: as Settings > Gameplay > Nuzlocke
+        // mode will (the warning taken as accepted). Once the player is free.
+        static const char *const kLevels[] = { "off", "simple", "normal", "hard" };
+        command->op = OP_NUZLOCKE;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        for (int i = 0; i < NUZLOCKE_LEVEL_COUNT; i++) {
+            if (strcmp(words[1], kLevels[i]) == 0) {
+                command->x = i;
+                return TRUE;
+            }
+        }
+        if (strcmp(words[1], "crit") == 0 && count >= 3) {
+            command->x = strcmp(words[2], "on") == 0 ? 11 : 10;
+            return strcmp(words[2], "on") == 0 || strcmp(words[2], "off") == 0;
+        }
+        command->x = 20;
+        return strcmp(words[1], "state") == 0;
     } else if (strcmp(words[0], "flag") == 0 && count >= 2) {
         // flag N: sets script flag N (include/constants/flags.h) once the player is free, for whatever it unlocks
         // (an app on the start menu, a Pokédex or Pokégear flag...)
@@ -675,6 +697,31 @@ static u16 Step(void) {
             Next();
             continue;
         }
+        case OP_NUZLOCKE:
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free");
+                }
+                return 0;
+            }
+            // Requests are applied by NuzlockeMode_Update, at the end of this frame
+            if (command->x < NUZLOCKE_LEVEL_COUNT) {
+                NuzlockeMode_RequestLevel(command->x);
+            } else if (command->x < 20) {
+                NuzlockeMode_RequestCritGuard(command->x == 11);
+            } else {
+                u16 areaSpecies = 0;
+                FieldSystem *fieldSystem = FieldSystem_PortGet();
+                const u16 location = fieldSystem != NULL ? (u16)MapHeader_GetMapSec(fieldSystem->location->mapId) : 0xFFFF;
+                const int area = NuzlockeMode_AreaState(location, &areaSpecies);
+                printf("[test] nuzlocke: %s%s%s%s; area %u %s %u; cap %d\n", NuzlockeMode_LevelName(NuzlockeMode_Level()),
+                    NuzlockeMode_CritGuard() ? ", crit guard" : "", NuzlockeMode_WasDropped() ? ", dropped" : "",
+                    NuzlockeMode_BallsReceived() ? ", has had balls" : "", location,
+                    area == NUZLOCKE_AREA_CAUGHT ? "caught" : area == NUZLOCKE_AREA_MISSED ? "missed" : "open",
+                    areaSpecies, NuzlockeMode_LevelCap());
+            }
+            Next();
+            continue;
         case OP_GIVE: {
             if (!ConditionMet(command)) {
                 if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {

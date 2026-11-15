@@ -39,7 +39,13 @@
 #include "field_misc_events.h"
 #include "field_environment_sound.h"
 #include "gear_phone_ring_manager.h"
+#include "map_header.h"
 #include "use_item_on_mon.h"
+
+#ifdef SDK_PORT
+#include "port_nuzlocke_mode.h"
+static void PortNuzlockeModeBattleStart(BattleSetup *setup);
+#endif
 
 static BOOL Task_StartBattle(TaskManager *taskManager);
 static void CallTask_StartBattle(TaskManager *taskManager, BattleSetup *setup);
@@ -121,6 +127,9 @@ static BOOL Task_StartEncounter(TaskManager *taskManager) { // todo: better name
     switch (*state) {
     case 0:
         MapObjectManager_PauseAllMovement(fieldSystem->mapObjectManager);
+#ifdef SDK_PORT
+        PortNuzlockeModeBattleStart(encounter->setup);
+#endif
         CallTask_BattleTransition(taskManager, encounter->effect, encounter->bgm);
         (*state)++;
         break;
@@ -133,6 +142,9 @@ static BOOL Task_StartEncounter(TaskManager *taskManager) { // todo: better name
         (*state)++;
         break;
     case 3:
+#ifdef SDK_PORT
+        NuzlockeMode_OnWildBattleEnd((encounter->setup->winFlag & BATTLE_RESULT_CAPTURED_MON) != 0);
+#endif
         Encounter_CopyResultsToSaveData(encounter->setup, fieldSystem);
         if (encounter->setup->battleType == BATTLE_TYPE_NONE || encounter->setup->battleType == BATTLE_TYPE_ROAMER || encounter->setup->battleType == (BATTLE_TYPE_DOUBLES | BATTLE_TYPE_MULTI | BATTLE_TYPE_AI)) {
             FieldSystem_TryTriggerBillPCFullCall(fieldSystem);
@@ -346,6 +358,27 @@ void FieldSystem_StartForcedWildBattle(FieldSystem *fieldSystem, TaskManager *ta
     }
 }
 
+#ifdef SDK_PORT
+// Nuzlocke mode's catch rule: a wild battle (not a trainer's, the Safari Zone or the Bug-Catching Contest, their
+// own tasks) in this area. Task_StartEncounter runs trainer battles too, so this checks the same battle types its
+// own Bill/Dex-call branch does; a follower's double wild battle (DOUBLES | MULTI | AI) only tracks the first wild
+// Pokemon, not the second (a to-do, as HGSS's own Gen 5 bridge has no doubles-wild support yet either)
+static void PortNuzlockeModeBattleStart(BattleSetup *setup)
+{
+    const BOOL isWild = setup->battleType == BATTLE_TYPE_NONE || setup->battleType == BATTLE_TYPE_ROAMER
+        || setup->battleType == (BATTLE_TYPE_DOUBLES | BATTLE_TYPE_MULTI | BATTLE_TYPE_AI);
+    Party *wild = isWild ? setup->party[BATTLER_ENEMY] : NULL;
+    if (wild == NULL || Party_GetCount(wild) == 0) {
+        NuzlockeMode_OnWildBattleStart(0xFFFF, 0, TRUE); // not counted (and clears a pending static mark)
+        return;
+    }
+    Pokemon *mon = Party_GetMonByIndex(wild, 0);
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    const u16 location = fieldSystem != NULL ? (u16)MapHeader_GetMapSec(fieldSystem->location->mapId) : 0xFFFF;
+    NuzlockeMode_OnWildBattleStart(location, GetMonData(mon, MON_DATA_SPECIES, NULL), MonIsShiny(mon));
+}
+#endif
+
 static BOOL Task_WildEncounter(TaskManager *taskManager) {
     FieldSystem *fieldSystem = TaskManager_GetFieldSystem(taskManager);
     WildEncounter *encounter = TaskManager_GetEnvironment(taskManager);
@@ -354,6 +387,9 @@ static BOOL Task_WildEncounter(TaskManager *taskManager) {
     case 0:
         MapObjectManager_PauseAllMovement(fieldSystem->mapObjectManager);
         GameStats_Inc(Save_GameStats_Get(fieldSystem->saveData), GAME_STAT_WILD_ENCOUNTERS);
+#ifdef SDK_PORT
+        PortNuzlockeModeBattleStart(encounter->setup);
+#endif
         CallTask_BattleTransition(taskManager, encounter->effect, encounter->bgm);
         encounter->state++;
         break;
@@ -366,6 +402,9 @@ static BOOL Task_WildEncounter(TaskManager *taskManager) {
         encounter->state++;
         break;
     case 3:
+#ifdef SDK_PORT
+        NuzlockeMode_OnWildBattleEnd((encounter->setup->winFlag & BATTLE_RESULT_CAPTURED_MON) != 0);
+#endif
         Encounter_CopyResultsToSaveData(encounter->setup, fieldSystem);
         FieldSystem_TryTriggerBillPCFullCall(fieldSystem);
         FieldSystem_TryTriggerOakDexProgressCall(fieldSystem);
@@ -540,6 +579,9 @@ static BOOL Task_BugContestEncounter(TaskManager *taskManager) {
 }
 
 void SetupAndStartWildBattle(TaskManager *taskManager, u16 species, u8 level, u32 *winFlag, BOOL canFlee, BOOL shiny) {
+#ifdef SDK_PORT
+    NuzlockeMode_MarkStatic(); // a scripted encounter: Nuzlocke mode's areas count it only with Hard
+#endif
     BattleSetup *setup;
     FieldSystem *fieldSystem = TaskManager_GetFieldSystem(taskManager);
     setup = BattleSetup_New(HEAP_ID_FIELD2, BATTLE_TYPE_NONE);
@@ -556,6 +598,9 @@ void SetupAndStartWildBattle(TaskManager *taskManager, u16 species, u8 level, u3
 }
 
 void SetupAndStartFatefulWildBattle(TaskManager *taskManager, u16 species, u8 level, u32 *winFlag, BOOL canRun) {
+#ifdef SDK_PORT
+    NuzlockeMode_MarkStatic(); // a scripted encounter: Nuzlocke mode's areas count it only with Hard
+#endif
     BattleSetup *setup;
     FieldSystem *fieldSystem = TaskManager_GetFieldSystem(taskManager);
     setup = BattleSetup_New(HEAP_ID_FIELD2, 0);
