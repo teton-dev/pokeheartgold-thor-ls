@@ -37,6 +37,7 @@ hgss_includes = include_directories(
     'generated',
     'files',
     'src',
+    'lib/port/slots',
 )
 
 # The decomp's own SDK headers (lib/include) declare SDK internals the game reaches into
@@ -155,7 +156,7 @@ foreach d : sdk_deps
     sdk_headers_deps += d.partial_dependency(includes: true, sources: true).as_system('system')
 endforeach
 
-hgss_c_args = ['-std=gnu99'] + hgss_common_args + nitrosdk_defines + sdk_fallback_args + hgss_warning_args
+hgss_c_args = ['-std=gnu99', '-DPORT_SLOTS'] + hgss_common_args + nitrosdk_defines + sdk_fallback_args + hgss_warning_args
 
 # The desktop gate's ASan/UBSan build: the game code (and the lobby) only. b_sanitize would
 # instrument libntr too, whose emulated hardware registers are separate globals that its DMA
@@ -224,6 +225,9 @@ hgss_port_lib_c = files(
     'lib/port/nuzlocke_heartgold.c',
     'lib/port/nuzlocke_mode.c',
     'lib/port/save_migrate_v1.c',
+    'lib/port/slots/slot_app.c',
+    'lib/port/slots/slot_assets.c',
+    'lib/port/slots/slot_logic.c',
     'lib/port/stats_upload_data.c',
     'lib/port/test_crash.c',
     'lib/port/test_script.c',
