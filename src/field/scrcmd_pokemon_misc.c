@@ -1,3 +1,6 @@
+#ifdef PORT_SLOTS
+#include "port_slot_app.h"
+#endif
 #include "global.h"
 
 #include "constants/items.h"
@@ -1219,6 +1222,12 @@ BOOL ScrCmd_CasinoGame(ScriptContext *ctx) {
     u8 city = ScriptReadByte(ctx); // 1 = celadon; 0 = goldenrod
     VoltorbFlipArgs **args = FieldSysGetAttrAddr(ctx->fieldSystem, SCRIPTENV_RUNNING_APP_DATA);
 
+#ifdef PORT_SLOTS
+    if (SlotApp_IsEnabled()) {
+        // The Japanese games' slot machine (Settings > Game Corner) in place of Voltorb Flip
+        *args = SlotApp_LaunchApp(ctx->fieldSystem, SlotLuckiness(ctx->fieldSystem->saveData, machineId, city));
+    } else
+#endif
     *args = VoltorbFlip_LaunchApp(ctx->fieldSystem, SlotLuckiness(ctx->fieldSystem->saveData, machineId, city)); // this is messy, very very messy
 
     SetupNativeScript(ctx, ScrNative_WaitApplication_DestroyTaskData);
