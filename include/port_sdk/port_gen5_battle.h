@@ -32,6 +32,12 @@ BOOL Gen5Battle_StartTrainer(u32 trainer1, u32 trainer2);
 // Once the player is free: a Safari Zone battle against SPECIES at LEVEL with BALLS Safari Balls, as the Safari Zone's
 // grass starts one (its flag and ball counter set; out of balls, the player goes back to where they stood)
 BOOL Gen5Battle_StartSafari(int species, int level, int balls);
+// Once the player is free: a Bug-Catching Contest battle against SPECIES at LEVEL with BALLS Sport Balls, the contest
+// started as the National Park's gate starts it if it isn't on (the party cut to its lead)
+BOOL Gen5Battle_StartContest(int species, int level, int balls);
+// The contest's Sport Balls left (-1 with no contest), and the species of the Pokémon kept (0: none)
+int Gen5Battle_ContestBalls(void);
+int Gen5Battle_ContestSpecies(void);
 
 // BW2's battle is on screen (for widescreen)
 BOOL Gen5Battle_IsShown(void);

@@ -391,9 +391,12 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         return TRUE;
     } else if (strcmp(words[0], "check") == 0 && count >= 3) {
         // check coins N, check party N, check item ITEM N: once the player is free, the test fails unless the Coin
-        // Case holds N coins, the party has N Pokémon, or the bag holds N of item ITEM (include/constants/items.h)
+        // Case holds N coins, the party has N Pokémon, or the bag holds N of item ITEM (include/constants/items.h);
+        // check contest-balls N, check contest-mon SPECIES: the Bug-Catching Contest's Sport Balls left (-1: no
+        // contest) and the species it keeps (0: none)
         command->op = OP_CHECK;
-        command->y = strcmp(words[1], "coins") == 0 ? 0 : strcmp(words[1], "party") == 0 ? 1 : 2;
+        command->y = strcmp(words[1], "coins") == 0 ? 0 : strcmp(words[1], "party") == 0 ? 1
+            : strcmp(words[1], "contest-balls") == 0 ? 3 : strcmp(words[1], "contest-mon") == 0 ? 4 : 2;
         command->frames = command->y == 2 ? atoi(words[2]) : 0;
         command->x = atoi(words[command->y == 2 ? 3 : 2]);
         command->condition = COND_FREE;
@@ -472,6 +475,17 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->x = atoi(words[1]);
         command->y = atoi(words[2]);
         command->frames = count >= 4 ? atoi(words[3]) : 30;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        return TRUE;
+    } else if (strcmp(words[0], "contest") == 0 && count >= 3) {
+        // contest SPECIES LEVEL [BALLS]: once the player is free, a Bug-Catching Contest battle (20 balls unless
+        // given), the contest started as the National Park's gate starts it; in BW2's engine when the setting is on
+        command->op = OP_WILD;
+        command->map = 3;
+        command->x = atoi(words[1]);
+        command->y = atoi(words[2]);
+        command->frames = count >= 4 ? atoi(words[3]) : 20;
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
@@ -865,9 +879,14 @@ static u16 Step(void) {
                 return 0;
             }
             SaveData *saveData = FieldSystem_PortGet()->saveData;
-            static const char *const kWhat[] = { "coins", "Pokémon in the party", "of the item" };
+            static const char *const kWhat[] = { "coins", "Pokémon in the party", "of the item", "contest Sport Balls",
+                "the contest's Pokémon" };
             int value = command->y == 0 ? *Save_PlayerData_GetCoinsAddr(saveData)
                 : command->y == 1       ? Party_GetCount(SaveArray_Party_Get(saveData))
+#ifdef GEN5_BATTLES
+                : command->y == 3 ? Gen5Battle_ContestBalls()
+                : command->y == 4 ? Gen5Battle_ContestSpecies()
+#endif
                                         : Bag_GetQuantity(Save_Bag_Get(saveData), (u16)command->frames, HEAP_ID_FIELD1);
             printf("[test] %d %s\n", value, kWhat[command->y]);
             if (value != command->x) {
@@ -988,8 +1007,9 @@ static u16 Step(void) {
                 return 0;
             }
 #ifdef GEN5_BATTLES
-            if (!(command->map == 2 ? Gen5Battle_StartSafari(command->x, command->y, command->frames)
-                                    : Gen5Battle_StartWild(command->x, command->y, command->frames))) {
+            if (!(command->map == 2   ? Gen5Battle_StartSafari(command->x, command->y, command->frames)
+                    : command->map == 3 ? Gen5Battle_StartContest(command->x, command->y, command->frames)
+                                        : Gen5Battle_StartWild(command->x, command->y, command->frames))) {
                 Fail(command, "the wild battle couldn't start");
                 return 0;
             }

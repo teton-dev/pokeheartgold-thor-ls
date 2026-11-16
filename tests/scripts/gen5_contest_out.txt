@@ -1,0 +1,24 @@
+# From new-game: the Bug-Catching Contest's last Sport Ball in BW2's engine. A level 50 Smeargle enters the contest with
+# 1 Sport Ball against a wild level 2 Mewtwo (catch rate 3: the ball all but surely misses). After the miss the battle
+# ends at once, as HGSS's does, and the field goes to the judging with no balls left.
+mash A until free
+editor give 235 50
+gen5 on
+contest 150 2 1
+until battle timeout 600
+until command timeout 6000
+wait 60
+touch 40 180
+wait 60
+touch 192 48
+wait 60
+touch 64 33
+wait 60
+touch 108 175
+wait 90
+stillshot thrown
+mash B until free timeout 9000
+stillshot after
+check contest-balls 0
+check contest-mon 0
+exit

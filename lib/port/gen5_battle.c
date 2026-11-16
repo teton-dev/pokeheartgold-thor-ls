@@ -24,6 +24,9 @@
 
 #include "bag.h"
 #include "blackout.h"
+#include "bug_contest.h"
+#include "bug_contest_internal.h"
+#include "constants/flags.h"
 #include "encounter.h"
 #include "battle/battle_system.h"
 #include "evolution_scene.h"
@@ -85,10 +88,10 @@ BOOL Gen5Battle_Wants(const BattleSetup *setup) {
         return FALSE;
     }
     // Wild battles alone (roaming Pokémon too), and the Safari Zone's (none of the player's Pokémon on the field: the
-    // view plays them, gen5/src/safari.c, by the same rules as HGSS's). The Bug-Catching Contest, Pal Park, the
-    // tutorial, link and Frontier battles stay HGSS's
+    // view plays them, gen5/src/safari.c, by the same rules as HGSS's), and the Bug-Catching Contest's (Sport Balls
+    // alone in the bag). Pal Park, the tutorial, link and Frontier battles stay HGSS's
     const u32 type = setup->battleType;
-    if ((type & ~BATTLE_TYPE_ROAMER) == 0 || type == BATTLE_TYPE_SAFARI) {
+    if ((type & ~BATTLE_TYPE_ROAMER) == 0 || type == BATTLE_TYPE_SAFARI || type == BATTLE_TYPE_BUG_CONTEST) {
         return TRUE;
     }
     // Trainers: single, double (one trainer's two Pokémon), against two trainers (TAG), and beside a partner whom
@@ -955,7 +958,15 @@ static BOOL Init(OverlayManager *man, int *state) {
         PokemonToGen5(Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), &sBattle.wild);
     }
     PortNuzlockeToGen5(setup);
-    for (int p = 0; p < (int)NELEMS(sBattlePockets); p++) {
+    if (setup->battleType == BATTLE_TYPE_BUG_CONTEST) {
+        // The Bug-Catching Contest: its Sport Balls are the bag (HGSS's BAG throws one), and the battle ends when the
+        // last one misses (Gen5_PortContestOutOfBalls). They aren't the bag's: Finish gives the count back to the contest
+        sBattle.bugContest = TRUE;
+        sBattle.items[0].item = ITEM_SPORT_BALL;
+        sBattle.items[0].count = setup->safariBalls;
+        sBattle.itemCount = setup->safariBalls > 0 ? 1 : 0;
+    }
+    for (int p = 0; p < (int)NELEMS(sBattlePockets) && !sBattle.bugContest; p++) {
         ItemSlot *slot;
         for (int i = 0; (slot = Bag_GetPocketSlotN(setup->bag, sBattlePockets[p], i)) != NULL && sBattle.itemCount < GEN5_ITEMS_MAX; i++) {
             if (slot->id != ITEM_NONE && slot->quantity != 0) {
@@ -1040,6 +1051,21 @@ static void StoreCaught(BattleSetup *setup) {
     printf("Gen 5: caught species %u, into box %d\n", (unsigned)GetMonData(mon, MON_DATA_SPECIES, NULL), box + 1);
 }
 
+// A Pokémon caught in the Bug-Catching Contest, as HGSS's battle takes it (battle_command.c): the catch data, the
+// Pokédex and the game stats, then into the contest's slot, not the party (the encounter asks whether to keep it), with
+// no naming screen
+static void StoreContestCatch(BattleSetup *setup) {
+    Pokemon *mon = Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0);
+
+    PokemonFromGen5(mon, &sBattle.caughtMon);
+    MonSetCatchData(mon, setup->profile[BATTLER_PLAYER], ITEM_SPORT_BALL, setup->mapSection, setup->terrain, HEAP_ID_FIELD2);
+    Pokedex_SetMonCaughtFlag(setup->pokedex, mon);
+    GameStats_Inc(setup->gameStats, GAME_STAT_CAUGHT_MON);
+    setup->caughtBattlerId = BATTLER_ENEMY;
+    CopyPokemonToPokemon(mon, setup->bugContestMon);
+    printf("Gen 5: caught species %u in the Bug-Catching Contest\n", (unsigned)GetMonData(mon, MON_DATA_SPECIES, NULL));
+}
+
 // What the battle left, into the BattleSetup, as HGSS's battle leaves it
 static void Finish(BattleSetup *setup) {
     Main_SetVBlankIntrCB(NULL, NULL);
@@ -1060,7 +1086,7 @@ static void Finish(BattleSetup *setup) {
                 (unsigned)GetMonData(mon, MON_DATA_EXPERIENCE, NULL), (unsigned)GetMonData(mon, MON_DATA_HP, NULL),
                 (unsigned)GetMonData(mon, MON_DATA_MAX_HP, NULL));
         }
-        for (int i = 0; i < sItemsBefore; i++) {
+        for (int i = 0; i < sItemsBefore && !sBattle.bugContest; i++) {
             const int before = sItemCountsBefore[i].count;
             const int after = sBattle.items[i].count;
             if (after < before) {
@@ -1075,6 +1101,11 @@ static void Finish(BattleSetup *setup) {
         } else if (sBattle.moneyChange < 0) {
             PlayerProfile_SubMoney(profile, -sBattle.moneyChange);
         }
+    }
+    if (sBattle.bugContest && !sFailed) {
+        // The Sport Balls left (the encounter writes them to the contest's counter and goes to the judging at 0)
+        setup->safariBalls = sBattle.itemCount > 0 ? sBattle.items[0].count : 0;
+        printf("Gen 5: a Bug-Catching Contest battle, %d Sport Balls left\n", setup->safariBalls);
     }
     if (sBattle.safari && !sFailed) {
         // What is left of the Safari Balls (the encounter writes it to the save's counter and ends the game at 0)
@@ -1205,7 +1236,10 @@ static BOOL Main(OverlayManager *man, int *state) {
             }
         }
         Finish(setup);
-        if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT) {
+        if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT && sBattle.bugContest) {
+            StoreContestCatch(setup);
+            *state = STATE_CHECK_EVOLUTION;
+        } else if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT) {
             StartNaming(setup);
             *state = STATE_NAMING;
         } else {
@@ -1351,6 +1385,60 @@ BOOL Gen5Battle_StartSafari(int species, int level, int balls) {
     sStart.balls = balls;
     FieldSystem_CreateTask(fieldSystem, Task_StartSafari, &sStart);
     return TRUE;
+}
+
+// --- Starting a Bug-Catching Contest battle (the test scripts' contest) ---------------------------------------------
+
+typedef struct {
+    int species;
+    int level;
+    int balls;
+} ContestStart;
+
+static BOOL Task_StartContest(TaskManager *taskManager) {
+    ContestStart *start = TaskManager_GetEnvironment(taskManager);
+    FieldSystem *fieldSystem = TaskManager_GetFieldSystem(taskManager);
+
+    // As the National Park's gate does (ScrCmd_BugContestAction, then the contest's flag): the contest, with the
+    // party cut to its lead Pokémon and its Sport Balls; the encounter is then Task_BugContestEncounter
+    if (fieldSystem->bugContest == NULL) {
+        fieldSystem->bugContest = BugContest_New(fieldSystem, 2);
+        SetScriptFlag(Save_VarsFlags_Get(fieldSystem->saveData), FLAG_UNK_996);
+    }
+    BugContest *contest = fieldSystem->bugContest;
+    contest->sport_balls = start->balls;
+    BattleSetup *setup = BattleSetup_New_BugContest(HEAP_ID_FIELD2, start->balls, contest->mon);
+    BattleSetup_InitFromFieldSystem(setup, fieldSystem);
+    FieldSystem_GenerateSingleWildPokemon(fieldSystem, start->species, start->level, FALSE, setup);
+    FieldSystem_StartForcedWildBattle(fieldSystem, taskManager, setup);
+    return FALSE;
+}
+
+BOOL Gen5Battle_StartContest(int species, int level, int balls) {
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    if (fieldSystem == NULL || fieldSystem->taskman != NULL) {
+        return FALSE;
+    }
+    static ContestStart sStart;
+    sStart.species = species;
+    sStart.level = level;
+    sStart.balls = balls;
+    FieldSystem_CreateTask(fieldSystem, Task_StartContest, &sStart);
+    return TRUE;
+}
+
+// Bug-Catching Contest test checks: the Sport Balls left and the Pokémon kept (-1, 0 when there is no contest)
+int Gen5Battle_ContestBalls(void) {
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    return fieldSystem != NULL && fieldSystem->bugContest != NULL ? fieldSystem->bugContest->sport_balls : -1;
+}
+
+int Gen5Battle_ContestSpecies(void) {
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    if (fieldSystem == NULL || fieldSystem->bugContest == NULL || !fieldSystem->bugContest->caught_poke) {
+        return 0;
+    }
+    return GetMonData(fieldSystem->bugContest->mon, MON_DATA_SPECIES, NULL);
 }
 
 // --- Starting a trainer battle (the test scripts' trainer) ---------------------------------------------------------
