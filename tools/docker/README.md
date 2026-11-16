@@ -37,7 +37,7 @@ and checks where the game gets: [tests/README.md](../../tests/README.md).
 
 ## The APK
 
-`desktop.sh apk` builds it (`tools/android/build_apk.sh`, the dev flavor `org.pokeheartgold.port.dev` unless
+`desktop.sh apk` builds it (`tools/android/build_apk.sh`, the dev flavor `app.goldenrod.dev`, "Goldenrod dev", unless
 `--stable`) natively on the Mac, no Docker. It needs, set up once:
 
 - from Homebrew: `brew install openjdk@17 meson ninja cmake nasm pkgconf bison python@3.12` (Homebrew's bison and
