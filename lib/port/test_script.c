@@ -478,6 +478,16 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
+    } else if ((strcmp(words[0], "legendary") == 0 || strcmp(words[0], "roamer") == 0) && count >= 3) {
+        // legendary SPECIES LEVEL: a legendary's encounter; roamer SPECIES LEVEL: a roaming Pokémon's; in BW2's engine
+        // when the setting is on
+        command->op = OP_WILD;
+        command->map = strcmp(words[0], "legendary") == 0 ? 4 : 5;
+        command->x = atoi(words[1]);
+        command->y = atoi(words[2]);
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        return TRUE;
     } else if (strcmp(words[0], "contest") == 0 && count >= 3) {
         // contest SPECIES LEVEL [BALLS]: once the player is free, a Bug-Catching Contest battle (20 balls unless
         // given), the contest started as the National Park's gate starts it; in BW2's engine when the setting is on
@@ -1009,6 +1019,7 @@ static u16 Step(void) {
 #ifdef GEN5_BATTLES
             if (!(command->map == 2   ? Gen5Battle_StartSafari(command->x, command->y, command->frames)
                     : command->map == 3 ? Gen5Battle_StartContest(command->x, command->y, command->frames)
+                    : command->map >= 4 ? Gen5Battle_StartWildKind(command->x, command->y, FALSE, command->map - 3)
                                         : Gen5Battle_StartWild(command->x, command->y, command->frames))) {
                 Fail(command, "the wild battle couldn't start");
                 return 0;

@@ -26,6 +26,8 @@ void Gen5Battle_RequestNext(void);
 // A wild battle against SPECIES at LEVEL in BW2's engine, as tall grass would start it, once the player is free on
 // the overworld. FALSE when there is no ROM or no field
 BOOL Gen5Battle_StartWild(int species, int level, BOOL gen5);
+// The same as a legendary's encounter (kind 1) or a roaming Pokémon's (kind 2)
+BOOL Gen5Battle_StartWildKind(int species, int level, BOOL gen5, int kind);
 // Once the player is free: a battle against trainer1 (and trainer2 too, a TAG battle, when it is another), as a script's
 // trainerbattle starts it; in BW2's engine when the setting says so. FALSE if the field can't take a task now
 BOOL Gen5Battle_StartTrainer(u32 trainer1, u32 trainer2);

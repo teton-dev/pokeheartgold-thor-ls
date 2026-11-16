@@ -1,0 +1,28 @@
+# From new-game: a legendary's encounter (BATTLE_SPECIAL_LEGENDARY) in BW2's engine: Lugia at level 45 (BW2's message
+# has no "wild", BTL_SETUP_FLAG_LEGENDARY), caught with a Master Ball (BAG, POKE BALLS, the Master Ball, USE), its
+# naming screen left empty: two Pokemon in the party.
+mash A until free
+editor give 157 50
+editor item 1 1
+gen5 on
+legendary 249 45
+until battle timeout 600
+wait 150
+stillshot intro
+until command timeout 6000
+wait 60
+touch 40 180
+wait 60
+touch 192 48
+wait 60
+touch 64 33
+wait 60
+touch 108 175
+mash B until naming timeout 6000
+wait 90
+press START
+wait 30
+press A
+mash B until free timeout 6000
+check party 2
+exit
