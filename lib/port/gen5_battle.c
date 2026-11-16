@@ -955,6 +955,12 @@ static BOOL Init(OverlayManager *man, int *state) {
             TrainerToGen5(setup, BATTLER_PLAYER2, &sBattle.partner);
         }
     } else {
+        // A legendary's encounter (BW2's message without "wild"), a roamer's (BW2's roaming AI flees), and the party
+        // and every box full (no ball can be thrown, as HGSS's battle refuses one then)
+        sBattle.legendary = (setup->battleSpecial & BATTLE_SPECIAL_LEGENDARY) != 0;
+        sBattle.roamer = (setup->battleType & BATTLE_TYPE_ROAMER) != 0;
+        const int freeBox = PCStorage_FindFirstBoxWithEmptySlot(setup->storagePC);
+        sBattle.boxesFull = Party_GetCount(party) >= PARTY_SIZE && (freeBox < 0 || freeBox >= NUM_BOXES);
         PokemonToGen5(Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), &sBattle.wild);
     }
     PortNuzlockeToGen5(setup);
@@ -1094,6 +1100,16 @@ static void Finish(BattleSetup *setup) {
             } else if (after > before) {
                 Bag_AddItem(setup->bag, sBattle.items[i].item, after - before, HEAP_ID_FIELD2);
             }
+        }
+        // A wild Pokémon not caught keeps the HP and status the battle left it (Roamers_UpdateAfterBattle reads a
+        // roamer's back from here)
+        if (!sBattle.isTrainer && result != GEN5_BATTLE_CAUGHT) {
+            Pokemon *wild = Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0);
+            u32 value = sBattle.wild.hp;
+            SetMonData(wild, MON_DATA_HP, &value);
+            value = StatusFromGen5(sBattle.wild.status, GetMonData(wild, MON_DATA_STATUS, NULL));
+            SetMonData(wild, MON_DATA_STATUS, &value);
+            printf("Gen 5: the wild Pokémon after the battle: HP %u, status %u\n", (unsigned)sBattle.wild.hp, (unsigned)value);
         }
         PlayerProfile *profile = setup->profile[BATTLER_PLAYER];
         if (sBattle.moneyChange > 0) {
@@ -1298,6 +1314,7 @@ const OverlayManagerTemplate gGen5BattleOverlayTemplate = {
 typedef struct {
     int species;
     int level;
+    int kind; // 0 a scripted wild Pokémon, 1 a legendary's encounter, 2 a roamer's
     u32 winFlag;
 } WildStart;
 
@@ -1308,7 +1325,18 @@ static BOOL Task_StartWild(TaskManager *taskManager) {
     switch (*state) {
     case 0:
         (*state)++;
-        SetupAndStartWildBattle(taskManager, start->species, start->level, &start->winFlag, TRUE, FALSE);
+        if (start->kind == 2) {
+            // As a roamer's encounter: the roamer battle type (Task_WildEncounter then updates the roamers)
+            FieldSystem *fieldSystem = TaskManager_GetFieldSystem(taskManager);
+            BattleSetup *setup = BattleSetup_New(HEAP_ID_FIELD2, BATTLE_TYPE_ROAMER);
+            BattleSetup_InitFromFieldSystem(setup, fieldSystem);
+            FieldSystem_GenerateSingleWildPokemon(fieldSystem, start->species, start->level, FALSE, setup);
+            FieldSystem_StartForcedWildBattle(fieldSystem, taskManager, setup);
+            return FALSE;
+        }
+        // The scripts' wild battle; its flag (named canFlee in the decompilation) is BATTLE_SPECIAL_LEGENDARY, which only
+        // the field's intro and music read (BW2: the message without "wild")
+        SetupAndStartWildBattle(taskManager, start->species, start->level, &start->winFlag, start->kind == 1, FALSE);
         return FALSE;
     case 1:
         (*state)++;
@@ -1323,7 +1351,13 @@ static BOOL Task_StartWild(TaskManager *taskManager) {
     }
 }
 
+BOOL Gen5Battle_StartWildKind(int species, int level, BOOL gen5, int kind);
+
 BOOL Gen5Battle_StartWild(int species, int level, BOOL gen5) {
+    return Gen5Battle_StartWildKind(species, level, gen5, 0);
+}
+
+BOOL Gen5Battle_StartWildKind(int species, int level, BOOL gen5, int kind) {
     FieldSystem *fieldSystem = FieldSystem_PortGet();
     if (fieldSystem == NULL || fieldSystem->taskman != NULL) {
         return FALSE;
@@ -1340,6 +1374,7 @@ BOOL Gen5Battle_StartWild(int species, int level, BOOL gen5) {
     WildStart *start = &sStart;
     start->species = species;
     start->level = level;
+    start->kind = kind;
     start->winFlag = 0;
     FieldSystem_CreateTask(fieldSystem, Task_StartWild, start);
     return TRUE;
