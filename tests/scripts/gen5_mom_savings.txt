@@ -1,8 +1,10 @@
 # From new-game: Mom's savings after a trainer battle in BW2's engine, as after HGSS's. With 3000 money and Mom saving
-# (flag FLAG_SYS_MOMS_SAVINGS, 0x986), a level 50 Cyndaquil beats a Team Rocket Grunt (trainer 12); a quarter of the
-# prize goes to Mom and the rest to the player.
+# (flag FLAG_SYS_MOMS_SAVINGS, 0x986), a level 100 Typhlosion with Swift first beats a Team Rocket Grunt (trainer 12); a quarter of the
+# prize goes to Mom and the rest to the player. The prize line says "Sent some to Mom!" (the log's "the prize line
+# says some went to Mom"; the shot prize).
 mash A until free
-give 155 50
+give 157 100
+editor firstmove 0 129
 editor money 3000
 flag 2438
 gen5 on
