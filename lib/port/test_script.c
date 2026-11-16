@@ -464,6 +464,17 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
+    } else if (strcmp(words[0], "safari") == 0 && count >= 3) {
+        // safari SPECIES LEVEL [BALLS]: once the player is free, a Safari Zone battle (30 balls unless given), as its
+        // grass starts one; in BW2's engine when the setting is on
+        command->op = OP_WILD;
+        command->map = 2;
+        command->x = atoi(words[1]);
+        command->y = atoi(words[2]);
+        command->frames = count >= 4 ? atoi(words[3]) : 30;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        return TRUE;
     } else if (strcmp(words[0], "trainer") == 0 && count >= 2) {
         // trainer ID [ID2]: once the player is free, a battle against trainer ID (and ID2, two trainers), as a script
         // starts it (in BW2's engine when the setting is on: "gen5 on")
@@ -977,7 +988,8 @@ static u16 Step(void) {
                 return 0;
             }
 #ifdef GEN5_BATTLES
-            if (!Gen5Battle_StartWild(command->x, command->y, command->frames)) {
+            if (!(command->map == 2 ? Gen5Battle_StartSafari(command->x, command->y, command->frames)
+                                    : Gen5Battle_StartWild(command->x, command->y, command->frames))) {
                 Fail(command, "the wild battle couldn't start");
                 return 0;
             }
