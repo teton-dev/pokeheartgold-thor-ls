@@ -3,7 +3,12 @@
 // the save editor with the tools
 #include <simulator/sim_settings.hpp>
 #include <simulator/sim_ui.hpp>
+#include <simulator/sim_carts.h>
 #include <simulator/sim_files.h>
+
+#include <SDL2/SDL.h>
+
+#include <cstring>
 
 #include <string>
 
@@ -143,6 +148,59 @@ void DrawGameplay() {
     }
 }
 
+// --- Games: the games added beside HeartGold (Sacred Gold, Storm Silver...), as in the Platinum fork ------------------
+
+std::string sGamesMessage;
+int sConfirmSwitch = -1;
+Uint64 sConfirmUntil = 0;
+
+void GameAdded(BOOL ok, const char *id) {
+    (void)id;
+    sGamesMessage = ok ? "Added. Choose it below to switch to it." : "";
+}
+
+void DrawGames() {
+    SIM_Cart carts[SIM_CARTS_MAX];
+    const int count = SIM_Carts_List(carts);
+    const SIM_Cart *current = SIM_Carts_Current();
+    const Uint64 now = SDL_GetTicks64();
+    if (now > sConfirmUntil) {
+        sConfirmSwitch = -1;
+    }
+    Section("Your games");
+    for (int i = 0; i < count; i++) {
+        ImGui::PushID(i);
+        const bool playing = strcmp(carts[i].id, current->id) == 0;
+        std::string subtitle = playing ? "Playing now"
+            : sConfirmSwitch == i      ? "Tap again to save and switch (the app restarts)"
+                                       : "Tap to switch to it";
+        if (carts[i].info[0] != '\0') {
+            subtitle += std::string(". ") + carts[i].info;
+        }
+        if (Card(carts[i].name, subtitle.c_str(), playing) && !playing) {
+            if (sConfirmSwitch == i) {
+                SIM_Carts_SwitchTo(carts[i].id);
+            } else {
+                sConfirmSwitch = i;
+                sConfirmUntil = now + 4000;
+            }
+        }
+        ImGui::PopID();
+    }
+    Status(sGamesMessage.c_str());
+    if (Button("Add a game", "A ROM hack like Sacred Gold or Storm Silver: choose a folder with your ROM and its patches, "
+                             "and the app applies them.")) {
+        sGamesMessage.clear();
+        SIM_Carts_Add(GameAdded);
+    }
+    bool ask = SIM_Carts_AskAtLaunch() != FALSE;
+    if (Toggle("Choose the game when the app starts", "Only asked when more than one game is installed.", &ask)) {
+        SIM_Carts_SetAskAtLaunch(ask ? TRUE : FALSE);
+    }
+    Note("Each game has its own files and saves; the settings are shared. Switching saves your game first when it can "
+         "be.");
+}
+
 } // namespace
 
 void SaveEditor_Draw(); // save_editor_gui.cpp
@@ -150,6 +208,7 @@ void SaveEditor_Draw(); // save_editor_gui.cpp
 void SIM_Prj_SettingsPages() {
     // In groups, as in the Platinum fork: playing (30-34), the device (40-60; libntr's Display 40, Sound 50, Controls
     // 60), connections (libntr's Link play 68), tools (80-90; libntr's Advanced 90)
+    SIM::Settings::AddPage("Games", "Switch games, add Sacred Gold or Storm Silver", DrawGames, 10);
     SIM::Settings::AddPage("Gameplay", "The Japanese Game Corner", DrawGameplay, 30);
 #ifdef GEN5_BATTLES
     SIM::Settings::AddPage("Battles", "Gen 5 battles and their ROM", DrawBattles, 32);

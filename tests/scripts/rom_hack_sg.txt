@@ -1,0 +1,12 @@
+# Sacred Gold (Drayano's hack, data folder ~/thor-dev/desktop-sg with SacredGoldComplete applied to HeartGold
+# (USA)): the game picker's name, and the special marts' lists read from its arm9 (lib/port/rom_hacks.c). The check
+# is the "[test] cartname" line (Sacred Gold) and the "[test] mart" lines (some marked changed; vanilla HeartGold:
+# none). Then a new game starts as usual.
+#
+#   ROM=~/thor-dev/sg_complete.nds DATA=~/thor-dev/desktop-sg tools/docker/desktop.sh test tests/scripts/rom_hack_sg.txt
+
+cartname
+marts
+mash A for 600
+shot title
+exit 0
