@@ -1,5 +1,6 @@
-// The game's pages in libntr's settings screen (SIM_Prj_SettingsPages): Gameplay, with the Platinum fork's 60 FPS
-// settings (its src/port/gui_settings.cpp)
+// The game's pages in libntr's settings screen (SIM_Prj_SettingsPages), grouped as in the Platinum fork's
+// (src/port/gui_settings.cpp): Gameplay (the Japanese Game Corner), Battles (Gen 5), the frame rate on Display,
+// the save editor with the tools
 #include <simulator/sim_settings.hpp>
 #include <simulator/sim_ui.hpp>
 #include <simulator/sim_files.h>
@@ -31,7 +32,7 @@ bool SettingToggle(const char *label, const char *help, BOOL *value, bool enable
     return false;
 }
 
-void DrawGameplay() {
+void DrawFrameRate() {
     GameSettings *settings = GameSettings_Get();
     Section("Frame rate");
     SettingToggle("60 FPS", "Smooth walking and scrolling: the overworld runs at 60 frames a second. Music keeps its speed.",
@@ -59,7 +60,7 @@ void OnGen5RomPicked(const char *path, void *) {
     }
 }
 
-void DrawGen5() {
+void DrawBattles() {
     Gen5Rom_Update();
     const enum Gen5RomState state = Gen5Rom_State();
     const char *game = Gen5Rom_GameName();
@@ -110,7 +111,7 @@ void OnSlotsRomPicked(const char *path, void *) {
     }
 }
 
-void DrawGameCorner() {
+void DrawGameplay() {
     SlotsRom_Update();
     const enum SlotsRomState state = SlotsRom_State();
     const char *game = SlotsRom_GameName();
@@ -147,10 +148,12 @@ void DrawGameCorner() {
 void SaveEditor_Draw(); // save_editor_gui.cpp
 
 void SIM_Prj_SettingsPages() {
-    SIM::Settings::AddPage("Save editor", "Pokemon, items, money, badges", SaveEditor_Draw, 25);
-    SIM::Settings::AddPage("Gameplay", "60 FPS", DrawGameplay, 30);
-    SIM::Settings::AddPage("Game Corner", "The Japanese slot machines, from your own ROM", DrawGameCorner, 36);
+    // In groups, as in the Platinum fork: playing (30-34), the device (40-60; libntr's Display 40, Sound 50, Controls
+    // 60), connections (libntr's Link play 68), tools (80-90; libntr's Advanced 90)
+    SIM::Settings::AddPage("Gameplay", "The Japanese Game Corner", DrawGameplay, 30);
 #ifdef GEN5_BATTLES
-    SIM::Settings::AddPage("Gen 5 battles", "Black 2 and White 2's battles, from your own ROM", DrawGen5, 35);
+    SIM::Settings::AddPage("Battles", "Gen 5 battles and their ROM", DrawBattles, 32);
 #endif
+    SIM::Settings::AddPage("Display", nullptr, DrawFrameRate, 40); // appended to libntr's page
+    SIM::Settings::AddPage("Save editor", "Pokemon, items, money, badges", SaveEditor_Draw, 80);
 }

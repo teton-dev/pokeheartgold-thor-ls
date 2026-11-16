@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The settings' accent (NativeSettings): Goldenrod's gold, after its icon -->
+    <color name="settings_accent">#FFF6C04A</color>
+</resources>
