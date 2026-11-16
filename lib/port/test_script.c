@@ -994,7 +994,7 @@ static u16 Step(void) {
             // The player's own, as a gift: their ID, name and gender as its OT (BW2's battles make a Pokémon of
             // another OT disobey above the badges' level)
             PlayerProfile *profile = Save_PlayerData_GetProfile(fieldSystem->saveData);
-            CreateMon(mon, command->x, command->y, 32, FALSE, 0, OT_ID_PLAYER_ID, PlayerProfile_GetTrainerID(profile));
+            CreateMon(mon, command->x, command->y, 32, FALSE, 0, OT_ID_PRESET, PlayerProfile_GetTrainerID(profile));
             SetMonData(mon, MON_DATA_OT_NAME, (void *)PlayerProfile_GetNamePtr(profile));
             u32 otGender = PlayerProfile_GetTrainerGender(profile);
             SetMonData(mon, MON_DATA_OT_GENDER, &otGender);

@@ -922,6 +922,17 @@ static BOOL Init(OverlayManager *man, int *state) {
     sBattle.player.gender = PlayerProfile_GetTrainerGender(profile);
     sBattle.player.money = PlayerProfile_GetMoney(profile);
     sBattle.player.badges = PlayerProfile_CountBadges(profile);
+    // HGSS's obedience (battle_controller_player.c's TryDisobedience): another trainer's Pokémon obeys up to level 10,
+    // 20 with a badge, 30 with two, 50 with the Fog Badge, 70 with the Storm Badge, and always with eight badges
+    if (sBattle.player.badges >= 8) {
+        sBattle.obeyLevel = 100;
+    } else if (PlayerProfile_TestBadgeFlag(profile, 5)) {
+        sBattle.obeyLevel = 70;
+    } else if (PlayerProfile_TestBadgeFlag(profile, 3)) {
+        sBattle.obeyLevel = 50;
+    } else {
+        sBattle.obeyLevel = sBattle.player.badges >= 2 ? 30 : sBattle.player.badges >= 1 ? 20 : 10;
+    }
     sBattle.partyCount = Party_GetCount(party);
     if (sBattle.partyCount > GEN5_PARTY_MAX) {
         sBattle.partyCount = GEN5_PARTY_MAX;
@@ -942,6 +953,8 @@ static BOOL Init(OverlayManager *man, int *state) {
     sBattle.isTrainer = (setup->battleType & BATTLE_TYPE_TRAINER) != 0;
     sBattle.doubles = (setup->battleType & BATTLE_TYPE_DOUBLES) != 0;
     if (sBattle.isTrainer) {
+        // Mom keeps some of the prize (BattleSetup_CopyResultsToSaveData moves it); the battle says so, as HGSS's does
+        sBattle.momSavings = setup->momsSavingsActive != 0;
         TrainerToGen5(setup, BATTLER_ENEMY, &sBattle.trainer);
         // Two trainers (TAG, or MULTI); a trainer who has both slots is one double battle's trainer
         if ((setup->battleType & (BATTLE_TYPE_TAG | BATTLE_TYPE_MULTI)) && setup->trainerId[BATTLER_ENEMY2] != 0
