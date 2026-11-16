@@ -32,7 +32,7 @@ wait 60
 touch 108 175
 wait 90
 stillshot thrown
-mash B until menu timeout 9000
+mash A until menu timeout 9000
 wait 60
 stillshot swap
 mash A until free timeout 9000
