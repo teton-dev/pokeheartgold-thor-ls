@@ -3,6 +3,7 @@
 // own battle leaves them in the BattleSetup.
 #include "port_gen5_battle.h"
 #include "port_gen5_battle_ui.h"
+#include "port_gen5_dex_entry.h"
 
 #ifdef GEN5_BATTLES
 
@@ -888,6 +889,9 @@ static void PortNuzlockeToGen5(BattleSetup *setup)
     sBattle.catchRefusedText[length] = 0xFFFF;
 }
 
+// The wild Pokémon's species hadn't been caught before the battle
+static BOOL sWildNewSpecies;
+
 static BOOL Init(OverlayManager *man, int *state) {
     (void)state;
     BattleSetup *setup = OverlayManager_GetArgs(man);
@@ -950,6 +954,14 @@ static BOOL Init(OverlayManager *man, int *state) {
         sBattle.safariCatchRate = GetMonBaseStat(species, BASE_CATCH_RATE);
         sBattle.safariFleeRate = GetMonBaseStat(species, BASE_GREAT_MARSH_RATE);
     }
+    // The species caught, for BW2's Pokédex; whether the wild one is new (its Pokédex entry after a catch)
+    for (int species = 1; species <= NATIONAL_DEX_COUNT && (species - 1) / 8 < (int)sizeof(sBattle.dexCaught); species++) {
+        if (Pokedex_CheckMonCaughtFlag(setup->pokedex, species)) {
+            sBattle.dexCaught[(species - 1) / 8] |= 1 << ((species - 1) % 8);
+        }
+    }
+    sWildNewSpecies = !(setup->battleType & BATTLE_TYPE_TRAINER) && !Pokedex_CheckMonCaughtFlag(setup->pokedex,
+        GetMonData(Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), MON_DATA_SPECIES, NULL));
     sBattle.isTrainer = (setup->battleType & BATTLE_TYPE_TRAINER) != 0;
     sBattle.doubles = (setup->battleType & BATTLE_TYPE_DOUBLES) != 0;
     if (sBattle.isTrainer) {
@@ -973,7 +985,7 @@ static BOOL Init(OverlayManager *man, int *state) {
         sBattle.legendary = (setup->battleSpecial & BATTLE_SPECIAL_LEGENDARY) != 0;
         // "Give a nickname to the caught ...?" after a catch, as HGSS's battle asks it; not in the Bug-Catching Contest
         // (no naming screen there) nor the Safari Zone (its view catches without it: its naming screen always opens)
-        sBattle.askNickname = setup->battleType != BATTLE_TYPE_BUG_CONTEST;
+        sBattle.askNickname = setup->battleType != BATTLE_TYPE_BUG_CONTEST && !sBattle.safari;
         sBattle.roamer = (setup->battleType & BATTLE_TYPE_ROAMER) != 0;
         const int freeBox = PCStorage_FindFirstBoxWithEmptySlot(setup->storagePC);
         sBattle.boxesFull = Party_GetCount(party) >= PARTY_SIZE && (freeBox < 0 || freeBox >= NUM_BOXES);
@@ -1210,6 +1222,7 @@ static void PlayVictoryMusic(void) {
 // screen (left empty, it keeps its species' name), then each Pokémon that gained a level and evolves now
 enum {
     STATE_BATTLE,
+    STATE_DEX_ENTRY,
     STATE_NAMING,
     STATE_CHECK_EVOLUTION,
     STATE_EVOLUTION,
@@ -1246,6 +1259,25 @@ static void FinishNaming(BattleSetup *setup) {
     StoreCaught(setup);
 }
 
+// After the battle (and a new species' Pokédex entry): a catch goes to the contest's slot, or is kept with its
+// species' name, or gets its naming screen; the state to go on in
+static int AfterCatch(BattleSetup *setup) {
+    if (setup->winFlag != BATTLE_OUTCOME_MON_CAUGHT) {
+        return STATE_CHECK_EVOLUTION;
+    }
+    if (sBattle.bugContest) {
+        StoreContestCatch(setup);
+        return STATE_CHECK_EVOLUTION;
+    }
+    if (sBattle.askNickname && !sBattle.nicknameWanted) {
+        // No nickname: it keeps its species' name
+        StoreCaught(setup);
+        return STATE_CHECK_EVOLUTION;
+    }
+    StartNaming(setup);
+    return STATE_NAMING;
+}
+
 static BOOL Main(OverlayManager *man, int *state) {
     BattleSetup *setup = OverlayManager_GetArgs(man);
 
@@ -1268,18 +1300,20 @@ static BOOL Main(OverlayManager *man, int *state) {
             }
         }
         Finish(setup);
-        if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT && sBattle.bugContest) {
-            StoreContestCatch(setup);
-            *state = STATE_CHECK_EVOLUTION;
-        } else if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT && sBattle.askNickname && !sBattle.nicknameWanted) {
-            // No nickname: it keeps its species' name
-            StoreCaught(setup);
-            *state = STATE_CHECK_EVOLUTION;
-        } else if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT) {
-            StartNaming(setup);
-            *state = STATE_NAMING;
-        } else {
-            *state = STATE_CHECK_EVOLUTION;
+        if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT && sWildNewSpecies) {
+            // A new species: its Pokédex entry first, as HGSS's battle shows it
+            Heap_Create(HEAP_ID_3, HEAP_ID_EVOLUTION, 0x80000);
+            Gen5DexEntry_Start(Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), setup->pokedex, HEAP_ID_EVOLUTION);
+            *state = STATE_DEX_ENTRY;
+            return FALSE;
+        }
+        *state = AfterCatch(setup);
+        return FALSE;
+    case STATE_DEX_ENTRY:
+        if (Gen5DexEntry_Run()) {
+            Gen5DexEntry_Free();
+            Heap_Destroy(HEAP_ID_EVOLUTION);
+            *state = AfterCatch(setup);
         }
         return FALSE;
     case STATE_NAMING:

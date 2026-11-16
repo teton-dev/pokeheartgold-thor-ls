@@ -1,6 +1,6 @@
 # From new-game: the nickname question after a catch in BW2's engine ("Give a nickname to the caught ...?", as HGSS's
-# battle asks it). A level 50 Typhlosion and a Master Ball against a wild Pidgey: caught; B answers No, so no naming
-# screen opens and the Pidgey joins the party with its species' name (the log's "a nickname for the catch: no").
+# battle asks it). A level 50 Typhlosion and a Master Ball against a wild Pidgey: caught; B answers No; the Pokedex entry of the new
+# species shows (A closes it); no naming screen opens and the Pidgey joins the party with its species' name (the log's "a nickname for the catch: no").
 mash A until free
 editor give 157 50
 editor item 1 1
@@ -18,6 +18,10 @@ wait 60
 touch 108 175
 wait 1500
 stillshot question
-mash B until free timeout 6000
+mash B for 900
+# The Pokedex entry of the new species (A closes it)
+wait 120
+stillshot dex
+mash A until free timeout 6000
 check party 2
 exit
