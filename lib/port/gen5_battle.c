@@ -93,7 +93,9 @@ BOOL Gen5Battle_Wants(const BattleSetup *setup) {
     // view plays them, gen5/src/safari.c, by the same rules as HGSS's), and the Bug-Catching Contest's (Sport Balls
     // alone in the bag). Pal Park, the tutorial, link and Frontier battles stay HGSS's
     const u32 type = setup->battleType;
-    if ((type & ~BATTLE_TYPE_ROAMER) == 0 || type == BATTLE_TYPE_SAFARI || type == BATTLE_TYPE_BUG_CONTEST) {
+    // Lyra's or Ethan's catching tutorial on Route 29 (BATTLE_TYPE_TUTORIAL): BW2's capture demo plays it
+    if ((type & ~BATTLE_TYPE_ROAMER) == 0 || type == BATTLE_TYPE_SAFARI || type == BATTLE_TYPE_BUG_CONTEST
+        || type == BATTLE_TYPE_TUTORIAL) {
         return TRUE;
     }
     // Trainers: single, double (one trainer's two Pokémon), against two trainers (TAG), and beside a partner whom
@@ -893,6 +895,27 @@ static void PortNuzlockeToGen5(BattleSetup *setup)
 // The wild Pokémon's species hadn't been caught before the battle
 static BOOL sWildNewSpecies;
 
+// The catching tutorial's two lines, as HGSS's battle has them (battle_controller_opponent.c, msg_0197 1226 to 1228):
+// "All right! I got its HP down!..." (Ethan's) or "OK! Its HP is down!..." (Lyra's), and "Lyra used a Poké Ball!", the
+// counterpart being the setup's player
+static void CaptureDemoTextToGen5(BattleSetup *setup) {
+    PlayerProfile *profile = setup->profile[BATTLER_PLAYER];
+    MessageFormat *format = MessageFormat_New(HEAP_ID_FIELD2);
+    MsgData *msgData = NewMsgDataFromNarc(MSGDATA_LOAD_LAZY, NARC_msgdata_msg, NARC_msg_msg_0197_bin, HEAP_ID_FIELD2);
+    BufferPlayersName(format, 0, profile);
+    const int ids[2] = { 1226 + (PlayerProfile_GetTrainerGender(profile) != 0), 1228 };
+    for (int i = 0; i < 2; i++) {
+        String *raw = NewString_ReadMsgData(msgData, ids[i]);
+        String *text = String_New(256, HEAP_ID_FIELD2);
+        StringExpandPlaceholders(format, text, raw);
+        TextToGen5(String_cstr(text), String_GetLength(text) + 1, sBattle.demoText[i], GEN5_TEXT_LENGTH);
+        String_Delete(raw);
+        String_Delete(text);
+    }
+    DestroyMsgData(msgData);
+    MessageFormat_Delete(format);
+}
+
 // The line HGSS's battle shows when a catch with no nickname goes to the PC (battle_command.c's catch sequence,
 // messages 1174 to 1177 of msg_0197): "{0} was transferred to {1} in someone's/Bill's PC!", or the active box is full
 // and it went to the next; for a full party with room in a box, else empty
@@ -1011,7 +1034,11 @@ static BOOL Init(OverlayManager *man, int *state) {
         sBattle.legendary = (setup->battleSpecial & BATTLE_SPECIAL_LEGENDARY) != 0;
         // "Give a nickname to the caught ...?" after a catch, as HGSS's battle asks it; not in the Bug-Catching Contest
         // (no naming screen there) nor the Safari Zone (its view catches without it: its naming screen always opens)
-        sBattle.askNickname = setup->battleType != BATTLE_TYPE_BUG_CONTEST && !sBattle.safari;
+        sBattle.captureDemo = setup->battleType == BATTLE_TYPE_TUTORIAL;
+        if (sBattle.captureDemo) {
+            CaptureDemoTextToGen5(setup);
+        }
+        sBattle.askNickname = setup->battleType != BATTLE_TYPE_BUG_CONTEST && !sBattle.safari && !sBattle.captureDemo;
         // With a full party, the line about the PC a catch with no nickname goes to
         if (sBattle.askNickname) {
             PcTextToGen5(setup, Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), sBattle.pcText[0]);
@@ -1436,6 +1463,26 @@ static BOOL Task_StartWild(TaskManager *taskManager) {
 }
 
 BOOL Gen5Battle_StartWildKind(int species, int level, BOOL gen5, int kind);
+
+// --- The catching tutorial (the test scripts' tutorial) -------------------------------------------------------------
+
+static BOOL Task_StartTutorial(TaskManager *taskManager) {
+    u32 *state = TaskManager_GetStatePtr(taskManager);
+    if ((*state)++ == 0) {
+        SetupAndStartTutorialBattle(taskManager);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL Gen5Battle_StartTutorial(void) {
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    if (fieldSystem == NULL || fieldSystem->taskman != NULL) {
+        return FALSE;
+    }
+    FieldSystem_CreateTask(fieldSystem, Task_StartTutorial, NULL);
+    return TRUE;
+}
 
 BOOL Gen5Battle_StartWild(int species, int level, BOOL gen5) {
     return Gen5Battle_StartWildKind(species, level, gen5, 0);

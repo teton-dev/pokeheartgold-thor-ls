@@ -478,6 +478,13 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
+    } else if (strcmp(words[0], "tutorial") == 0) {
+        // tutorial: once the player is free, the catching tutorial (Route 29's); in BW2's engine when the setting is on
+        command->op = OP_WILD;
+        command->map = 6;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
+        return TRUE;
     } else if ((strcmp(words[0], "legendary") == 0 || strcmp(words[0], "roamer") == 0) && count >= 3) {
         // legendary SPECIES LEVEL: a legendary's encounter; roamer SPECIES LEVEL: a roaming Pokémon's; in BW2's engine
         // when the setting is on
@@ -1019,6 +1026,7 @@ static u16 Step(void) {
 #ifdef GEN5_BATTLES
             if (!(command->map == 2   ? Gen5Battle_StartSafari(command->x, command->y, command->frames)
                     : command->map == 3 ? Gen5Battle_StartContest(command->x, command->y, command->frames)
+                    : command->map == 6 ? Gen5Battle_StartTutorial()
                     : command->map >= 4 ? Gen5Battle_StartWildKind(command->x, command->y, FALSE, command->map - 3)
                                         : Gen5Battle_StartWild(command->x, command->y, command->frames))) {
                 Fail(command, "the wild battle couldn't start");
