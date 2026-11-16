@@ -958,6 +958,9 @@ static BOOL Init(OverlayManager *man, int *state) {
         // A legendary's encounter (BW2's message without "wild"), a roamer's (BW2's roaming AI flees), and the party
         // and every box full (no ball can be thrown, as HGSS's battle refuses one then)
         sBattle.legendary = (setup->battleSpecial & BATTLE_SPECIAL_LEGENDARY) != 0;
+        // "Give a nickname to the caught ...?" after a catch, as HGSS's battle asks it; not in the Bug-Catching Contest
+        // (no naming screen there) nor the Safari Zone (its view catches without it: its naming screen always opens)
+        sBattle.askNickname = setup->battleType != BATTLE_TYPE_BUG_CONTEST;
         sBattle.roamer = (setup->battleType & BATTLE_TYPE_ROAMER) != 0;
         const int freeBox = PCStorage_FindFirstBoxWithEmptySlot(setup->storagePC);
         sBattle.boxesFull = Party_GetCount(party) >= PARTY_SIZE && (freeBox < 0 || freeBox >= NUM_BOXES);
@@ -1254,6 +1257,10 @@ static BOOL Main(OverlayManager *man, int *state) {
         Finish(setup);
         if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT && sBattle.bugContest) {
             StoreContestCatch(setup);
+            *state = STATE_CHECK_EVOLUTION;
+        } else if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT && sBattle.askNickname && !sBattle.nicknameWanted) {
+            // No nickname: it keeps its species' name
+            StoreCaught(setup);
             *state = STATE_CHECK_EVOLUTION;
         } else if (setup->winFlag == BATTLE_OUTCOME_MON_CAUGHT) {
             StartNaming(setup);

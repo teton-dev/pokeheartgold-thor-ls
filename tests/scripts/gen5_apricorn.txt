@@ -36,7 +36,8 @@ stillshot use
 touch 108 175
 wait 90
 stillshot thrown
-mash B until naming timeout 6000
+# YES to "Give a nickname to the caught ...?" (BW2's Yes and No on the touch screen)
+mash A touch 128 55 until naming timeout 6000
 wait 90
 press START
 wait 30

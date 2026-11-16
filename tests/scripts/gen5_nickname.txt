@@ -1,0 +1,23 @@
+# From new-game: the nickname question after a catch in BW2's engine ("Give a nickname to the caught ...?", as HGSS's
+# battle asks it). A level 50 Typhlosion and a Master Ball against a wild Pidgey: caught; B answers No, so no naming
+# screen opens and the Pidgey joins the party with its species' name (the log's "a nickname for the catch: no").
+mash A until free
+editor give 157 50
+editor item 1 1
+gen5 on
+wild 16 2 gen5
+until battle timeout 600
+until command timeout 6000
+wait 60
+touch 40 180
+wait 60
+touch 192 48
+wait 60
+touch 64 33
+wait 60
+touch 108 175
+wait 1500
+stillshot question
+mash B until free timeout 6000
+check party 2
+exit
