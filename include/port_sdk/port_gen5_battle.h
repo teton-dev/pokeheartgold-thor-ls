@@ -37,6 +37,8 @@ BOOL Gen5Battle_StartSafari(int species, int level, int balls);
 // Once the player is free: a Bug-Catching Contest battle against SPECIES at LEVEL with BALLS Sport Balls, the contest
 // started as the National Park's gate starts it if it isn't on (the party cut to its lead)
 BOOL Gen5Battle_StartContest(int species, int level, int balls);
+// Once the player is free: the catching tutorial, as Route 29's script starts it
+BOOL Gen5Battle_StartTutorial(void);
 // The contest's Sport Balls left (-1 with no contest), and the species of the Pokémon kept (0: none)
 int Gen5Battle_ContestBalls(void);
 int Gen5Battle_ContestSpecies(void);

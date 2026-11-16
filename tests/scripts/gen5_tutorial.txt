@@ -1,0 +1,23 @@
+# From new-game: the catching tutorial (Route 29's: Lyra catches a Rattata with her Marill) as BW2's capture demo
+# plays it: her back and name, Marill's first move, the Rattata's, her line "OK! Its HP is down!..." and the throw
+# ("Lyra used a Poke Ball!"), then back to the overworld; nothing is kept (the party stays at one).
+mash A until free
+give 155 5
+gen5 on
+tutorial
+until battle timeout 600
+wait 400
+stillshot t1
+wait 300
+stillshot t2
+wait 300
+stillshot t3
+wait 300
+stillshot t4
+wait 300
+stillshot t5
+wait 300
+stillshot t6
+mash A until free timeout 6000
+check party 1
+exit
