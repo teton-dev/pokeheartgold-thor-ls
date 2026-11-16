@@ -5,6 +5,8 @@
 
 #include <nitro.h>
 #include <stdio.h>
+
+#include "port_sdk/port_rom_hacks.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -69,6 +71,8 @@ enum TestOp {
     OP_WARP,
     OP_SHOT,
     OP_LOG,
+    OP_CARTNAME,
+    OP_MARTS,
     OP_TEXT_WIDTHS,
     OP_EDITOR,
     OP_EXIT,
@@ -535,6 +539,15 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         snprintf(command->text, sizeof(command->text), "%s", rest);
         command->condition = COND_FREE;
         command->timeout = DEFAULT_TIMEOUT;
+        return TRUE;
+    } else if (strcmp(words[0], "cartname") == 0) {
+        // cartname [DIR]: what the game picker calls the game extracted in DIR (the data folder by default)
+        command->op = OP_CARTNAME;
+        snprintf(command->text, sizeof(command->text), "%s", rest != NULL ? rest : ".");
+        return TRUE;
+    } else if (strcmp(words[0], "marts") == 0) {
+        // marts: the special marts' lists the game uses (a ROM hack's, read from its arm9), logged
+        command->op = OP_MARTS;
         return TRUE;
     } else if (strcmp(words[0], "log") == 0 && rest != NULL) {
         command->op = OP_LOG;
@@ -1146,6 +1159,28 @@ static u16 Step(void) {
                 sTest.freeFrames = 0;
                 return 0;
             }
+            continue;
+        }
+        case OP_CARTNAME: {
+            char name[96];
+            RomHacks_DescribeRom(command->text, name, sizeof(name));
+            printf("[test] cartname %s: %s\n", command->text, name);
+            Next();
+            continue;
+        }
+        case OP_MARTS: {
+            extern const u16 *_0210FA3C[];
+            for (int i = 0; i < ROM_HACKS_MART_COUNT; i++) {
+                const u16 *list = RomHacks_MartList(i, _0210FA3C);
+                char line[256];
+                int used = snprintf(line, sizeof(line), "[test] mart %d%s:", i, list != _0210FA3C[i] && memcmp(list,
+                    _0210FA3C[i], 2) != 0 ? " (changed)" : "");
+                for (int n = 0; list[n] != 0xFFFF && used < (int)sizeof(line) - 8; n++) {
+                    used += snprintf(line + used, sizeof(line) - used, " %u", list[n]);
+                }
+                printf("%s\n", line);
+            }
+            Next();
             continue;
         }
         case OP_LOG:

@@ -226,6 +226,7 @@ hgss_port_lib_c = files(
     'lib/port/msl_runtime.c',
     'lib/port/nuzlocke_heartgold.c',
     'lib/port/nuzlocke_mode.c',
+    'lib/port/rom_hacks.c',
     'lib/port/save_editor.c',
     'lib/port/save_migrate_v1.c',
     'lib/port/slots/slot_app.c',

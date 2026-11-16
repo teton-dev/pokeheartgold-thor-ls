@@ -10,6 +10,10 @@
 #include "save_vars_flags.h"
 #include "scrcmd.h"
 
+#ifdef SDK_PORT
+#include "port_sdk/port_rom_hacks.h"
+#endif
+
 struct BadgeMartItems {
     u16 item_id;
     u16 tier;
@@ -163,11 +167,20 @@ const u16 *_0210FA3C[] = {
     _020FBBD8,
 };
 
+#ifdef SDK_PORT
+_Static_assert(NELEMS(_0210FA3C) == ROM_HACKS_MART_COUNT, "the special marts are ROM_HACKS_MART_COUNT lists");
+#endif
+
 BOOL ScrCmd_SpecialMartBuy(ScriptContext *ctx) {
     u16 which;
 
     which = ScriptGetVar(ctx);
+#ifdef SDK_PORT
+    // A ROM hack's own lists (Sacred Gold, Storm Silver), read from its arm9
+    Mart_Init(ctx->taskman, ctx->fieldSystem, (u16 *)RomHacks_MartList(which, _0210FA3C), 0, 0, 0, NULL);
+#else
     Mart_Init(ctx->taskman, ctx->fieldSystem, _0210FA3C[which], 0, 0, 0, NULL);
+#endif
     return TRUE;
 }
 
