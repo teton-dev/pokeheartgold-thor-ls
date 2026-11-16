@@ -42,6 +42,7 @@
 #include "gf_rtc.h"
 #include "item.h"
 #include "map_header.h"
+#include "message_format.h"
 #include "msgdata.h"
 #include "naming_screen.h"
 #include "options.h"
@@ -892,6 +893,31 @@ static void PortNuzlockeToGen5(BattleSetup *setup)
 // The wild Pokémon's species hadn't been caught before the battle
 static BOOL sWildNewSpecies;
 
+// The line HGSS's battle shows when a catch with no nickname goes to the PC (battle_command.c's catch sequence,
+// messages 1174 to 1177 of msg_0197): "{0} was transferred to {1} in someone's/Bill's PC!", or the active box is full
+// and it went to the next; for a full party with room in a box, else empty
+static void PcTextToGen5(BattleSetup *setup, Pokemon *wild, unsigned short *dest) {
+    dest[0] = 0xFFFF;
+    const int activeBox = PCStorage_GetActiveBox(setup->storagePC);
+    const int emptyBox = PCStorage_FindFirstBoxWithEmptySlot(setup->storagePC);
+    if (Party_GetCount(setup->party[BATTLER_PLAYER]) < PARTY_SIZE || emptyBox < 0 || emptyBox >= NUM_BOXES) {
+        return;
+    }
+    MessageFormat *format = MessageFormat_New(HEAP_ID_FIELD2);
+    MsgData *msgData = NewMsgDataFromNarc(MSGDATA_LOAD_LAZY, NARC_msgdata_msg, NARC_msg_msg_0197_bin, HEAP_ID_FIELD2);
+    BufferBoxMonSpeciesName(format, 0, Mon_GetBoxMon(wild));
+    BufferPCBoxName(format, 1, setup->storagePC, activeBox);
+    BufferPCBoxName(format, 2, setup->storagePC, emptyBox);
+    String *raw = NewString_ReadMsgData(msgData, (activeBox == emptyBox ? 1174 : 1176) + (setup->metBill != FALSE));
+    String *text = String_New(256, HEAP_ID_FIELD2);
+    StringExpandPlaceholders(format, text, raw);
+    TextToGen5(String_cstr(text), String_GetLength(text) + 1, dest, GEN5_TEXT_LENGTH);
+    String_Delete(raw);
+    String_Delete(text);
+    DestroyMsgData(msgData);
+    MessageFormat_Delete(format);
+}
+
 static BOOL Init(OverlayManager *man, int *state) {
     (void)state;
     BattleSetup *setup = OverlayManager_GetArgs(man);
@@ -986,6 +1012,10 @@ static BOOL Init(OverlayManager *man, int *state) {
         // "Give a nickname to the caught ...?" after a catch, as HGSS's battle asks it; not in the Bug-Catching Contest
         // (no naming screen there) nor the Safari Zone (its view catches without it: its naming screen always opens)
         sBattle.askNickname = setup->battleType != BATTLE_TYPE_BUG_CONTEST && !sBattle.safari;
+        // With a full party, the line about the PC a catch with no nickname goes to
+        if (sBattle.askNickname) {
+            PcTextToGen5(setup, Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), sBattle.pcText[0]);
+        }
         sBattle.roamer = (setup->battleType & BATTLE_TYPE_ROAMER) != 0;
         const int freeBox = PCStorage_FindFirstBoxWithEmptySlot(setup->storagePC);
         sBattle.boxesFull = Party_GetCount(party) >= PARTY_SIZE && (freeBox < 0 || freeBox >= NUM_BOXES);

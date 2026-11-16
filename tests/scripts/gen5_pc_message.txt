@@ -1,0 +1,35 @@
+# From new-game: the PC line after a catch with no nickname and a full party in BW2's engine, as HGSS's battle shows
+# it ("PIDGEY was transferred to BOX 1 in someone's PC!"). Six Pokemon and a Master Ball against a wild Pidgey: caught;
+# B answers No (the first press shows BW2's cursor); the battle shows the PC line (the shot pc, the log's "the catch
+# goes to the PC"); then the new species' Pokedex entry (A closes it); the party stays at six.
+mash A until free
+editor give 157 50
+give 155 5
+give 155 5
+give 155 5
+give 155 5
+give 155 5
+editor item 1 1
+gen5 on
+wild 16 2 gen5
+until battle timeout 600
+until command timeout 6000
+wait 60
+touch 40 180
+wait 60
+touch 192 48
+wait 60
+touch 64 33
+wait 60
+touch 108 175
+wait 1500
+stillshot question
+press B
+wait 20
+press B
+wait 120
+stillshot pc
+mash B for 600
+mash A until free timeout 6000
+check party 6
+exit
