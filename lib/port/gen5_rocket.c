@@ -572,7 +572,12 @@ BOOL Gen5Rocket_MakeStage(u8 *res, u32 size)
 #define BG_DATA_ARC 151 // ARCID_BATTLE_BG_DATA: a/1/5/1
 #define BG_DATA_PATH DIR "/a/1/5/1"
 #define ROCKET_STAMP_PATH DIR "/rocket_arena.txt"
-#define ROCKET_VERSION 5 // 5: the Safari Zone's labels too
+#define ROCKET_VERSION 7 // 5: the Safari Zone's labels too; 6, 7: the Apricorn Balls' throw palettes
+#define BALLS_ARC 94 // ARCID_BTLV_EFFVM_BG: a/0/9/4, the thrown balls' sprites
+#define BALLS_PATH DIR "/a/0/9/4"
+#define BALL_POKE 4
+#define BALL_FAST 17
+#define APRICORN_BALLS 8 // the Fast Ball (17) to the Sport Ball (24)
 #define CHAMPION_MODEL 115 // member of archive 11
 #define CHAMPION_STAGE 21
 #define STAGE_MODEL 38 // member of archive 11: both grounds of the Champion room's stage
@@ -1076,6 +1081,164 @@ static BOOL MakeRocketArena(const char *bw2Dir)
     return ok;
 }
 
+// BW2's thrown balls are a sheet of frames and a palette each (archive 94: ball * 2 + 231 and + 232; 17 is the Dream
+// Ball), none for HGSS's Apricorn Balls, and HGSS's own sheets are another size (13 frames of 16x16 to BW2's 17 of
+// 32x32). So an Apricorn Ball is drawn with BW2's Poke Ball frames in a palette of its own, added to a copy of the
+// archive (from member 267, in ball order): the Poke Ball's six reds (colours 15, 1 to 5, dark to light) become shades
+// of the Apricorn Ball's main colour, the commonest coloured pixel of the top half of its first frame in HGSS's own
+// sheet (a/0/0/8: sheet 0x105 + 3 * (ball - 1), LZ-compressed, palette 0x52 + ball). BW2 throws and opens these balls
+// with its own art of them (its particles); the palette is for the frames after, the ball shaking on the ground
+static u16 BlendColor(u16 a, u16 b, int weightB, int total)
+{
+    int out = 0;
+    for (int shift = 0; shift <= 10; shift += 5) {
+        const int ca = (a >> shift) & 31, cb = (b >> shift) & 31;
+        out |= ((ca * (total - weightB) + cb * weightB) / total) << shift;
+    }
+    return (u16)out;
+}
+
+// An LZ10-compressed file (the DS BIOS's), or the file itself when it isn't; free it when not the same
+static u8 *Uncompress(u8 *data, u32 size, u32 *outSize)
+{
+    if (size < 4 || data[0] != 0x10) {
+        *outSize = size;
+        return data;
+    }
+    const u32 length = data[1] | (data[2] << 8) | (data[3] << 16);
+    u8 *out = malloc(length);
+    u32 in = 4, n = 0;
+    while (n < length && in < size) {
+        u8 flags = data[in++];
+        for (int bit = 0; bit < 8 && n < length && in < size; bit++, flags <<= 1) {
+            if (flags & 0x80) {
+                if (in + 1 >= size) {
+                    break;
+                }
+                const u32 count = (data[in] >> 4) + 3;
+                const u32 back = (((data[in] & 0xF) << 8) | data[in + 1]) + 1;
+                in += 2;
+                for (u32 k = 0; k < count && n < length; k++, n++) {
+                    out[n] = n >= back ? out[n - back] : 0;
+                }
+            } else {
+                out[n++] = data[in++];
+            }
+        }
+    }
+    *outSize = length;
+    return out;
+}
+
+// The commonest coloured (not grey, white or black) colour of the top half of a ball's first 16x16 frame (tiles 0 and
+// 1 of its sheet, 4 bits a pixel)
+static u16 MainColor(u8 *sheet, u32 sheetSize, const u16 *colors)
+{
+    u32 size = 0;
+    u8 *file = Uncompress(sheet, sheetSize, &size);
+    u16 best = colors[6];
+    if (size >= 0x30 && memcmp(file + 0x10, "RAHC", 4) == 0) {
+        const u32 offset = 0x18 + Read32(file + 0x2C); // the tiles: from the RAHC block (0x10), past its header
+        int counts[16] = { 0 };
+        for (u32 i = 0; i < 64 && offset + i < size; i++) {
+            for (int half = 0; half < 2; half++) {
+                const int c = (file[offset + i] >> (4 * half)) & 0xF;
+                const int r = colors[c] & 31, g = (colors[c] >> 5) & 31, b = (colors[c] >> 10) & 31;
+                const int hi = r > g ? (r > b ? r : b) : (g > b ? g : b);
+                const int lo = r < g ? (r < b ? r : b) : (g < b ? g : b);
+                if (c != 0 && hi - lo >= 4) {
+                    counts[c]++;
+                }
+            }
+        }
+        int top = 0;
+        for (int c = 1; c < 16; c++) {
+            if (counts[c] > counts[top]) {
+                top = c;
+            }
+        }
+        if (counts[top] > 0) {
+            best = colors[top];
+        }
+    }
+    if (file != sheet) {
+        free(file);
+    }
+    return best;
+}
+
+// A palette file's 16 colours (its TTLP block's data)
+static u16 *PaletteColors(u8 *file, u32 size)
+{
+    for (u32 i = 0; i + 24 <= size; i += 4) {
+        if (memcmp(file + i, "TTLP", 4) == 0) {
+            const u32 offset = i + 8 + Read32(file + i + 20);
+            return offset + 32 <= size ? (u16 *)(file + offset) : NULL;
+        }
+    }
+    return NULL;
+}
+
+static BOOL MakeApricornBalls(const char *bw2Dir)
+{
+    char path[512];
+    Archive balls, hgss;
+    snprintf(path, sizeof(path), "%s/a/0/9/4", bw2Dir);
+    BOOL ok = ArchiveOpen(&balls, path);
+    // HGSS's own data, from the game's folder
+    ok = ArchiveOpen(&hgss, "a/0/0/8") && ok;
+    const u32 pokePalette = BALL_POKE * 2 + 232;
+    u8 *palettes[APRICORN_BALLS] = { NULL };
+    u32 sizes[APRICORN_BALLS];
+    if (ok && balls.count == 267 && hgss.count > 0x6A) {
+        const u32 size = balls.end[pokePalette] - balls.start[pokePalette];
+        for (int i = 0; i < APRICORN_BALLS && ok; i++) {
+            palettes[i] = malloc(size);
+            memcpy(palettes[i], balls.data + balls.start[pokePalette], size);
+            sizes[i] = size;
+            u16 *colors = PaletteColors(palettes[i], size);
+            const u32 ball = BALL_FAST + i;
+            u8 *hgFile = hgss.data + hgss.start[0x52 + ball];
+            const u16 *hgColors = PaletteColors(hgFile, hgss.end[0x52 + ball] - hgss.start[0x52 + ball]);
+            const u32 sheet = 0x105 + 3 * (ball - 1);
+            if (colors == NULL || hgColors == NULL || sheet >= hgss.count) {
+                ok = FALSE;
+                break;
+            }
+            const u16 main = MainColor(hgss.data + hgss.start[sheet], hgss.end[sheet] - hgss.start[sheet], hgColors);
+            // BW2's Poke Ball's reds, darkest to lightest: two thirds, three quarters, five sixths, all, then towards
+            // white by a third and two thirds
+            Put16(&colors[15], BlendColor(main, 0, 1, 2));
+            Put16(&colors[1], BlendColor(main, 0, 1, 4));
+            Put16(&colors[2], BlendColor(main, 0, 1, 8));
+            Put16(&colors[3], main);
+            Put16(&colors[4], BlendColor(main, 0x7FFF, 1, 3));
+            Put16(&colors[5], BlendColor(main, 0x7FFF, 2, 3));
+        }
+    } else {
+        printf("Gen 5: the balls' archive has %u members, HGSS's a/0/0/8 %u (%s)\n", (unsigned)balls.count,
+            (unsigned)hgss.count, ok ? "both read" : "not read");
+        ok = FALSE;
+    }
+    if (ok) {
+        u32 fileSize = 0;
+        u8 *file = ArchiveWithAdded(&balls, APRICORN_BALLS, (const u8 *const *)palettes, sizes, &fileSize);
+        mkdir(DIR, 0755);
+        mkdir(DIR "/a", 0755);
+        mkdir(DIR "/a/0", 0755);
+        mkdir(DIR "/a/0/9", 0755);
+        remove(BALLS_PATH);
+        ok = file != NULL && WriteWhole(BALLS_PATH, file, fileSize);
+        free(file);
+    }
+    for (int i = 0; i < APRICORN_BALLS; i++) {
+        free(palettes[i]);
+    }
+    ArchiveClose(&balls);
+    ArchiveClose(&hgss);
+    return ok;
+}
+
 BOOL Gen5Rocket_PrepareArena(void)
 {
     static BOOL sRegistered;
@@ -1105,11 +1268,24 @@ BOOL Gen5Rocket_PrepareArena(void)
             printf("Gen 5: the Team Rocket arena couldn't be made: the Champion room is used\n");
             return FALSE;
         }
+        if (!MakeApricornBalls(Gen5Rom_Dir())) {
+            printf("Gen 5: the Apricorn Balls' palettes couldn't be made: they fly as a Poke Ball\n");
+            remove(BALLS_PATH);
+        }
         WriteWhole(ROCKET_STAMP_PATH, (const u8 *)stamp, (u32)strlen(stamp));
         printf("Gen 5: the Team Rocket arena made in %s\n", DIR);
     }
     Gen5_FilesOverride(BTLV_ARC, BTLV_PATH);
     Gen5_FilesOverride(BG_DATA_ARC, BG_DATA_PATH);
+    {
+        // The thrown balls with the Apricorn Balls' palettes, if they were made
+        FILE *f = fopen(BALLS_PATH, "rb");
+        if (f != NULL) {
+            fclose(f);
+            Gen5_FilesOverride(BALLS_ARC, BALLS_PATH);
+            Gen5_SetApricornBallSprites(267);
+        }
+    }
     sRegistered = TRUE;
     return TRUE;
 }
