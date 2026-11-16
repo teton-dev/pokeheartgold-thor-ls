@@ -29,6 +29,9 @@ BOOL Gen5Battle_StartWild(int species, int level, BOOL gen5);
 // Once the player is free: a battle against trainer1 (and trainer2 too, a TAG battle, when it is another), as a script's
 // trainerbattle starts it; in BW2's engine when the setting says so. FALSE if the field can't take a task now
 BOOL Gen5Battle_StartTrainer(u32 trainer1, u32 trainer2);
+// Once the player is free: a Safari Zone battle against SPECIES at LEVEL with BALLS Safari Balls, as the Safari Zone's
+// grass starts one (its flag and ball counter set; out of balls, the player goes back to where they stood)
+BOOL Gen5Battle_StartSafari(int species, int level, int balls);
 
 // BW2's battle is on screen (for widescreen)
 BOOL Gen5Battle_IsShown(void);

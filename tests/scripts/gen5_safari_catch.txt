@@ -1,0 +1,25 @@
+# From new-game: a Safari Zone catch in BW2's engine. A level 5 Cyndaquil in the party, a wild Caterpie (catch rate
+# 255, flee rate 0: Safari Balls until one catches it, about one in two) with 12 balls; HGSS's naming screen is left
+# empty, the Caterpie goes to the party in a Safari Ball (ball 5), and 10 balls are left (the seed below catches with the second).
+#
+#   TEST_ENV=POKEPLATINUM_GEN5_SAFARI_SEED=3 tools/docker/desktop.sh test tests/scripts/gen5_safari_catch.txt --from new-game
+mash A until free
+give 155 5
+gen5 on
+safari 10 5 12
+until battle timeout 600
+until command timeout 6000
+wait 90
+touch 128 80
+mash B touch 128 80 until naming timeout 12000
+wait 90
+stillshot naming
+press START
+wait 30
+press A
+mash B until free timeout 6000
+check party 2
+editor species 1 10
+editor ball 1 5
+editor safari 10
+exit

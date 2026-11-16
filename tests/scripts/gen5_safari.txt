@@ -1,0 +1,42 @@
+# From new-game: the Safari Zone in BW2's engine, by HGSS's rules (the same as Platinum's: gen5/src/safari.c). A level
+# 5 Cyndaquil in the party (none of it on the field), a level 22 Bulbasaur (HGSS's flee rate 0: it never flees) with
+# 30 Safari Balls: the command screen (BALL, BAIT, ROCK, RUN), a ball, bait, mud, then RUN; passes once back on the
+# overworld with 29 balls.
+#
+#   TEST_ENV=POKEPLATINUM_GEN5_SAFARI_SEED=3 tools/docker/desktop.sh test tests/scripts/gen5_safari.txt --from new-game
+mash A until free
+give 155 5
+gen5 on
+safari 1 22 30
+until battle timeout 600
+wait 150
+stillshot intro
+until command timeout 6000
+wait 60
+stillshot command
+# BALL (the middle button): the throw, the result, the Pokemon's turn
+touch 128 80
+wait 100
+stillshot ball1
+wait 90
+stillshot ball2
+mash B until command timeout 6000
+wait 60
+# BAIT (the left button)
+touch 40 178
+wait 120
+stillshot bait
+mash B until command timeout 6000
+wait 60
+# MUD (the right button)
+touch 216 178
+wait 120
+stillshot mud
+mash B until command timeout 6000
+wait 60
+# RUN, at the bottom of the touch screen, with B through the messages
+touch 128 178
+mash B touch 128 178 until free timeout 6000
+stillshot back
+editor safari 29
+exit

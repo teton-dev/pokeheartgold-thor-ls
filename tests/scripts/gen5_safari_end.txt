@@ -1,0 +1,30 @@
+# From new-game: the Safari Zone's endings in BW2's engine. A level 22 Kangaskhan (HGSS's flee rate 150: bait makes
+# it run off soon) baited until it flees; then a level 22 Bulbasaur with the last ball (catch rate 45: the seed makes
+# it break out), "out of balls", and HGSS's Safari encounter takes the player back to the gate (here: where the
+# battle started).
+#
+#   TEST_ENV=POKEPLATINUM_GEN5_SAFARI_SEED=3 tools/docker/desktop.sh test tests/scripts/gen5_safari_end.txt --from new-game
+mash A until free
+give 155 5
+gen5 on
+safari 115 22 30
+until battle timeout 600
+until command timeout 6000
+wait 90
+# BAIT, over and over, until it runs away
+touch 40 178
+mash B touch 40 178 until free timeout 6000
+stillshot fled
+editor safari 30
+safari 1 22 1
+until battle timeout 600
+until command timeout 6000
+wait 90
+# BALL, the only one
+touch 128 80
+wait 400
+stillshot out
+mash B until free timeout 8000
+stillshot back
+editor safari 0
+exit

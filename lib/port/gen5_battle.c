@@ -28,6 +28,10 @@
 #include "battle/battle_system.h"
 #include "evolution_scene.h"
 #include "field_system.h"
+#include "sys_flags.h"
+#include "save_local_field_data.h"
+#include "player_avatar.h"
+#include "field/encounter_check.h"
 #include "filesystem.h"
 #include "game_stats.h"
 #include "gen5.h"
@@ -80,10 +84,11 @@ BOOL Gen5Battle_Wants(const BattleSetup *setup) {
     if (!GameSettings_Get()->gen5Battles || Gen5Rom_GameName() == NULL) {
         return FALSE;
     }
-    // Wild battles alone (roaming Pokémon too). The Safari Zone, the Bug-Catching Contest, Pal Park, the tutorial,
-    // link and Frontier battles stay HGSS's
+    // Wild battles alone (roaming Pokémon too), and the Safari Zone's (none of the player's Pokémon on the field: the
+    // view plays them, gen5/src/safari.c, by the same rules as HGSS's). The Bug-Catching Contest, Pal Park, the
+    // tutorial, link and Frontier battles stay HGSS's
     const u32 type = setup->battleType;
-    if ((type & ~BATTLE_TYPE_ROAMER) == 0) {
+    if ((type & ~BATTLE_TYPE_ROAMER) == 0 || type == BATTLE_TYPE_SAFARI) {
         return TRUE;
     }
     // Trainers: single, double (one trainer's two Pokémon), against two trainers (TAG), and beside a partner whom
@@ -921,6 +926,16 @@ static BOOL Init(OverlayManager *man, int *state) {
     for (int i = 0; i < sBattle.partyCount; i++) {
         PokemonToGen5(Party_GetMonByIndex(party, i), &sBattle.party[i]);
     }
+    if (setup->battleType == BATTLE_TYPE_SAFARI) {
+        // The Safari Balls left, and the wild species' catch and flee rates (HGSS's data: BW2 has no flee rate). HGSS's
+        // Safari rules are Platinum's (battle_controller_player.c's bait and mud, the opponent's flee check), which
+        // gen5/src/safari.c plays
+        const u16 species = GetMonData(Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), MON_DATA_SPECIES, NULL);
+        sBattle.safari = TRUE;
+        sBattle.safariBalls = setup->safariBalls;
+        sBattle.safariCatchRate = GetMonBaseStat(species, BASE_CATCH_RATE);
+        sBattle.safariFleeRate = GetMonBaseStat(species, BASE_GREAT_MARSH_RATE);
+    }
     sBattle.isTrainer = (setup->battleType & BATTLE_TYPE_TRAINER) != 0;
     sBattle.doubles = (setup->battleType & BATTLE_TYPE_DOUBLES) != 0;
     if (sBattle.isTrainer) {
@@ -1061,6 +1076,11 @@ static void Finish(BattleSetup *setup) {
             PlayerProfile_SubMoney(profile, -sBattle.moneyChange);
         }
     }
+    if (sBattle.safari && !sFailed) {
+        // What is left of the Safari Balls (the encounter writes it to the save's counter and ends the game at 0)
+        setup->safariBalls = sBattle.safariBalls;
+        printf("Gen 5: a Safari Zone battle, %d balls left%s\n", sBattle.safariBalls, sBattle.safariFled ? ", it fled" : "");
+    }
     switch (result) {
     case GEN5_BATTLE_WON:
         setup->winFlag = BATTLE_OUTCOME_WIN;
@@ -1072,8 +1092,8 @@ static void Finish(BattleSetup *setup) {
         setup->winFlag = BATTLE_OUTCOME_MON_CAUGHT; // stored after its naming screen (Main)
         break;
     default:
-        // Ran, or failed: back to the overworld as if the player ran
-        setup->winFlag = BATTLE_OUTCOME_PLAYER_FLED;
+        // Ran, or failed: back to the overworld as if the player ran; in the Safari Zone the Pokémon may have fled
+        setup->winFlag = sBattle.safari && sBattle.safariFled && !sFailed ? BATTLE_OUTCOME_FOE_FLED : BATTLE_OUTCOME_PLAYER_FLED;
         break;
     }
 }
@@ -1288,6 +1308,48 @@ BOOL Gen5Battle_StartWild(int species, int level, BOOL gen5) {
     start->level = level;
     start->winFlag = 0;
     FieldSystem_CreateTask(fieldSystem, Task_StartWild, start);
+    return TRUE;
+}
+
+// --- Starting a Safari Zone battle (the test scripts' safari) --------------------------------------------------------
+
+typedef struct {
+    int species;
+    int level;
+    int balls;
+} SafariStart;
+
+static BOOL Task_StartSafari(TaskManager *taskManager) {
+    SafariStart *start = TaskManager_GetEnvironment(taskManager);
+    FieldSystem *fieldSystem = TaskManager_GetFieldSystem(taskManager);
+    SaveData *saveData = fieldSystem->saveData;
+
+    // As the Safari Zone's grass does: the Safari flag on (the encounter is Task_SafariEncounter), its ball counter, and
+    // the gate to go back to when the balls run out (here: where the player stands)
+    Save_VarsFlags_SetSafariSysFlag(Save_VarsFlags_Get(saveData));
+    *LocalFieldData_GetSafariBallsCounter(Save_LocalFieldData_Get(saveData)) = start->balls;
+    Location here = *fieldSystem->location;
+    here.warpId = -1;
+    here.x = PlayerAvatar_GetXCoord(fieldSystem->playerAvatar);
+    here.y = PlayerAvatar_GetZCoord(fieldSystem->playerAvatar);
+    LocalFieldData_SetDynamicWarp(Save_LocalFieldData_Get(saveData), &here);
+    BattleSetup *setup = BattleSetup_New_SafariZone(HEAP_ID_FIELD2, start->balls);
+    BattleSetup_InitFromFieldSystem(setup, fieldSystem);
+    FieldSystem_GenerateSingleWildPokemon(fieldSystem, start->species, start->level, FALSE, setup);
+    FieldSystem_StartForcedWildBattle(fieldSystem, taskManager, setup);
+    return FALSE;
+}
+
+BOOL Gen5Battle_StartSafari(int species, int level, int balls) {
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    if (fieldSystem == NULL || fieldSystem->taskman != NULL) {
+        return FALSE;
+    }
+    static SafariStart sStart;
+    sStart.species = species;
+    sStart.level = level;
+    sStart.balls = balls;
+    FieldSystem_CreateTask(fieldSystem, Task_StartSafari, &sStart);
     return TRUE;
 }
 

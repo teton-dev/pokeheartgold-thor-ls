@@ -11,6 +11,7 @@
 #include "pokemon.h"
 #include "save_arrays.h"
 #include "save_pokegear.h"
+#include "save_local_field_data.h"
 
 #include "port_debug_field.h"
 #include "port_save_editor.h"
@@ -71,6 +72,11 @@ static const char *Editor(char **words, int count) {
         // The prize was 4/3 of what the player kept beyond MONEY... checked as HGSS splits it: Mom has a quarter
         const u32 prize = trainer.money - (u32)a + savings;
         return savings == prize / 4 ? NULL : Failed("Mom has %d of a prize of %d, not a quarter", (int)savings, (int)prize);
+    }
+    if (strcmp(what, "safari") == 0) { // safari N: the Safari Zone's ball counter (the save's) holds N
+        const int balls = *LocalFieldData_GetSafariBallsCounter(Save_LocalFieldData_Get(FieldSystem_PortGet()->saveData));
+        printf("[test] %d Safari Balls\n", balls);
+        return balls == a ? NULL : Failed("%d Safari Balls, not %d", balls, a);
     }
     if (strcmp(what, "ball") == 0) { // ball SLOT N: the party's Pokemon in SLOT is in ball N (constants/balls.h)
         SaveEd_GetMon(ref, &mon);
