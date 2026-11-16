@@ -1,0 +1,43 @@
+# From new-game: a Bug-Catching Contest catch in BW2's engine. A level 50 Smeargle with False Swipe and Spore enters the
+# contest (the test command contest: as the National Park's gate starts it) with 5 Sport Balls, against a wild level 3
+# Caterpie: False Swipe, Spore, then a Sport Ball from the battle bag (its only item). No naming screen: the Caterpie
+# becomes the contest's Pokemon (HGSS's "Caught" screen, the first catch), not the party's, and 4 balls are left.
+mash A until free
+editor give 235 50
+editor firstmove 0 206
+editor move 0 147
+gen5 on
+contest 10 3 5
+until battle timeout 600
+until command timeout 6000
+wait 60
+touch 128 95
+wait 60
+touch 64 57
+until command timeout 6000
+wait 60
+touch 128 95
+wait 60
+touch 191 57
+until command timeout 6000
+# BAG, POKE BALLS, the Sport Ball, USE
+wait 60
+touch 40 180
+wait 60
+touch 192 48
+wait 60
+stillshot balls
+touch 64 33
+wait 60
+touch 108 175
+wait 90
+stillshot thrown
+mash B until menu timeout 9000
+wait 60
+stillshot swap
+mash A until free timeout 9000
+stillshot back
+check party 1
+check contest-mon 10
+check contest-balls 4
+exit
