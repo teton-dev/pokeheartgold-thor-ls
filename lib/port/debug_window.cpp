@@ -211,7 +211,7 @@ void PrjMain(bool *openState) {
         ImGui::TextDisabled("%s", sResult);
     }
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-    ImGui::TextWrapped("Battles run in Black 2 and White 2's engine when Settings > Gen 5 battles is on.");
+    ImGui::TextWrapped("Battles run in Black 2 and White 2's engine when Settings > Battles > Gen 5 battles is on.");
     ImGui::PopStyleColor();
 
     if (ImGui::CollapsingHeader("Warp")) {
