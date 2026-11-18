@@ -37,6 +37,12 @@
 #include "sound_playback.h"
 #include "oam_manager.h"
 #include "vram_transfer_manager.h"
+#ifdef SDK_PORT
+#include <stdio.h>
+
+#include "application/check_savedata.h"
+#include "port/save_slots.h"
+#endif
 
 typedef enum MainMenu_AppOption {
     APPOPTION_TITLE_SCREEN,
@@ -101,6 +107,10 @@ typedef struct MainMenuAppData {
     MenuInputStateMgr menuInputState;
     int shownOptionCount;
     u32 optionChangeTimer;
+#ifdef SDK_PORT
+    int pendingSlotSwitch; // port-common's save slots: the slot to load once the menu has faded out, or -1
+    BOOL emptySlot;        // this slot holds no game while others do: the menu shows without CONTINUE
+#endif
 } MainMenuAppData;
 
 typedef BOOL (*MainMenuPrintFunction)(MainMenuAppData *, u32, MainMenuTextPrinter *, u32);
@@ -878,9 +888,42 @@ static void MainMenu_BufferAlignedNumber(MessageFormat *messageFormat, int numbe
     BufferIntegerAsString(messageFormat, 0, number, digits, printingMode, 1);
 }
 
+#ifdef SDK_PORT
+// "SLOT n/4" in the CONTINUE box, right-aligned on its title line (port-common's save slots; L and R switch)
+static void MainMenu_PrintSlot(Window *window, u32 textColor) {
+    char ascii[16];
+    snprintf(ascii, sizeof(ascii), "SLOT %d/%d", SaveSlots_Current() + 1, SAVE_SLOT_COUNT);
+    u16 chars[16];
+    int n = 0;
+    for (const char *c = ascii; *c != '\0' && n < 15; c++) {
+        if (*c >= '0' && *c <= '9') {
+            chars[n++] = 0x121 + (*c - '0');
+        } else if (*c >= 'A' && *c <= 'Z') {
+            chars[n++] = 0x12B + (*c - 'A');
+        } else if (*c == '/') {
+            chars[n++] = 0x1B1;
+        } else {
+            chars[n++] = 0x1DE;
+        }
+    }
+    chars[n] = EOS;
+    String *string = String_New(16, HEAP_ID_MAIN_MENU);
+    CopyU16ArrayToString(string, chars);
+    const u32 width = FontID_String_GetWidth(0, string, 0);
+    AddTextPrinterParameterizedWithColor(window, 0, string, 23 * 8 - 4 - width, 0, TEXT_SPEED_NOTRANSFER, textColor, NULL);
+    String_Delete(string);
+}
+#endif
+
 static BOOL MainMenu_PrintContinueButton(MainMenuAppData *data, u32 index, MainMenuTextPrinter *printer, u32 y) {
     MessageFormat *messageFormat;
     MsgData *msgData;
+
+#ifdef SDK_PORT
+    if (data->emptySlot) {
+        return FALSE;
+    }
+#endif
 
     msgData = NewMsgDataFromNarc(MSGDATA_LOAD_LAZY, NARC_msgdata_msg, NARC_msg_msg_0442_bin, HEAP_ID_MAIN_MENU);
     messageFormat = MessageFormat_New(HEAP_ID_MAIN_MENU);
@@ -920,6 +963,9 @@ static BOOL MainMenu_PrintContinueButton(MainMenuAppData *data, u32 index, MainM
         PrintPlayerInfoField(printer->window, msgData, messageFormat, textColor, msg_0442_00019, 64);
     }
 
+#ifdef SDK_PORT
+    MainMenu_PrintSlot(printer->window, textColor);
+#endif
     DrawFrameAndWindow1(printer->window, FALSE, printer->frameBaseTile, printer->framePalette);
 
     data->optionIds[index] = sMainMenuButtons[index].id;
@@ -1345,6 +1391,17 @@ BOOL MainMenuApp_Init(OverlayManager *manager, int *state) {
     if (!Save_FileExists(data->saveData)) {
         data->dontHaveSavedata = TRUE;
     }
+#ifdef SDK_PORT
+    data->pendingSlotSwitch = -1;
+    SaveSlots_SetMainMenuActive(TRUE);
+    // An empty slot while other slots hold games: the menu (NEW GAME, and L/R back to the others) rather than going
+    // straight into the new game's intro
+    if (data->dontHaveSavedata && SaveSlots_AnyOtherSlotHasData()) {
+        data->dontHaveSavedata = FALSE;
+        data->emptySlot = TRUE;
+        data->currentOption = 1;
+    }
+#endif
     Sound_SetBGMPlayerChannels(0);
     Sound_SetScene(SOUND_SCENE_NONE);
 
@@ -1409,6 +1466,23 @@ BOOL MainMenuApp_Main(OverlayManager *manager, int *state) {
         data->beaconWatchState = 10;
         break;
     case 5:
+#ifdef SDK_PORT
+    {
+        // L/R (or Settings > Saves) switch save slots: the menu fades out as for B, the slot is loaded, and the
+        // save check and the menu come back for it
+        int slot = SaveSlots_TakeRequestedSwitch();
+        if (slot < 0 && (gSystem.newKeys & (PAD_BUTTON_L | PAD_BUTTON_R))) {
+            const int step = (gSystem.newKeys & PAD_BUTTON_R) ? 1 : SAVE_SLOT_COUNT - 1;
+            slot = (SaveSlots_Current() + step) % SAVE_SLOT_COUNT;
+        }
+        if (slot >= 0) {
+            PlaySE(SEQ_SE_DP_SELECT);
+            data->pendingSlotSwitch = slot;
+            MainMenuUtil_StartFade(0, 7, state, 8);
+            break;
+        }
+    }
+#endif
         MainMenu_HandleInput(data, state);
         if (data->redrawOptions == TRUE) {
             MainMenu_DrawOptionWindows(data);
@@ -1487,10 +1561,28 @@ static void MainMenu_QueueSelectedApp(MainMenuAppData *data) {
 BOOL MainMenuApp_Exit(OverlayManager *manager, int *state) {
     MainMenuAppData *data = OverlayManager_GetData(manager);
 
+#ifdef SDK_PORT
+    SaveSlots_SetMainMenuActive(FALSE);
+    const int pendingSlotSwitch = data->pendingSlotSwitch;
+    SaveData *saveData = data->saveData;
+    if (pendingSlotSwitch < 0) {
+        MainMenu_QueueSelectedApp(data);
+    }
+#else
     MainMenu_QueueSelectedApp(data);
+#endif
 
     OverlayManager_FreeData(manager);
     Heap_Destroy(HEAP_ID_MAIN_MENU);
+
+#ifdef SDK_PORT
+    if (pendingSlotSwitch >= 0) {
+        // The other slot loaded (with the menu's memory freed), then the title screen's save check (its messages
+        // about a damaged save) before the menu shows again
+        SaveSlots_Select(saveData, pendingSlotSwitch);
+        RegisterMainOverlay(FS_OVERLAY_ID_NONE, &gApplication_CheckSave);
+    }
+#endif
 
     MainMenuUtil_EnableCartridgePullOutCheck(FALSE);
 

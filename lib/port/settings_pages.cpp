@@ -9,10 +9,16 @@
 #include <SDL2/SDL.h>
 
 #include <cctype>
+#include <cstdio>
 #include <cstring>
 
 #include <string>
 
+#include "port/autosave.h"
+#include "port/port_game.h"
+#include "port/save_slots.h"
+#include "port/save_sync.h"
+#include "port/save_version.h"
 #include "port_game_settings.h"
 // Only its GUI part: its Pokemon functions need the game's headers, which this library doesn't see
 #define PORT_NUZLOCKE_MODE_GUI_ONLY
@@ -205,6 +211,265 @@ void DrawGames() {
          "be.");
 }
 
+// --- Saves: port-common's slots, save sync and autosave, as the Platinum fork's page --------------------------------
+
+std::string sSavesStatus;
+bool sSavesError = false;
+int sSelectedSlot = -1;
+int sImportSlot = -1;
+
+void SetSavesStatus(const std::string &text, bool error) {
+    sSavesStatus = text;
+    sSavesError = error;
+}
+
+void OnImportPicked(const char *path, void *) {
+    if (path == nullptr || sImportSlot < 0) {
+        SetSavesStatus("", false);
+        return;
+    }
+    char err[128] = "";
+    if (SaveSlots_Import(sImportSlot, path, err, sizeof(err))) {
+        char text[96];
+        snprintf(text, sizeof(text), "Imported into slot %d.", sImportSlot + 1);
+        SetSavesStatus(text, false);
+    } else {
+        SetSavesStatus(std::string("Import failed: ") + err, true);
+    }
+#ifdef SDK_BUILD_ANDROID
+    // The picker made a private copy for us
+    remove(path);
+#endif
+    sImportSlot = -1;
+}
+
+void OnExportDone(BOOL saved, void *) {
+    SetSavesStatus(saved ? "Save exported." : "", false);
+}
+
+void ExportSlot(int slot) {
+    // Padded to a full 512 KB image (what emulators expect) in a temporary file, then the player chooses where it
+    // goes
+    const char *tempPath = "export.sav";
+    char err[128] = "";
+    if (!SaveSlots_Export(slot, tempPath, err, sizeof(err))) {
+        SetSavesStatus(std::string("Export failed: ") + err, true);
+        return;
+    }
+    SaveSlotInfo info;
+    SaveSlots_GetInfo(slot, &info);
+    char name[80];
+    if (info.hasSummary && info.name[0] != '\0') {
+        snprintf(name, sizeof(name), "%s - %s (slot %d).sav", PortGame_Name(), info.name, slot + 1);
+    } else {
+        snprintf(name, sizeof(name), "%s (slot %d).sav", PortGame_Name(), slot + 1);
+    }
+    SIM_Files_SaveCopy("Export save", tempPath, name, OnExportDone, nullptr);
+}
+
+// A word on the slot's sync for its card, or nullptr
+const char *SyncStateText(int slot) {
+    SaveSyncSlot sync;
+    SaveSync_GetSlot(slot, &sync);
+    switch (sync.state) {
+    case SAVE_SYNC_IN_STEP:
+        return "Synced";
+    case SAVE_SYNC_SENDING:
+        return "Sending to the sync folder";
+    case SAVE_SYNC_NEWER_THERE:
+        return "A newer save is waiting: it loads on the main menu";
+    case SAVE_SYNC_ARRIVING:
+        return "A newer save is arriving";
+    case SAVE_SYNC_CONFLICT:
+        return "Saved on two devices: choose one below";
+    case SAVE_SYNC_ERROR:
+        return "Couldn't sync";
+    default:
+        return nullptr;
+    }
+}
+
+// The other device's save of the slot, when it differs: which to keep
+void DrawSlotSync(int slot, bool atMenu) {
+    SaveSyncSlot sync;
+    SaveSync_GetSlot(slot, &sync);
+    if (sync.state != SAVE_SYNC_CONFLICT && sync.state != SAVE_SYNC_NEWER_THERE) {
+        return;
+    }
+    char text[256];
+    if (sync.thereName[0] != '\0') {
+        snprintf(text, sizeof(text), "%s saved this slot %s: %s, %d:%02d played, %d badge%s.", sync.thereDevice,
+            sync.thereSavedAt[0] != '\0' ? sync.thereSavedAt : "too", sync.thereName, sync.thereHours,
+            sync.thereMinutes, sync.thereBadges, sync.thereBadges == 1 ? "" : "s");
+    } else {
+        snprintf(text, sizeof(text), "%s saved this slot too.", sync.thereDevice);
+    }
+    Note(text);
+    char label[96];
+    snprintf(label, sizeof(label), "Use %s's save", sync.thereDevice);
+    if (Button(label, atMenu ? "Loads it here. This device's is kept as .bak."
+                             : "Go back to the main menu first (Games > Reset to the title screen).",
+            sync.state == SAVE_SYNC_CONFLICT, atMenu)) {
+        char err[160] = "";
+        if (SaveSync_Resolve(slot, FALSE, err, sizeof(err))) {
+            SetSavesStatus(slot == SaveSlots_Current() ? "It loads when you close the settings." : "Loaded.", false);
+        } else {
+            SetSavesStatus(err, true);
+        }
+    }
+    if (sync.state == SAVE_SYNC_CONFLICT && Button("Keep this device's save", "Sends it to the folder, and the other "
+                                                   "device loads it on its main menu.")) {
+        char err[160] = "";
+        if (SaveSync_Resolve(slot, TRUE, err, sizeof(err))) {
+            SetSavesStatus("Kept this one. The other device gets it next.", false);
+        } else {
+            SetSavesStatus(err, true);
+        }
+    }
+}
+
+void OnSyncFolderPicked(const char *path, void *) {
+    if (path == nullptr) {
+        return;
+    }
+    SaveSync_SetFolder(path);
+    SaveSync_CheckNow();
+}
+
+void DrawSync() {
+    Section("Sync with your other devices");
+    Note("Play the same game on the Thor and a computer: the saves go through a folder that Syncthing, a network "
+         "share or a cloud drive keeps the same on both. After you save, this device copies the save there; the "
+         "other one loads it on its main menu.");
+    const char *folder = SaveSync_Folder();
+    const bool busy = SIM_Files_IsBusy() != FALSE;
+    if (folder[0] == '\0') {
+        if (Button("Choose the sync folder", "The same folder on every device: Syncthing's, a network share...",
+                true, !busy)) {
+            SIM_Files_PickFolderPath("Choose the sync folder", OnSyncFolderPicked, nullptr);
+        }
+    } else {
+        bool on = SaveSync_Enabled() != FALSE;
+        if (Toggle("Sync saves", nullptr, &on)) {
+            SaveSync_SetEnabled(on ? TRUE : FALSE);
+            SaveSync_CheckNow();
+        }
+        char gameFolder[1200];
+        SaveSync_GameFolder(gameFolder, sizeof(gameFolder));
+        std::string where = std::string("This game's saves go in ") + gameFolder;
+        Note(where.c_str());
+        if (Button("Choose another folder", nullptr, false, !busy)) {
+            SIM_Files_PickFolderPath("Choose the sync folder", OnSyncFolderPicked, nullptr);
+        }
+    }
+    if (!SIM_Files_HasStorageAccess()) {
+        if (Button("Allow access to the folder", "Android asks for \"All files access\": turn it on for this app, "
+                                                 "then come back.", folder[0] != '\0')) {
+            SIM_Files_RequestStorageAccess();
+        }
+    }
+    Status(SaveSync_LastEvent());
+    char device[96];
+    snprintf(device, sizeof(device), "This device shows as \"%s\".", SIM_DeviceName());
+    Note(device);
+}
+
+void DrawSaves() {
+    GameSettings *settings = GameSettings_Get();
+    const int current = SaveSlots_Current();
+    if (sSelectedSlot < 0) {
+        sSelectedSlot = current;
+    }
+
+    Note("Each slot is a separate game. On the main menu, L and R switch slots too.");
+    for (int slot = 0; slot < SAVE_SLOT_COUNT; slot++) {
+        SaveSlotInfo info;
+        SaveSlots_GetInfo(slot, &info);
+        char title[64];
+        char subtitle[128];
+        if (!info.hasData) {
+            snprintf(title, sizeof(title), "Slot %d: empty", slot + 1);
+            snprintf(subtitle, sizeof(subtitle), "%s", slot == current ? "In use" : "");
+        } else if (info.hasSummary) {
+            snprintf(title, sizeof(title), "Slot %d: %s", slot + 1, info.name);
+            snprintf(subtitle, sizeof(subtitle), "%s%d:%02d played, %d badge%s%s%s", slot == current ? "In use. " : "",
+                info.hours, info.minutes, info.badges, info.badges == 1 ? "" : "s",
+                info.savedAt[0] != '\0' ? ", saved " : "", info.savedAt);
+        } else {
+            snprintf(title, sizeof(title), "Slot %d: saved game", slot + 1);
+            snprintf(subtitle, sizeof(subtitle), "%sDetails show once it has been loaded", slot == current ? "In use. " : "");
+        }
+        const char *sync = SyncStateText(slot);
+        if (sync != nullptr) {
+            const size_t used = strlen(subtitle);
+            snprintf(subtitle + used, sizeof(subtitle) - used, "%s%s", used > 0 ? ". " : "", sync);
+        }
+        ImGui::PushID(slot);
+        if (Card(title, subtitle, slot == sSelectedSlot)) {
+            sSelectedSlot = slot;
+            sSavesStatus.clear();
+        }
+        ImGui::PopID();
+    }
+
+    // What to do with the selected slot
+    const int slot = sSelectedSlot;
+    const bool busy = SIM_Files_IsBusy() != FALSE;
+    const bool atMenu = SaveSlots_IsMainMenuActive() != FALSE;
+    char label[64];
+    snprintf(label, sizeof(label), "Slot %d", slot + 1);
+    Section(label);
+    if (slot != current) {
+        if (Button("Use this slot", atMenu ? "Loads it on the main menu." : "Go back to the main menu first (or press L/R "
+                   "there).", false, atMenu)) {
+            SaveSlots_RequestSwitch(slot);
+        }
+    }
+    const bool inUse = SaveSlots_IsInUse(slot) != FALSE;
+    if (Button("Import a save", inUse ? "This slot's game is running: go back to the main menu to replace it."
+                                      : "A .sav (melonDS, most emulators) or .dsv (DeSmuME) from an emulator or "
+                                        "another device. The old one is kept as .bak.",
+            false, !busy && !inUse)) {
+        sImportSlot = slot;
+        sSavesStatus.clear();
+        SIM_Files_PickToOpen("Import save (.sav / .dsv)", ".sav,.dsv,.bin,.*", OnImportPicked, nullptr);
+    }
+    SaveSlotInfo info;
+    SaveSlots_GetInfo(slot, &info);
+    if (Button("Export this save", "A 512 KB .sav that melonDS and other emulators load as it is.", false,
+            !busy && info.hasData)) {
+        sSavesStatus.clear();
+        ExportSlot(slot);
+    }
+    DrawSlotSync(slot, atMenu);
+    Status(sSavesStatus.c_str(), sSavesError);
+
+    DrawSync();
+
+    Section("Autosave");
+    SettingToggle("Save automatically", "While exploring, every few minutes.", &settings->autosave);
+    int minutes = settings->autosaveMinutes;
+    if (Stepper("Every", nullptr, &minutes, 1, 30, 1, "%d min", settings->autosave != FALSE)) {
+        settings->autosaveMinutes = minutes;
+        GameSettings_Save();
+    }
+    SettingToggle("Save when leaving the app", "When it's closed or sent to the background.", &settings->autosaveOnExit);
+    Note("Autosave only saves where the menu's SAVE would, while you're standing still, and after you've saved this "
+         "game yourself once.");
+
+    const char *reason = nullptr;
+    const bool canSave = Autosave_CanSaveNow(&reason) != FALSE;
+    std::string help = canSave ? std::string("Saves the game now, like the menu's SAVE.")
+                               : std::string("Not right now: ") + (reason != nullptr ? reason : "the game can't save here");
+    if (Button("Save now", help.c_str(), false, canSave)) {
+        if (Autosave_SaveNow("Saved")) {
+            SetSavesStatus("Saved.", false);
+        } else {
+            SetSavesStatus("The game could not be saved.", true);
+        }
+    }
+}
+
 // --- Challenges: Nuzlocke mode (port_nuzlocke_mode.h), as the Platinum fork's page -----------------------------
 
 int sNuzlockeWarnLevel = 0; // a level waiting for the rules to be accepted
@@ -308,6 +573,7 @@ void SIM_Prj_SettingsPages() {
     // In groups, as in the Platinum fork: playing (30-34), the device (40-60; libntr's Display 40, Sound 50, Controls
     // 60), connections (libntr's Link play 68), tools (80-90; libntr's Advanced 90)
     SIM::Settings::AddPage("Games", "Switch games, add Sacred Gold or Storm Silver", DrawGames, 10);
+    SIM::Settings::AddPage("Saves", "Slots, autosave, import and export, sync", DrawSaves, 20);
     SIM::Settings::AddPage("Gameplay", "The Japanese Game Corner", DrawGameplay, 30);
 #ifdef GEN5_BATTLES
     SIM::Settings::AddPage("Battles", "Gen 5 battles and their ROM", DrawBattles, 32);
@@ -316,3 +582,29 @@ void SIM_Prj_SettingsPages() {
     SIM::Settings::AddPage("Display", nullptr, DrawFrameRate, 40); // appended to libntr's page
     SIM::Settings::AddPage("Save editor", "Pokemon, items, money, badges", SaveEditor_Draw, 80);
 }
+
+// The on-screen save notice ("Autosaved", "Saved"), drawn every frame, settings open or not (libntr's weak
+// SIM::GUI::PrjOverlay), as the Platinum fork's src/port/gui_saves.cpp
+namespace SIM::GUI {
+
+void PrjOverlay() {
+    float alpha = 0.0f;
+    const char *notice = Autosave_GetNotice(&alpha);
+    if (notice == nullptr) {
+        return;
+    }
+    const ImGuiViewport *viewport = ImGui::GetMainViewport();
+    const float margin = 12.0f * ImGui::GetIO().FontGlobalScale;
+    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - margin, viewport->WorkPos.y + margin),
+        ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowBgAlpha(0.6f * alpha);
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+    ImGui::Begin("##saveNotice", nullptr,
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize
+            | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+    ImGui::TextUnformatted(notice);
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
+} // namespace SIM::GUI

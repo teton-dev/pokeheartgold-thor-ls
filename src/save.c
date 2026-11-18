@@ -65,9 +65,35 @@ static u32 Save_CalcPCBoxModifiedFlags(SaveData *saveData);
 static u32 PCModifiedFlags_CountModifiedBoxes(u32 flags);
 static u32 PCModifiedFlags_GetIndexOfNthModifiedBox(u32 flags, u8 last);
 #ifdef SDK_PORT
-void PortSave_MigrateV1(void); // lib/port/save_migrate_v1.c
-#endif
+#include <stdlib.h>
+#include <string.h>
 
+#include "port/save_slots.h"
+#include "port/save_sync.h"
+
+void PortSave_MigrateV1(void); // lib/port/save_migrate_v1.c
+
+SaveData *SaveData_New(void) {
+    SaveData *ret = Heap_Alloc(HEAP_ID_1, sizeof(SaveData));
+    SaveData_PortReload(ret);
+    // Saves made on another device since (port-common's save sync): the slot in use again if it was one
+    if (SaveSync_AtStartup()) {
+        SaveData_PortReload(ret);
+    }
+    SaveSlots_OnLoaded(ret);
+    return ret;
+}
+
+// The body of SaveData_New without the allocation, so the port can load another save slot into the existing
+// SaveData (everything holding a SaveData pointer stays valid): port-common's save slots, PortGame_Save_Reload
+void SaveData_PortReload(SaveData *ret) {
+    int status;
+    int err1;
+    int err2;
+
+    MI_CpuClearFast(ret, sizeof(SaveData));
+    sSaveDataPtr = ret;
+#else
 SaveData *SaveData_New(void) {
     SaveData *ret;
     int status;
@@ -77,6 +103,7 @@ SaveData *SaveData_New(void) {
     ret = Heap_Alloc(HEAP_ID_1, sizeof(SaveData));
     MI_CpuClearFast(ret, sizeof(SaveData));
     sSaveDataPtr = ret;
+#endif
 
     ret->flashChipDetected = SaveDetectFlash();
     ret->saveFileExists = FALSE;
@@ -125,8 +152,43 @@ SaveData *SaveData_New(void) {
         break;
     }
 
+#ifndef SDK_PORT
     return ret;
+#endif
 }
+
+#ifdef SDK_PORT
+// TRUE if image (a whole 512 KB backup image, e.g. an emulator .sav) holds a valid HeartGold or SoulSilver save in
+// either of its two copies (the normal data's footer: its size, magic and checksum)
+BOOL SaveData_PortIsValidImage(const void *image, u32 size) {
+    if (sSaveDataPtr == NULL || size < 0x80000) {
+        return FALSE;
+    }
+    struct SaveSlotSpec *spec = &sSaveDataPtr->saveSlotSpecs[0];
+    // The footer's validation reads the chunk where the save data keeps it (data + spec->offset): a copy laid out so.
+    // Outside the game's heaps: the settings may ask at any time
+    u8 *copy = malloc(spec->offset + spec->size);
+    if (copy == NULL) {
+        return FALSE;
+    }
+    BOOL valid = FALSE;
+    for (u32 slot = 0; slot < 2 && !valid; slot++) {
+        const u32 at = GetChunkOffsetFromCurrentSaveSlot(slot, spec);
+        if (at + spec->size > size) {
+            continue;
+        }
+        memcpy(copy + spec->offset, (const u8 *)image + at, spec->size);
+        valid = ValidateSaveSectorFooter(sSaveDataPtr, copy, 0);
+    }
+    free(copy);
+    return valid;
+}
+
+// The game hasn't been saved yet (a new game): autosave waits for the player's own first save
+BOOL Save_PortIsNewGame(SaveData *saveData) {
+    return Save_IsNewGame(saveData) ? TRUE : FALSE;
+}
+#endif
 
 SaveData *SaveData_Get(void) {
     GF_ASSERT(sSaveDataPtr != NULL);
@@ -199,6 +261,9 @@ int SaveGameNormal(SaveData *saveData) {
     if (ret == WRITE_STATUS_SUCCESS) {
         saveData->saveFileExists = TRUE;
         saveData->isNewGame = FALSE;
+#ifdef SDK_PORT
+        SaveSlots_OnSaved(saveData);
+#endif
     }
     return ret;
 }
@@ -694,6 +759,9 @@ static void Save_WriteManFinish(SaveData *saveData, struct AsyncWriteManager *wr
         saveData->lastGoodSector = saveData->lastGoodSector == 0;
         saveData->saveFileExists = TRUE;
         saveData->isNewGame = FALSE;
+#ifdef SDK_PORT
+        SaveSlots_OnSaved(saveData);
+#endif
     }
     Sys_ClearSleepDisableFlag(1);
 }

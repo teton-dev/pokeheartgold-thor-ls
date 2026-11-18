@@ -1,0 +1,25 @@
+# port-common's save slots, autosave and the Saves page (Settings > Saves, as the Platinum fork's). From new-game: on
+# the main menu, R loads slot 2 (empty: the menu without CONTINUE, its NEW GAME) and L slot 1 again (CONTINUE with
+# "SLOT 1/4"); then into the game, the Saves page through the native settings' recorder, and its "Save now".
+# The check is the stillshots and the log: the page's cards ("Slot 1: ..."), "[native-settings] event tap @Save now"
+# and the saved notice.
+#
+#   SCREEN=1920x1080 SIM_NATIVE_SETTINGS=1 SIM_NATIVE_SETTINGS_EVENTS='tap @Save now|close' \
+#       tools/docker/desktop.sh test tests/scripts/save_slots.txt --from new-game
+
+wait 300
+press A
+wait 200
+press A
+wait 300
+stillshot menu-slot1
+press R
+wait 400
+stillshot menu-slot2
+press L
+wait 400
+stillshot menu-slot1-again
+mash A until free
+settings Saves
+wait 60
+exit 0

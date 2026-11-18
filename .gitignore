@@ -119,6 +119,7 @@ __pycache__
 /subprojects/libntrsystem/
 /subprojects/libntrwifi/
 /subprojects/libntrdwc/
+/subprojects/port-common/
 /subprojects/libvct/
 /subprojects/packagecache
 /subprojects/.wraplock

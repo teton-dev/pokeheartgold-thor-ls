@@ -1,0 +1,15 @@
+[wrap-git]
+# The port layer shared with the Platinum port (game adapter: lib/port/game_hgss.c), at the revision the teton-dev
+# Platinum fork uses. Pinned: bump together with the adapter
+url = https://github.com/SilasMayes/port-common.git
+revision = 8c28eaf6155af94afa3823a5f8c8f1ba791bee36
+depth = 1
+directory = port-common
+# port-common_gear_option.patch: a 'gear' option (default on) that leaves src/gear_ui.cpp out; Goldenrod builds it
+# off until it has the Gear's Gear_* data adapters
+# port-common_nuzlocke_mode.patch: the Platinum fork's (its Gear shows Nuzlocke mode's books through weak hooks; the
+# retired Nuzlocke helper stays off), so both games build the same port-common
+diff_files = port-common_gear_option.patch, port-common_nuzlocke_mode.patch
+
+[provide]
+dependency_names = port_common

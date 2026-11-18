@@ -24,6 +24,9 @@
 #include "player_avatar_movement.h"
 #include "pokedex_resume_state.h"
 #include "gear_phone_ring_manager.h"
+#ifdef SDK_PORT
+#include "port/autosave.h"
+#endif
 
 FS_EXTERN_OVERLAY(intro_title);
 FS_EXTERN_OVERLAY(OVY_124);
@@ -220,6 +223,10 @@ void FieldSystem_Control(FieldSystem *fieldSystem) {
 
     if (movementAllowed) {
         PlayerAvatar_UpdateMovement(fieldSystem->playerAvatar);
+#ifdef SDK_PORT
+        // The player has control and nothing else is running: a safe moment to autosave (port-common)
+        Autosave_FieldTick();
+#endif
         FieldInput_Update(&fieldInput, fieldSystem, gSystem.newKeys, gSystem.heldKeys);
     }
 

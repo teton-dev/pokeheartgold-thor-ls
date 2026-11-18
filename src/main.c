@@ -25,6 +25,8 @@
 #include "port_frame_rate.h"
 #include "port_nuzlocke_mode.h"
 #include "port_widescreen.h"
+#include "port/save_slots.h"
+#include "port/save_sync.h"
 #endif
 
 FS_EXTERN_OVERLAY(intro_title);
@@ -68,6 +70,12 @@ void NitroMain(void) {
     FontID_Alloc(1, HEAP_ID_3);
     FontID_Alloc(3, HEAP_ID_3);
     gMainOverlayState.args.unk_00 = -1;
+#ifdef SDK_PORT
+    // port-common: the save file pointed at the slot in use before the save is loaded, and saves kept in step with
+    // other devices through a shared folder
+    SaveSlots_Init();
+    SaveSync_Init();
+#endif
     gMainOverlayState.args.saveData = SaveData_New();
     Sound_ResetFieldBGMStopOnce();
     InitSoundData(Save_Chatot_Get(gMainOverlayState.args.saveData), Save_PlayerData_GetOptionsAddr(gMainOverlayState.args.saveData));
@@ -109,6 +117,7 @@ void NitroMain(void) {
         FrameRate_Update();
         Widescreen_Update();
         NuzlockeMode_Update();
+        SaveSync_Update();
 #endif
         if ((gSystem.heldKeysRaw & (PAD_BUTTON_START | PAD_BUTTON_SELECT | PAD_BUTTON_L | PAD_BUTTON_R)) == (PAD_BUTTON_START | PAD_BUTTON_SELECT | PAD_BUTTON_L | PAD_BUTTON_R)) {
             if (!gSystem.softResetDisabled) {
