@@ -142,8 +142,8 @@ libvct_dep = dependency('libvct')
 sdk_deps = [nitrosdk_dep, nitrosystem_dep, nitrowifi_dep, nitrodwc_dep, libvct_dep]
 
 # The port layer shared with the Platinum port (SilasMayes/port-common): save slots, save sync, autosave, versions.
-# Its game adapter is lib/port/game_hgss.c; the Gear is left out until Goldenrod has its data adapters
-port_common_dep = subproject('port-common', default_options: ['gear=false']).get_variable('port_common_dep')
+# Its game adapter is lib/port/game_hgss.c, the Gear's data adapters lib/port/gear_hgss.c (partial so far)
+port_common_dep = subproject('port-common').get_variable('port_common_dep')
 port_common_headers_dep = port_common_dep.partial_dependency(includes: true)
 
 # The SDK defines that libntr's nitrosdk_dep would pass, minus its -w
@@ -224,6 +224,7 @@ hgss_port_lib_c = files(
     'lib/port/frame_rate.c',
     'lib/port/game_settings.c',
     'lib/port/game_hgss.c',
+    'lib/port/gear_hgss.c',
     'lib/port/gen5_battle.c',
     'lib/port/gen5_game.c',
     'lib/port/gen5_rocket.c',

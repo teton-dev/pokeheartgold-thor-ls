@@ -4,6 +4,7 @@
 #include <simulator/sim_settings.hpp>
 #include <simulator/sim_ui.hpp>
 #include <simulator/sim_carts.h>
+#include <simulator/sim_companion.h>
 #include <simulator/sim_files.h>
 
 #include <SDL2/SDL.h>
@@ -15,6 +16,7 @@
 #include <string>
 
 #include "port/autosave.h"
+#include "port/gear_data.h"
 #include "port/port_game.h"
 #include "port/save_slots.h"
 #include "port/save_sync.h"
@@ -470,6 +472,34 @@ void DrawSaves() {
     }
 }
 
+// --- the Gear (port-common's companion on the lower screen), as the Platinum fork's page ------------------------------
+
+void DrawGear() {
+    GameSettings *settings = GameSettings_Get();
+    if (SettingToggle("Show the Gear", "The companion on the lower screen: your party, the Pokedex's species, your "
+            "trainer card. Goldenrod's is partial: no battle, encounter, map or PC tabs yet.", &settings->gearEnabled)) {
+        if (!settings->gearEnabled) {
+            SIM_Companion_SetFullScreen(FALSE);
+        }
+    }
+    static const char *const kLevels[] = { "Vanilla", "Guide", "Everything" };
+    static const char *const kHelp[] = {
+        "Only what the game itself shows: no hidden values.",
+        "Type matchups; species you haven't seen stay hidden.",
+        "Also hidden values: IVs and EVs, and species you haven't seen.",
+    };
+    int level = settings->gearDiscovery;
+    if (level < 0 || level > 2) {
+        level = GEAR_DISCOVERY_GUIDE;
+    }
+    if (Choice("What it reveals", kHelp[level], &level, kLevels, 3, settings->gearEnabled != FALSE)) {
+        settings->gearDiscovery = level;
+        GameSettings_Save();
+    }
+    Note("Tap Full in the Gear (or press L3) to give it the whole lower screen, Split for the DS screen, which "
+         "HeartGold and SoulSilver use for the Pokegear.");
+}
+
 // --- Challenges: Nuzlocke mode (port_nuzlocke_mode.h), as the Platinum fork's page -----------------------------
 
 int sNuzlockeWarnLevel = 0; // a level waiting for the rules to be accepted
@@ -579,7 +609,8 @@ void SIM_Prj_SettingsPages() {
     SIM::Settings::AddPage("Battles", "Gen 5 battles and their ROM", DrawBattles, 32);
 #endif
     SIM::Settings::AddPage("Challenges", "Nuzlocke mode", DrawChallenges, 34);
-    SIM::Settings::AddPage("Display", nullptr, DrawFrameRate, 40); // appended to libntr's page
+    SIM::Settings::AddPage("Display", nullptr, DrawFrameRate, 40);
+    SIM::Settings::AddPage("Gear", "The lower-screen companion (partial)", DrawGear, 65); // appended to libntr's page
     SIM::Settings::AddPage("Save editor", "Pokemon, items, money, badges", SaveEditor_Draw, 80);
 }
 

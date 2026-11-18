@@ -1,0 +1,15 @@
+# Goldenrod's Gear (port-common's companion on the lower screen, lib/port/gear_hgss.c): with two Pokemon in the party,
+# Settings > Gear turns it on through the native settings' recorder; the stillshot shows its party tab (names, types,
+# HP, icons) in the lower window. From new-game, with the bottom screen in its own window shaped as the Thor's:
+#
+#   SCREEN=1920x1080 TEST_CONFIG='SecondaryScreen=true BottomWindowWidth=540 BottomWindowHeight=620' SIM_NATIVE_SETTINGS=1 \
+#       SIM_NATIVE_SETTINGS_EVENTS='toggle @Show the Gear 1|close' \
+#       tools/docker/desktop.sh test tests/scripts/gear.txt --from new-game
+
+mash A until free
+editor give 155 12
+editor give 25 9
+settings Gear
+wait 120
+stillshot gear-party
+exit 0

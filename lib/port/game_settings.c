@@ -36,6 +36,16 @@ static int IniHandler(void *user, const char *section, const char *name, const c
         }
         return 1;
     }
+    if (strcmp(section, "Gear") == 0) {
+        if (strcmp(name, "Enabled") == 0) {
+            settings->gearEnabled = StringToBool(value);
+        } else if (strcmp(name, "Discovery") == 0) {
+            settings->gearDiscovery = atoi(value);
+        } else if (strcmp(name, "BattleControls") == 0) {
+            settings->gearBattleControls = StringToBool(value);
+        }
+        return 1;
+    }
     if (strcmp(section, "General") != 0) {
         return 1;
     }
@@ -68,6 +78,9 @@ GameSettings *GameSettings_Get(void) {
         sSettings.autosave = TRUE;
         sSettings.autosaveMinutes = 5;
         sSettings.autosaveOnExit = TRUE;
+        sSettings.gearEnabled = FALSE;
+        sSettings.gearDiscovery = 1; // GEAR_DISCOVERY_GUIDE
+        sSettings.gearBattleControls = FALSE;
         if (ini_parse(SIM_SettingsPath(SETTINGS_FILE), IniHandler, &sSettings) < 0) {
             GameSettings_Save();
         }
@@ -92,5 +105,9 @@ void GameSettings_Save(void) {
     fprintf(file, "Autosave=%s\n", BoolToString(sSettings.autosave));
     fprintf(file, "AutosaveMinutes=%d\n", sSettings.autosaveMinutes);
     fprintf(file, "AutosaveOnExit=%s\n", BoolToString(sSettings.autosaveOnExit));
+    fprintf(file, "\n[Gear]\n");
+    fprintf(file, "Enabled=%s\n", BoolToString(sSettings.gearEnabled));
+    fprintf(file, "Discovery=%d\n", sSettings.gearDiscovery);
+    fprintf(file, "BattleControls=%s\n", BoolToString(sSettings.gearBattleControls));
     fclose(file);
 }

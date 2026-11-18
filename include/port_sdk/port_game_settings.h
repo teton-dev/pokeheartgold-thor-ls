@@ -21,6 +21,9 @@ typedef struct GameSettings {
     BOOL autosave; // [Saves] Autosave: save while exploring, every autosaveMinutes (port-common's port/autosave.h)
     int autosaveMinutes; // [Saves] AutosaveMinutes
     BOOL autosaveOnExit; // [Saves] AutosaveOnExit: also when the app is closed or sent to the background
+    BOOL gearEnabled; // [Gear] Enabled: port-common's Gear on the lower screen (off by default in Goldenrod: partial)
+    int gearDiscovery; // [Gear] Discovery: GearDiscovery (port/gear_data.h)
+    BOOL gearBattleControls; // [Gear] BattleControls
 } GameSettings;
 
 // The settings, loaded the first time (defaults when there is no file)

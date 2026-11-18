@@ -1,7 +1,7 @@
 // HeartGold and SoulSilver's side of port-common: the game adapter (port/port_game.h, in the port-common
 // subproject), as the Platinum fork's src/port/game_platinum.c. Everything port-common needs to know about the
-// game's save data, overworld and settings goes through here. The Gear isn't built for Goldenrod yet (its Gear_*
-// data adapters are still to write), so neither are its settings here.
+// game's save data, overworld and settings goes through here. The Gear's settings are here too (its Gear_*
+// data adapters, lib/port/gear_hgss.c, are partial so far).
 #include "port/port_game.h"
 
 #include <nitro.h>
@@ -54,6 +54,24 @@ BOOL PortGame_Config_GetAutosave(PortAutosaveConfig *out) {
     out->minutes = settings->autosaveMinutes;
     out->onExit = settings->autosaveOnExit;
     return TRUE;
+}
+
+// The Gear (lib/port/gear_hgss.c); Goldenrod has no hard level cap setting
+BOOL PortGame_Config_GetGear(PortGearConfig *out) {
+    const GameSettings *settings = GameSettings_Get();
+    out->enabled = settings->gearEnabled;
+    out->discovery = settings->gearDiscovery;
+    out->battleControls = settings->gearBattleControls;
+    out->hardLevelCap = FALSE;
+    return TRUE;
+}
+
+void PortGame_Config_SetGear(const PortGearConfig *config) {
+    GameSettings *settings = GameSettings_Get();
+    settings->gearEnabled = config->enabled;
+    settings->gearDiscovery = config->discovery;
+    settings->gearBattleControls = config->battleControls;
+    GameSettings_Save();
 }
 
 // Goldenrod has no cheats page yet: every cheat is off
