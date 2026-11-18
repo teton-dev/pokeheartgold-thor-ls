@@ -21,6 +21,11 @@ extern const OverlayManagerTemplate gGen5BattleOverlayTemplate;
 BOOL Gen5Battle_Wants(const BattleSetup *setup);
 // The Battle Tower's single battles in BW2's engine (frontier_script_commands_misc.c)
 BOOL Gen5Battle_WantsFrontier(const BattleSetup *setup);
+// The last Frontier battle ran in BW2's engine (set at each Tower battle, cleared when a facility creates a new
+// record): HGSS can't record it, so the Frontier's Battle Video question and RECORD menu entry are skipped
+// (frontier_script_commands_ext.c, frontier_script_ui.c)
+void Gen5Battle_SetFrontierUnrecorded(BOOL unrecorded);
+BOOL Gen5Battle_FrontierUnrecorded(void);
 
 // The next battle runs in BW2's engine, whatever the setting
 void Gen5Battle_RequestNext(void);

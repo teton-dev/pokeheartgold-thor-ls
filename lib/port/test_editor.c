@@ -146,6 +146,24 @@ static const char *Editor(char **words, int count) {
         SaveEd_GetMon(ref, &mon);
         return mon.moves[slot] == b && mon.pp[slot] > 0 ? NULL : Failed("move slot %d holds %d", slot, mon.moves[slot]);
     }
+    if (strcmp(what, "ability") == 0) { // ability SLOT N: its ability becomes N (25: Wonder Guard)
+        Pokemon *pokemon = Party_GetMonByIndex(SaveArray_Party_Get(FieldSystem_PortGet()->saveData), a);
+        u8 ability = (u8)b;
+        SetMonData(pokemon, MON_DATA_ABILITY, &ability);
+        return (int)GetMonData(pokemon, MON_DATA_ABILITY, NULL) == b ? NULL : "the ability didn't change";
+    }
+    if (strcmp(what, "allmoves") == 0) { // allmoves SLOT MOVE: all four of its moves become MOVE (the save editor
+                                          // won't teach a move twice, so written as they are)
+        Pokemon *pokemon = Party_GetMonByIndex(SaveArray_Party_Get(FieldSystem_PortGet()->saveData), a);
+        for (int i = 0; i < 4; i++) {
+            u16 move = (u16)b;
+            u8 pp = 15;
+            SetMonData(pokemon, MON_DATA_MOVE1 + i, &move);
+            SetMonData(pokemon, MON_DATA_MOVE1_PP + i, &pp);
+        }
+        SaveEd_GetMon(ref, &mon);
+        return mon.moves[0] == b && mon.moves[3] == b ? NULL : Failed("its moves are %d...%d", mon.moves[0], mon.moves[3]);
+    }
     if (strcmp(what, "firstmove") == 0) { // firstmove SLOT MOVE: its first move becomes MOVE (what mashing A uses)
         SaveEd_SetMove(ref, 0, (u16)b);
         SaveEd_GetMon(ref, &mon);

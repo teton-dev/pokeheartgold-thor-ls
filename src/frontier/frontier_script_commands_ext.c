@@ -1,5 +1,12 @@
 #include "global.h"
 
+#ifdef GEN5_BATTLES
+#include <stdio.h>
+
+#include "frontier_script_commands_misc_internal.h"
+#include "port_gen5_battle.h"
+#endif
+
 #include "constants/game_stats.h"
 #include "constants/sndseq.h"
 
@@ -525,6 +532,9 @@ static BOOL FrtCmd_CreateBattleRecord(FrontierScriptContext *ctx) {
     u32 out;
     FrontierLaunchArgs *args = Frontier_GetLaunchArgs(ctx->frontierSystem->frontierWork);
     BattleRecord_Create(args->saveData, HEAP_ID_FIELD2, &out);
+#ifdef GEN5_BATTLES
+    Gen5Battle_SetFrontierUnrecorded(FALSE);
+#endif
     return FALSE;
 }
 
@@ -693,11 +703,43 @@ static BOOL FrtCmd_DeleteBattleRecord(FrontierScriptContext *ctx) {
     return FALSE;
 }
 
+#ifdef GEN5_BATTLES
+static u16 PeekHalfWord(const u8 *ptr) {
+    return ptr[0] | (ptr[1] << 8);
+}
+
+static BOOL IsCommand(u16 cmd, FrontierScrCmdFunc func) {
+    return cmd < gFrontierCommandTableSize && gFrontierCommandTable[cmd] == func;
+}
+
+// After a battle in BW2's engine there's no HGSS record of it, so YES would save an empty video. The question
+// follows this command as "CompareVarToValue var, n; CallIf cond, ask..." pairs and "YesNo var": skip it and answer
+// NO. Anything else is left to run as it is
+static void SkipBattleVideoQuestion(FrontierScriptContext *ctx) {
+    const u8 *ptr = ctx->scriptPtr;
+    while (IsCommand(PeekHalfWord(ptr), FrtCmd_CompareVarToValue) && IsCommand(PeekHalfWord(ptr + 6), FrtCmd_CallIf)) {
+        ptr += 6 + 2 + 1 + 4; // CompareVarToValue var, value; CallIf condition, offset
+    }
+    if (!IsCommand(PeekHalfWord(ptr), FrtCmd_YesNo)) {
+        printf("Gen 5: the Battle Video question isn't where it was expected: left as it is\n");
+        return;
+    }
+    *FrontierScript_GetVarPtr(ctx, PeekHalfWord(ptr + 2)) = 1; // NO
+    ctx->scriptPtr = ptr + 2 + 2 + 1; // YesNo var, initial selection
+    printf("Gen 5: no Battle Video of a battle in BW2's engine: the question skipped\n");
+}
+#endif
+
 static BOOL FrtCmd_CheckBattleRecordSlotValid(FrontierScriptContext *ctx) {
     FrontierLaunchArgs *args = Frontier_GetLaunchArgs(ctx->frontierSystem->frontierWork);
     u16 *result = FrontierScript_ReadVarPtr(ctx);
     int out;
     *result = BattleRecord_IsSlotValid(args->saveData, HEAP_ID_FIELD2, &out, 0);
+#ifdef GEN5_BATTLES
+    if (Gen5Battle_FrontierUnrecorded()) {
+        SkipBattleVideoQuestion(ctx);
+    }
+#endif
     return FALSE;
 }
 

@@ -3,7 +3,9 @@
 # check is the shots: no "Your Pokemon must all be different" (frontier_field_system.c read the party menu's choices at
 # the DS's byte offsets: fixed for the port), "ETHAN saved the game", the Frontier's elevator and battle room (their
 # scripts' backward jumps read as u32 went 4 GB astray on 64-bit: now s32), then the battle in BW2's engine
-# (Gen5Battle_WantsFrontier), forfeited with RUN and YES. The log has "battle ended (BW2's result 3".
+# (Gen5Battle_WantsFrontier), forfeited with RUN and YES. The log has "battle ended (BW2's result 3" and "the
+# question skipped": no Battle Video question after a battle in BW2's engine (HGSS can't record it), so the last shot
+# is the way back to the lobby.
 #
 #   SCREEN=1920x1080 tools/docker/desktop.sh test tests/scripts/gen5_tower.txt --from new-game
 
@@ -87,5 +89,5 @@ wait 90
 shot forfeit-ask
 mash touch 128 55 for 20
 wait 600
-shot video-question
+shot after-battle
 exit 0

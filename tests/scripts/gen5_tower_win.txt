@@ -1,0 +1,90 @@
+# A won Battle Tower battle in Black 2 and White 2's engine, then the room's menu (the Platinum fork's
+# gen5_tower_win.txt, for HGSS): gen5_tower.txt's challenge led by a Spiritomb given Wonder Guard and Dark Pulse by the
+# save editor. The check is the menu shot: no RECORD entry (HGSS can't record a battle it didn't run, so the port leaves
+# it out after a Gen 5 battle, as the video question; src/frontier/frontier_script_ui.c).
+#
+#   SCREEN=1920x1080 tools/docker/desktop.sh test tests/scripts/gen5_tower_win.txt --from new-game
+
+mash A until free
+gen5 on
+give 442 60
+# Spiritomb (slot 0) with Wonder Guard (Ghost and Dark: no weaknesses, so no damaging move touches it) and Dark Pulse
+# in every slot (a Disable leaves it Struggle): it wins by mashing A whatever the opponent's random team
+editor ability 0 25
+editor allmoves 0 399
+give 448 60
+give 6 60
+warp 265 15 6
+until free timeout 3000
+wait 30
+press UP
+wait 20
+press A
+wait 90
+stillshot t1
+press A
+wait 90
+stillshot t2
+press A
+wait 90
+stillshot t3
+press A
+wait 90
+stillshot t4
+press A
+wait 90
+stillshot t5
+press A
+wait 90
+stillshot t6
+press A
+wait 90
+stillshot t7
+press A
+wait 90
+stillshot t8
+# The party screen: the first A shows the cursor, then A (its menu) and A (ENTER) for each of the three
+press A
+wait 40
+press A
+wait 40
+press A
+wait 40
+press RIGHT
+wait 15
+press A
+wait 40
+press A
+wait 40
+press LEFT
+wait 15
+press DOWN
+wait 15
+press A
+wait 40
+press A
+wait 60
+stillshot p1
+press A
+wait 90
+stillshot p2
+press A
+wait 90
+stillshot p3
+press A
+wait 120
+stillshot p4
+press A
+wait 120
+stillshot p5
+press A
+wait 200
+stillshot p6
+mash A until command timeout 9000
+wait 60
+shot battle-command
+# Dark Pulse until the trainer's three are down, then on to the room's menu
+mash A until menu timeout 20000
+wait 60
+shot room-menu
+exit 0

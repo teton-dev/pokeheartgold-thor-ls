@@ -11,6 +11,11 @@
 #include "frontier/frontier_script_context.h"
 #include "frontier/frontier_system.h"
 #include "msgdata/msg.naix"
+#include "msgdata/msg/msg_0191.h"
+
+#ifdef GEN5_BATTLES
+#include "port_gen5_battle.h"
+#endif
 
 #include "bg_window.h"
 #include "char_tiles.h"
@@ -179,6 +184,13 @@ static void FrontierSystem_StartTextPrinter(FrontierSystem *system, u8 font, u32
 
 void FrontierSystem_CloseMessageWindow(FrontierSystem *system) {
     GF_ASSERT(system->messageWindowAdded == TRUE);
+#ifdef GEN5_BATTLES
+    // The skipped Battle Video question (frontier_script_commands_ext.c) leaves the script's CloseMessage nothing to
+    // close
+    if (system->messageWindowAdded == FALSE) {
+        return;
+    }
+#endif
     ClearFrameAndWindow2(&system->messageWindow, FALSE);
     RemoveWindow(&system->messageWindow);
     system->messageWindowAdded = FALSE;
@@ -397,6 +409,16 @@ FrontierMenu *FrontierListMenu_New(FrontierSystem *system, u8 x, u8 y, u8 initia
 }
 
 void FrontierListMenu_AddItem(FrontierMenu *menu, u16 msgId, u16 description, u16 value) {
+#ifdef GEN5_BATTLES
+    // After a battle in BW2's engine there's nothing to record (port_gen5_battle.h): no RECORD entry, and the menu
+    // (placed by its top for its four entries) moves down by the missing line
+    if (Gen5Battle_FrontierUnrecorded() && menu->ownsMsgData && msgId == msg_0191_00263) {
+        if (!menu->alignBottom) {
+            menu->y += 2;
+        }
+        return;
+    }
+#endif
     FrontierListMenu_AddItemInternal(menu, msgId, description, value);
 }
 

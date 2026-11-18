@@ -114,6 +114,16 @@ BOOL Gen5Battle_Wants(const BattleSetup *setup) {
 
 // The Battle Tower's single battles (frontier_script_commands_misc.c's FrtCmd_TowerStartBattle), as the Platinum fork
 // runs its own; its doubles, multi and link battles and the other facilities stay HGSS's
+static BOOL sFrontierUnrecorded;
+
+void Gen5Battle_SetFrontierUnrecorded(BOOL unrecorded) {
+    sFrontierUnrecorded = unrecorded;
+}
+
+BOOL Gen5Battle_FrontierUnrecorded(void) {
+    return sFrontierUnrecorded;
+}
+
 BOOL Gen5Battle_WantsFrontier(const BattleSetup *setup) {
     if (!GameSettings_Get()->gen5Battles || Gen5Rom_GameName() == NULL) {
         return FALSE;
