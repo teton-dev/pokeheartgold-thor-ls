@@ -1,0 +1,53 @@
+# The Battle Hall's single battles in BW2's engine (the Platinum fork's gen5_hall.txt, for HGSS): the Tower's setup,
+# the Hall's attendant, Single Battle, one Pokemon, the first battle (the log's "single facility battle"), RUN and YES: a loss, no Battle Video
+# question ("the question skipped").
+#
+#   SCREEN=1920x1080 tools/docker/desktop.sh test tests/scripts/gen5_hall.txt --from new-game
+
+mash A until free
+gen5 on
+give 445 60
+give 448 60
+give 6 60
+give 149 60
+warp 276 7 9
+until free timeout 3000
+wait 30
+press LEFT
+wait 20
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 150
+press A
+wait 150
+stillshot sel
+mash A until command timeout 30000
+wait 60
+shot battle-command
+# RUN forfeits after a yes (BW2's facility battle)
+mash touch 128 175 for 20
+wait 90
+shot forfeit-ask
+mash touch 128 55 for 20
+wait 600
+shot after-battle
+mash A for 600
+shot end1
+mash A for 600
+shot end2
+exit 0
