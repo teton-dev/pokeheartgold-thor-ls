@@ -1,3 +1,4 @@
+#include "party_menu.h"
 #include "frontier_field_system.h"
 
 #include "global.h"
@@ -314,15 +315,27 @@ void FrontierFieldSystem_StartPartySelect(FrontierFieldSystem *frontierFsys, Tas
 
 BOOL FrontierFieldSystem_ReadPartySelection(FrontierFieldSystem *frontierFsys, void **runningApp, SaveData *saveData) {
     Party *party;
+#ifdef SDK_PORT
+    // The party menu's PartyMenuArgs by its fields: the DS's byte offsets (0x26 partySlot, 0x27 selectedAction, 0x30
+    // selectedOrder) are behind its pointers, which are twice as long here, so they read the wrong bytes (the slots came
+    // out 255 and the Tower said "Your Pokémon must all be different")
+    PartyMenuArgs *args = *runningApp;
+    if (args->selectedAction != 0 || args->partySlot == 7) {
+#else
     u8 *unk = *runningApp;
     if (unk[0x27] != 0 || unk[0x26] == 7) {
+#endif
         Heap_Free(*runningApp);
         *runningApp = NULL;
         return FALSE;
     }
     party = SaveArray_Party_Get(saveData);
     for (u16 i = 0; i < frontierFsys->numMons; i++) {
+#ifdef SDK_PORT
+        frontierFsys->partyMonIndexes[i] = args->selectedOrder[i] - 1;
+#else
         frontierFsys->partyMonIndexes[i] = unk[0x30 + i] - 1;
+#endif
         Pokemon *mon = Party_GetMonByIndex(party, frontierFsys->partyMonIndexes[i]);
         frontierFsys->partyMonSpecies[i] = GetMonData(mon, MON_DATA_SPECIES, NULL);
         frontierFsys->partyMonItems[i] = GetMonData(mon, MON_DATA_HELD_ITEM, NULL);

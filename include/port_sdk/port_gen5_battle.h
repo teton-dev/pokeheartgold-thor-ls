@@ -19,6 +19,8 @@ extern const OverlayManagerTemplate gGen5BattleOverlayTemplate;
 // The battle should run in BW2's engine: the setting is on, the ROM is there and the battle is one it can run (or
 // the next one was asked for, Gen5Battle_RequestNext)
 BOOL Gen5Battle_Wants(const BattleSetup *setup);
+// The Battle Tower's single battles in BW2's engine (frontier_script_commands_misc.c)
+BOOL Gen5Battle_WantsFrontier(const BattleSetup *setup);
 
 // The next battle runs in BW2's engine, whatever the setting
 void Gen5Battle_RequestNext(void);

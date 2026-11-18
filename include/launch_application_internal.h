@@ -150,7 +150,13 @@ typedef struct PartyMenuArgsSlotView {
 
 typedef struct PartyMenuMoveSelectData {
     enum HeapID heapID;
+#ifdef SDK_PORT
+    // The party menu's arguments themselves: PartyMenuArgsSlotView's padding puts partySlot at the DS's offset, behind
+    // pointers that are twice as long here
+    struct PartyMenuArgs *partyMenu;
+#else
     PartyMenuArgsSlotView *partyMenu;
+#endif
     PokemonSummaryArgs *pokemonSummary;
 } PartyMenuMoveSelectData;
 

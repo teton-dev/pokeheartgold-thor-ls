@@ -44,6 +44,8 @@
 #include "map_header.h"
 #include "message_format.h"
 #include "msgdata.h"
+#include "msgdata/msg/msg_0197.h"
+#include "mail_message.h"
 #include "naming_screen.h"
 #include "options.h"
 #include "party.h"
@@ -65,6 +67,7 @@
 static BOOL sRequested = FALSE; // The next battle runs in BW2's engine
 static BOOL sShown = FALSE; // BW2's battle is on screen
 static BOOL sFailed = FALSE; // The battle couldn't start: back as if the player ran
+static BOOL sFrontier = FALSE; // The Battle Frontier's (BATTLE_TYPE_FRONTIER): BW2's facility battle, no bag, no Nuzlocke rules
 static Gen5Battle sBattle; // The battle as handed to the Gen 5 code, and as it comes back
 static Gen5Item sItemCountsBefore[GEN5_ITEMS_MAX];
 static int sItemsBefore;
@@ -107,6 +110,15 @@ BOOL Gen5Battle_Wants(const BattleSetup *setup) {
         | BATTLE_TYPE_11;
     return (type & BATTLE_TYPE_TRAINER) && (type & ~trainerTypes) == 0
         && (setup->battleSpecial & ~(BATTLE_SPECIAL_FIRST_RIVAL | BATTLE_SPECIAL_NO_RUNNING)) == 0;
+}
+
+// The Battle Tower's single battles (frontier_script_commands_misc.c's FrtCmd_TowerStartBattle), as the Platinum fork
+// runs its own; its doubles, multi and link battles and the other facilities stay HGSS's
+BOOL Gen5Battle_WantsFrontier(const BattleSetup *setup) {
+    if (!GameSettings_Get()->gen5Battles || Gen5Rom_GameName() == NULL) {
+        return FALSE;
+    }
+    return setup->battleType == (BATTLE_TYPE_FRONTIER | BATTLE_TYPE_TRAINER) && setup->battleSpecial == 0;
 }
 
 // --- Text -------------------------------------------------------------------------------------------------------
@@ -666,6 +678,26 @@ static void TrainerToGen5(BattleSetup *setup, int battler, Gen5Trainer *dest) {
         dest->className[0] = 0xFFFF;
     }
 
+    if (setup->battleType & BATTLE_TYPE_FRONTIER) {
+        // A Frontier trainer's ID isn't a trainer data ID: its line when beaten is the Frontier's bank (entry id * 3 + 2),
+        // or a player-made trainer's (0x2710) mail message, as BattleSystem_PrintTrainerMessage shows them
+        String *line;
+        if (id == 0x2710) {
+            line = MailMsg_GetExpandedString(&trainer->loseMessage, HEAP_ID_FIELD2);
+        } else {
+            MsgData *frontierMsgs = NewMsgDataFromNarc(MSGDATA_LOAD_LAZY, NARC_msgdata_msg, msg_0197_00724, HEAP_ID_FIELD2);
+            line = NewString_ReadMsgData(frontierMsgs, id * 3 + 2);
+            DestroyMsgData(frontierMsgs);
+        }
+        TextToGen5(String_cstr(line), String_GetLength(line) + 1, dest->defeatText, GEN5_TEXT_LENGTH);
+        String_Delete(line);
+        for (int k = 0; k < 4; k++) {
+            dest->hintText[k][0] = 0xFFFF;
+        }
+        String_Delete(text);
+        goto party;
+    }
+
     // What the trainer says during the battle (first hit, half HP, last Pokémon, last at half HP), as HGSS's battle shows
     // TRMSG_HIT_POKE_FIRST_TIME to TRMSG_LAST_POKE_HALF; BW2 shows them at the same moments (btl_client.c's hints)
     for (int k = 0; k < 4; k++) {
@@ -707,6 +739,8 @@ static void TrainerToGen5(BattleSetup *setup, int battler, Gen5Trainer *dest) {
     }
     String_Delete(text);
 
+// The party (a Frontier trainer's lines are done above)
+party:;
     Party *party = setup->party[battler];
     dest->partyCount = Party_GetCount(party);
     if (dest->partyCount > GEN5_PARTY_MAX) {
@@ -750,6 +784,17 @@ static BOOL IsGymLeaderClass(int trainerClass) {
 
 static void ArenaFromSetup(const BattleSetup *setup, int *bg, int *terrain) {
     const int trainerClass = (setup->battleType & BATTLE_TYPE_TRAINER) ? setup->trainer[BATTLER_ENEMY].data.trainerClass : -1;
+    if (setup->battleType & BATTLE_TYPE_FRONTIER) {
+        // The Battle Frontier, as the Platinum fork's: BW2's World Tournament arena, plain; a Frontier Brain's with the
+        // final's coloured light pools (its alternate variant, the owner's "three lights" arena)
+        *bg = 19;
+        *terrain = 0;
+        sBattle.arenaAlt = (trainerClass == TRAINERCLASS_TOWER_TYCOON || trainerClass == TRAINERCLASS_HALL_MATRON
+                               || trainerClass == TRAINERCLASS_FACTORY_HEAD || trainerClass == TRAINERCLASS_ARCADE_STAR
+                               || trainerClass == TRAINERCLASS_CASTLE_VALET)
+            ? 1 : 0;
+        return;
+    }
     if (IsRocketClass(trainerClass)) {
         // Team Rocket's own arena (lib/port/gen5_rocket.c): BW2's Champion room, darkened, with Rocket red streaks, a
         // rocket ship and the moon in its sky
@@ -952,6 +997,8 @@ static BOOL Init(OverlayManager *man, int *state) {
     sBattle.apricornBalls = TRUE; // HGSS's Apricorn Balls' rules (btl_server_flow_sub.c's patch)
     sBattle.fishing = setup->isFishing != FALSE;
     TextToGen5(PlayerProfile_GetNamePtr(profile), PLAYER_NAME_LENGTH + 1, sBattle.player.name, 8);
+    sFrontier = (setup->battleType & BATTLE_TYPE_FRONTIER) != 0;
+    sBattle.facility = sFrontier;
     ArenaFromSetup(setup, &sBattle.arenaBg, &sBattle.arenaTerrain);
     {
         // For looking at arenas: POKEHEARTGOLD_GEN5_ARENA=bg,terrain (16,1 is Team Rocket's)
@@ -1048,7 +1095,10 @@ static BOOL Init(OverlayManager *man, int *state) {
         sBattle.boxesFull = Party_GetCount(party) >= PARTY_SIZE && (freeBox < 0 || freeBox >= NUM_BOXES);
         PokemonToGen5(Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), &sBattle.wild);
     }
-    PortNuzlockeToGen5(setup);
+    // Nuzlocke mode's rules aren't the Battle Frontier's
+    if (!sFrontier) {
+        PortNuzlockeToGen5(setup);
+    }
     if (setup->battleType == BATTLE_TYPE_BUG_CONTEST) {
         // The Bug-Catching Contest: its Sport Balls are the bag (HGSS's BAG throws one), and the battle ends when the
         // last one misses (Gen5_PortContestOutOfBalls). They aren't the bag's: Finish gives the count back to the contest
@@ -1057,7 +1107,8 @@ static BOOL Init(OverlayManager *man, int *state) {
         sBattle.items[0].count = setup->safariBalls;
         sBattle.itemCount = setup->safariBalls > 0 ? 1 : 0;
     }
-    for (int p = 0; p < (int)NELEMS(sBattlePockets) && !sBattle.bugContest; p++) {
+    // The Battle Frontier allows no items: its battles have no bag
+    for (int p = 0; p < (int)NELEMS(sBattlePockets) && !sBattle.bugContest && !sFrontier; p++) {
         ItemSlot *slot;
         for (int i = 0; (slot = Bag_GetPocketSlotN(setup->bag, sBattlePockets[p], i)) != NULL && sBattle.itemCount < GEN5_ITEMS_MAX; i++) {
             if (slot->id != ITEM_NONE && slot->quantity != 0) {
@@ -1197,6 +1248,9 @@ static void Finish(BattleSetup *setup) {
             printf("Gen 5: the wild Pokémon after the battle: HP %u, status %u\n", (unsigned)sBattle.wild.hp, (unsigned)value);
         }
         PlayerProfile *profile = setup->profile[BATTLER_PLAYER];
+        if (sFrontier) {
+            sBattle.moneyChange = 0;
+        }
         if (sBattle.moneyChange > 0) {
             PlayerProfile_AddMoney(profile, sBattle.moneyChange);
         } else if (sBattle.moneyChange < 0) {
@@ -1226,6 +1280,10 @@ static void Finish(BattleSetup *setup) {
     default:
         // Ran, or failed: back to the overworld as if the player ran; in the Safari Zone the Pokémon may have fled
         setup->winFlag = sBattle.safari && sBattle.safariFled && !sFailed ? BATTLE_OUTCOME_FOE_FLED : BATTLE_OUTCOME_PLAYER_FLED;
+        // In the Battle Frontier, running is forfeiting (BW2's facility battle asks first): a loss
+        if (sFrontier && result == GEN5_BATTLE_RAN) {
+            setup->winFlag = BATTLE_OUTCOME_LOSE;
+        }
         break;
     }
 }

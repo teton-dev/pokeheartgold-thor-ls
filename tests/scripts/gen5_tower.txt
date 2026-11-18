@@ -1,0 +1,78 @@
+# The Battle Tower from a new game (the Platinum fork's gen5_tower.txt, for HGSS): three Pokemon given, the single battle
+# attendant, Challenge, Single Battle, the three entered (the first A shows the party screen's cursor), the save. The
+# check is the shots: no "Your Pokemon must all be different" (frontier_field_system.c read the party menu's choices at
+# the DS's byte offsets: fixed for the port), and "ETHAN saved the game". Not yet: the Frontier's own scenes after the
+# save crash in its script reader (FrontierScriptContext_ReadHalfWord), so the battle in BW2's engine
+# (Gen5Battle_WantsFrontier) isn't reached here.
+#
+#   SCREEN=1920x1080 tools/docker/desktop.sh test tests/scripts/gen5_tower.txt --from new-game
+
+mash A until free
+gen5 on
+give 445 60
+give 448 60
+give 6 60
+warp 265 15 6
+until free timeout 3000
+wait 30
+press UP
+wait 20
+press A
+wait 90
+stillshot t1
+press A
+wait 90
+stillshot t2
+press A
+wait 90
+stillshot t3
+press A
+wait 90
+stillshot t4
+press A
+wait 90
+stillshot t5
+press A
+wait 90
+stillshot t6
+press A
+wait 90
+stillshot t7
+press A
+wait 90
+stillshot t8
+# The party screen: the first A shows the cursor, then A (its menu) and A (ENTER) for each of the three
+press A
+wait 40
+press A
+wait 40
+press A
+wait 40
+press RIGHT
+wait 15
+press A
+wait 40
+press A
+wait 40
+press LEFT
+wait 15
+press DOWN
+wait 15
+press A
+wait 40
+press A
+wait 60
+stillshot p1
+press A
+wait 90
+stillshot p2
+press A
+wait 90
+stillshot p3
+press A
+wait 120
+stillshot p4
+press A
+wait 120
+stillshot p5
+exit 0
