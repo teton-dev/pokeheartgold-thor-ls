@@ -9,6 +9,7 @@
 #include "constants/weather.h"
 
 #include "application/pokegear/pokegear_main.h"
+#include "bug_contest_swap_mon.h"
 #include "battle_transition_task.h"
 #include "field/weather_manager.h"
 #include "field_system.h"
@@ -77,7 +78,7 @@ static BOOL Gen5MoveBgShown(void) {
 // for the Bag, the Pokédex and the rest. isPokegear says whether it is specifically the Pokégear, for the bezel
 // below; its own background (wideBgs, not edgeBgs) is drawn wide rather than edge-extended, since only
 // G2SIM_DrawBGWide (SIM_SetWidescreenSceneOptions's wideBgLayers) composites the bezel's stamps onto a layer
-static BOOL WideApplication(u8 *wideBgs, BOOL *isPokegear) {
+static BOOL WideApplication(u8 *wideBgs, u8 *edgeBgs, BOOL *isPokegear) {
     *wideBgs = 0;
     *isPokegear = FALSE;
     FieldSystem *fieldSystem = FieldSystem_PortGet();
@@ -89,6 +90,12 @@ static BOOL WideApplication(u8 *wideBgs, BOOL *isPokegear) {
         // Its background and buttons, GF_BG_LYR_MAIN_0 (pokegear_app_ui.c): the bezel below draws over its sides
         *wideBgs = 1 << 0;
         *isPokegear = TRUE;
+        return TRUE;
+    }
+    if (init == BugContestSwapMon_Init) {
+        // The Bug-Catching Contest's screen after a catch (keep or swap the contest's Pokémon): its four layers' edge
+        // columns continue across the sides, its panels and the Pokémon in the 4:3 middle
+        *edgeBgs = 0x0F;
         return TRUE;
     }
     return FALSE;
@@ -205,9 +212,9 @@ void Widescreen_Update(void) {
         // reach the sides too, instead of a 4:3 box over the (already wide) field it covers
         wide = TRUE;
         edgeBgs = 1 << 3;
-    } else if (WideApplication(&wideBgs, &isPokegear)) {
-        // An app over the field (the Pokégear) whose own background reaches the edges; its gray bezel
-        // (UpdatePokegearBezel) fills the gap the background doesn't cover
+    } else if (WideApplication(&wideBgs, &edgeBgs, &isPokegear)) {
+        // An app over the field whose own background reaches the edges: the Pokégear, whose gray bezel
+        // (UpdatePokegearBezel) fills the gap the background doesn't cover, and the contest's swap screen
         wide = TRUE;
     } else if (fieldSystem != NULL) {
         wide = WeatherLayers(fieldSystem, &objWrap, &wideBgs);

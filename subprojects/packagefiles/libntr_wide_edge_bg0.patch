@@ -1,0 +1,14 @@
+--- a/libraries/sim/src/shaders/g2_fragment.glsl
++++ b/libraries/sim/src/shaders/g2_fragment.glsl
+@@ -73,6 +73,11 @@
+     vec2 cEdge = vec2(clamp(c2d.s, 0.002, 0.998), c2d.t);
+     vec2 cStripe = vec2(wideStripeColumn, c2d.t);
+     vec2 cEdgeMirror = vec2(clamp(c2d.s < 0.0 ? -c2d.s : (c2d.s > 1.0 ? 2.0 - c2d.s : c2d.s), 0.002, 0.998), c2d.t);
++    // BG0 drawn as 2D: its edge columns continue across the sides too, as layers 1 to 3 below (HGSS's contest swap
++    // screen has its top picture on the sub engine's BG0)
++    if (bg0as3d == 0 && (wideBgMask & 1) == 0 && !inside2d && (wideEdgeMask & 1) != 0) {
++        bgc[0] = texture(bgTexture[0], (wideStripeMask & 1) != 0 ? cStripe : ((wideEdgeMirrorMask & 1) != 0 ? cEdgeMirror : cEdge));
++    }
+     bgc[1] = (wideBgMask & 2) != 0 ? texture(bgTexture[1], cWide) : ((inside2d || (wideEdgeMask & 2) != 0) ? texture(bgTexture[1], (wideStripeMask & 2) != 0 && !inside2d ? cStripe : ((wideEdgeMirrorMask & 2) != 0 ? cEdgeMirror : cEdge)) : none);
+     bgc[2] = (wideBgMask & 4) != 0 ? texture(bgTexture[2], cWide) : ((inside2d || (wideEdgeMask & 4) != 0) ? texture(bgTexture[2], (wideStripeMask & 4) != 0 && !inside2d ? cStripe : ((wideEdgeMirrorMask & 4) != 0 ? cEdgeMirror : cEdge)) : none);
+     bgc[3] = (wideBgMask & 8) != 0 ? texture(bgTexture[3], cWide) : ((inside2d || (wideEdgeMask & 8) != 0) ? texture(bgTexture[3], (wideStripeMask & 8) != 0 && !inside2d ? cStripe : ((wideEdgeMirrorMask & 8) != 0 ? cEdgeMirror : cEdge)) : none);
