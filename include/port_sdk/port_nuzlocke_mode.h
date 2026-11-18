@@ -2,7 +2,7 @@
 #define POKEHEARTGOLD_PORT_NUZLOCKE_MODE_H
 
 // Nuzlocke mode (the Platinum fork's docs/thor/dev/nuzlocke.md): an enforced Nuzlocke, per save, at one of three
-// levels. A save can turn it on, change level and turn it off from Settings > Gameplay; once off (by the player or
+// levels. A save can turn it on, change level and turn it off from Settings > Challenges; once off (by the player or
 // by whiting out) it can never be turned on again on that save.
 //
 // The state is kept in the save image itself, in flash sectors the game doesn't use, so it goes along with the
@@ -16,7 +16,9 @@
 
 #include <nitro/types.h>
 
+#ifndef PORT_NUZLOCKE_MODE_GUI_ONLY
 #include "pokemon_types_def.h" // Pokemon and BoxPokemon are plain typedefs here, not tagged structs
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,6 +76,7 @@ BOOL NuzlockeMode_BallsReceived(void);
 int NuzlockeMode_AreaState(u16 location, u16 *species); // NuzlockeAreaState
 #define NUZLOCKE_CATCH_REFUSED_TEXT "You've already used your catch for this area!"
 
+#ifndef PORT_NUZLOCKE_MODE_GUI_ONLY
 // The dead flag on a Pokemon (set when it faints with the mode on; keeps its HP at 0 for good).
 // Implemented per game, on a spare field of the Pokemon data that both games leave unused.
 BOOL NuzlockeMode_IsDead(Pokemon *mon);
@@ -89,6 +92,8 @@ u32 NuzlockeMode_FilterHP(Pokemon *mon, u32 hp);
 void NuzlockeMode_OnHPSet(Pokemon *mon, u32 hp);
 // A medicine (or Rare Candy) the mode refuses on mon: any, on a dead one; level-raising ones past the cap
 BOOL NuzlockeMode_RefusesItem(Pokemon *mon, u16 item, int heapID);
+
+#endif // PORT_NUZLOCKE_MODE_GUI_ONLY
 
 #ifdef __cplusplus
 }

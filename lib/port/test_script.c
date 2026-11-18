@@ -14,6 +14,9 @@
 
 #include <simulator/sim.h>
 
+// libntr's settings screen (simulator/sim_settings.hpp, C++): opened on a page, as the back button does
+void SIM_Settings_Open(const char *page);
+
 #include "field_system.h"
 #include "overlay_01.h"
 #include "heap.h"
@@ -75,6 +78,7 @@ enum TestOp {
     OP_MARTS,
     OP_TEXT_WIDTHS,
     OP_EDITOR,
+    OP_SETTINGS,
     OP_EXIT,
 };
 
@@ -427,7 +431,7 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
         command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
     } else if (strcmp(words[0], "nuzlocke") == 0 && count >= 2) {
-        // nuzlocke simple|normal|hard|off, nuzlocke crit on|off, nuzlocke state: as Settings > Gameplay > Nuzlocke
+        // nuzlocke simple|normal|hard|off, nuzlocke crit on|off, nuzlocke state: as Settings > Challenges > Nuzlocke
         // mode will (the warning taken as accepted). Once the player is free.
         static const char *const kLevels[] = { "off", "simple", "normal", "hard" };
         command->op = OP_NUZLOCKE;
@@ -552,6 +556,13 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
     } else if (strcmp(words[0], "log") == 0 && rest != NULL) {
         command->op = OP_LOG;
         snprintf(command->text, sizeof(command->text), "%s", rest);
+        return TRUE;
+    } else if (strcmp(words[0], "settings") == 0) {
+        // settings [PAGE]: opens the settings (on PAGE), as the back button does. The game waits while they are
+        // open, and so does this script: with SIM_NATIVE_SETTINGS=1 their own scripted events
+        // (SIM_NATIVE_SETTINGS_EVENTS, ending with "close") drive the native menus
+        command->op = OP_SETTINGS;
+        snprintf(command->text, sizeof(command->text), "%s", rest != NULL ? rest : "");
         return TRUE;
     } else if (strcmp(words[0], "exit") == 0) {
         command->op = OP_EXIT;
@@ -1185,6 +1196,11 @@ static u16 Step(void) {
         }
         case OP_LOG:
             printf("[test] %s\n", command->text);
+            Next();
+            continue;
+        case OP_SETTINGS:
+            printf("[test] settings %s\n", command->text);
+            SIM_Settings_Open(command->text[0] != '\0' ? command->text : NULL);
             Next();
             continue;
         case OP_EXIT:

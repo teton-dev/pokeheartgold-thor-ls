@@ -1,0 +1,13 @@
+# Settings > Challenges: Nuzlocke mode, as the Platinum fork's page. From new-game, with the native settings'
+# recorder and its scripted events (libntr_native_menus.patch), the page picks Normal, shows the rules, and turns it
+# on; then the game applies it. The check is the log: the page's JSON ("[native-settings] ..."), "Nuzlocke mode:
+# Normal" and the test's "nuzlocke: Normal".
+#
+#   SIM_NATIVE_SETTINGS=1 SIM_NATIVE_SETTINGS_EVENTS='choice @Nuzlocke mode 2|pair @Turn it on 1|close' \
+#       tools/docker/desktop.sh test tests/scripts/settings_challenges.txt --from new-game
+
+mash A until free
+settings Challenges
+wait 30
+nuzlocke state
+exit 0

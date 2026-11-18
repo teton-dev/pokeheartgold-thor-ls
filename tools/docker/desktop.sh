@@ -239,7 +239,7 @@ test)
     docker rm -f $TEST >/dev/null 2>&1 || true
     docker run -d --name $TEST --user "$(id -u):$(id -g)" -e HOME=/tmp -e DISPLAY=:1 -e SDL_AUDIODRIVER=dummy \
         -e LIBGL_ALWAYS_SOFTWARE=1 -e LIBNTR_TEST_MODE=1 -e POKEHEARTGOLD_TEST_SCRIPT="$SCRIPT" \
-        -e POKEHEARTGOLD_GEN5_ROM="$GEN5_ROM" -e POKEHEARTGOLD_SLOTS_ROM="$SLOTS_ROM" $(for e in $TEST_ENV; do printf -- "-e %s " "$e"; done) $(mounts) -w "$RUN" \
+        -e POKEHEARTGOLD_GEN5_ROM="$GEN5_ROM" -e POKEHEARTGOLD_SLOTS_ROM="$SLOTS_ROM" -e SIM_NATIVE_SETTINGS="${SIM_NATIVE_SETTINGS:-}" -e SIM_NATIVE_SETTINGS_EVENTS="${SIM_NATIVE_SETTINGS_EVENTS:-}" $(for e in $TEST_ENV; do printf -- "-e %s " "$e"; done) $(mounts) -w "$RUN" \
         $IMAGE sh -c "Xvfb :1 -screen 0 ${SCREEN}x24 -nolisten tcp >/tmp/xvfb.log 2>&1 &
                       sleep 1
                       exec stdbuf -oL -eL '$BIN'" >/dev/null # Line-buffered: nothing lost if it dies
