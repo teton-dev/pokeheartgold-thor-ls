@@ -1,0 +1,88 @@
+# The Battle Castle's single battles in BW2's engine (the Platinum fork's gen5_castle.txt, for HGSS): the Tower's setup, the
+# Castle's attendant, Single Battle, three Pokemon (the party screen: A advances the text, A wakes the cursor, then each
+# pick is a move, A for its menu and A for ENTER; Lucario, Dragonite, Charizard), CONFIRM, the save and the Castle's talk
+# (mash A until the three menus) to its list (SELF, OPPONENT, BATTLE): BATTLE, the first battle (the log's "single facility battle"), RUN and YES:
+# a loss, no Battle Video question ("the question skipped").
+#
+#   SCREEN=1920x1080 tools/docker/desktop.sh test tests/scripts/gen5_castle.txt --from new-game
+
+mash A until free
+gen5 on
+give 445 60
+give 448 60
+give 6 60
+give 149 60
+warp 277 6 9
+until free timeout 3000
+wait 30
+press LEFT
+wait 20
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 150
+press A
+wait 150
+press RIGHT
+wait 60
+press A
+wait 150
+press A
+wait 150
+press DOWN
+wait 60
+press A
+wait 150
+press A
+wait 150
+press LEFT
+wait 60
+press A
+wait 150
+press A
+wait 150
+stillshot sel
+press A
+wait 150
+# the save (yes/no), the overwrite (yes/no), the Castle's talk, then its list (SELF, OPPONENT, BATTLE): the menu event
+mash A until menu timeout 3000
+mash A until menu timeout 3000
+mash A until menu timeout 3000
+wait 30
+stillshot menu
+press DOWN
+wait 40
+press DOWN
+wait 40
+stillshot battle-entry
+press A
+wait 120
+mash A until command timeout 30000
+wait 60
+shot battle-command
+# RUN forfeits after a yes (BW2's facility battle)
+mash touch 128 175 for 20
+wait 90
+shot forfeit-ask
+mash touch 128 55 for 20
+wait 600
+shot after-battle
+mash A for 600
+shot end1
+mash A for 600
+shot end2
+exit 0

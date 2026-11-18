@@ -1,0 +1,76 @@
+# The Battle Factory's single battles in BW2's engine (the Platinum fork's gen5_factory.txt, for HGSS): the Tower's setup, the
+# Factory's attendant, Single Battle, Level 50, the save, three rented Pokemon (a ball's menu is SUMMARY and RENT side by
+# side: A, RIGHT, A; RIGHT to the next ball), the first battle (the log's "single facility battle"), RUN and YES: a loss, no
+# Battle Video question ("the question skipped"). The dialogue's A presses are counted by the menu event: counting them
+# loses some while scenes load.
+#
+#   SCREEN=1920x1080 tools/docker/desktop.sh test tests/scripts/gen5_factory.txt --from new-game
+
+mash A until free
+gen5 on
+give 445 60
+give 448 60
+give 6 60
+give 149 60
+warp 275 21 7
+until free timeout 3000
+wait 30
+press UP
+wait 20
+# Single/Double, Level 50/Open, the save (yes/no) and its overwrite (yes/no): the menu event stops the mash at each; the
+# last mash answers the overwrite, and the talk after it ends on the rental screen
+mash A until menu timeout 5000
+wait 100
+mash A until menu timeout 5000
+wait 100
+mash A until menu timeout 5000
+wait 100
+mash A until menu timeout 5000
+wait 100
+mash A until menu timeout 5000
+wait 100
+stillshot rental
+# rent the 1. Pokemon: A opens its menu (SUMMARY, RENT, CANCEL), RIGHT to RENT, A
+press A
+wait 200
+press RIGHT
+wait 60
+press A
+wait 200
+stillshot r1
+press RIGHT
+wait 60
+# rent the 2. Pokemon: A opens its menu (SUMMARY, RENT, CANCEL), RIGHT to RENT, A
+press A
+wait 200
+press RIGHT
+wait 60
+press A
+wait 200
+stillshot r2
+press RIGHT
+wait 60
+# rent the 3. Pokemon: A opens its menu (SUMMARY, RENT, CANCEL), RIGHT to RENT, A
+press A
+wait 200
+press RIGHT
+wait 60
+press A
+wait 200
+stillshot r3
+# "Are you OK with the chosen 3 Pokemon?" YES, the way in, the trainer's challenge, the battle
+mash A until command timeout 30000
+wait 60
+shot battle-command
+# RUN forfeits after a yes (BW2's facility battle)
+mash touch 128 175 for 20
+wait 90
+shot forfeit-ask
+mash touch 128 55 for 20
+wait 600
+shot after-battle
+mash A for 600
+shot end1
+mash A for 600
+shot end2
+exit 0
