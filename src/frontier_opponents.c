@@ -1,5 +1,9 @@
 #include "frontier_opponents.h"
 
+#ifdef SDK_PORT
+#include <stdlib.h>
+#endif
+
 #include "global.h"
 
 #include "constants/abilities.h"
@@ -212,6 +216,14 @@ void FrontierFieldSystem_SetLinkFlag(FrontierFieldSystem *frontierFsys, u32 flag
 }
 
 u16 FrontierFieldSystem_GetRandomFrontierTrainerID(FrontierFieldSystem *frontierFsys, u8 difficultyBracket, u8 winsThisRound, u32 towerMode) {
+#ifdef SDK_PORT
+    // Tests: POKEHEARTGOLD_TOWER_OPPONENT=N makes a challenge's first opponent Frontier trainer N (305: Palmer, as at the
+    // 21st battle), so a test reaches a Frontier Brain without twenty wins (tests/scripts/gen5_tower_palmer.txt)
+    const char *forced = getenv("POKEHEARTGOLD_TOWER_OPPONENT");
+    if (forced != NULL && forced[0] != '\0' && winsThisRound == 0) {
+        return (u16)atoi(forced);
+    }
+#endif
     if (towerMode == TOWER_MODE_SINGLE) {
         // If we are between battles 15-21 and have completed 6 battles in our current round, meaning this is battle 21:
         if (difficultyBracket == 2 && winsThisRound == 6) {
