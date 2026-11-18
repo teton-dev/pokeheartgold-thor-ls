@@ -128,7 +128,10 @@ BOOL Gen5Battle_WantsFrontier(const BattleSetup *setup) {
     if (!GameSettings_Get()->gen5Battles || Gen5Rom_GameName() == NULL) {
         return FALSE;
     }
-    return setup->battleType == (BATTLE_TYPE_FRONTIER | BATTLE_TYPE_TRAINER) && setup->battleSpecial == 0;
+    // The Battle Tower's single and double battles; its multi and link battles stay HGSS's
+    return (setup->battleType == (BATTLE_TYPE_FRONTIER | BATTLE_TYPE_TRAINER)
+            || setup->battleType == (BATTLE_TYPE_FRONTIER | BATTLE_TYPE_TRAINER | BATTLE_TYPE_DOUBLES))
+        && setup->battleSpecial == 0;
 }
 
 // --- Text -------------------------------------------------------------------------------------------------------

@@ -1,0 +1,97 @@
+# The Battle Tower's double battles in BW2's engine (the Platinum fork's gen5_tower_doubles.txt, for HGSS): four Pokemon,
+# Double Battle at the attendant, the first battle (the log's "double facility battle"), RUN and YES: a loss, and no
+# Battle Video question.
+#
+#   SCREEN=1920x1080 tools/docker/desktop.sh test tests/scripts/gen5_tower_doubles.txt --from new-game
+
+mash A until free
+gen5 on
+give 445 60
+give 448 60
+give 6 60
+give 149 60
+warp 265 15 6
+until free timeout 3000
+wait 30
+press UP
+wait 20
+press A
+wait 90
+stillshot t1
+press A
+wait 90
+stillshot t2
+press A
+wait 90
+stillshot t3
+press A
+wait 90
+stillshot t4
+press A
+wait 90
+stillshot t5
+press A
+wait 90
+stillshot t6
+press A
+wait 90
+stillshot t7
+# Single or Double: Double Battle
+press DOWN
+wait 15
+press A
+wait 90
+stillshot t8
+press A
+wait 90
+stillshot t9
+# The party screen (two columns): Garchomp, Lucario, Dragonite, Charizard; each A shows its menu, then A is ENTER
+press A
+wait 40
+press A
+wait 40
+press RIGHT
+wait 15
+press A
+wait 40
+press A
+wait 40
+press DOWN
+wait 15
+press A
+wait 40
+press A
+wait 40
+press LEFT
+wait 15
+press A
+wait 40
+press A
+wait 60
+stillshot p1
+press A
+wait 90
+stillshot p2
+press A
+wait 90
+stillshot p3
+press A
+wait 120
+stillshot p4
+press A
+wait 120
+stillshot p5
+press A
+wait 200
+stillshot p6
+mash A until command timeout 9000
+wait 60
+shot battle-command
+# RUN: in a facility's battle it forfeits (BW2's Battle Subway), after a yes
+mash touch 128 175 for 20
+wait 90
+shot forfeit-ask
+mash touch 128 55 for 20
+wait 600
+shot after-battle
+exit 0

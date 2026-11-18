@@ -167,7 +167,7 @@ BOOL FrtCmd_TowerStartBattle(FrontierScriptContext *ctx) {
     tower->battleSetup = setup;
     Sound_SetSceneAndPlayBGM(5, SEQ_GS_VS_TRAINER, 1);
 #ifdef GEN5_BATTLES
-    // Settings > Battles > Gen 5 battles: the Tower's single battles in Black 2 and White 2's engine
+    // Settings > Battles > Gen 5 battles: the Tower's single and double battles in Black 2 and White 2's engine
     if (Gen5Battle_WantsFrontier(setup)) {
         Gen5Battle_SetFrontierUnrecorded(TRUE);
         Frontier_LaunchApplication(ctx->frontierSystem->frontierWork, &gGen5BattleOverlayTemplate, setup, FALSE, NULL);
