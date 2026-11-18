@@ -929,10 +929,11 @@ static void PortNuzlockeToGen5(BattleSetup *setup)
         sBattle.wildCatchRefused = !NuzlockeMode_CatchAllowed(GetMonData(wild, MON_DATA_SPECIES, NULL), MonIsShiny(wild));
     }
     // BW2's text: Unicode, 0xFFFE a new line, 0xFFFF the end
-    static const char kText[] = NUZLOCKE_CATCH_REFUSED_TEXT;
+    // (NUZLOCKE_CATCH_REFUSED_TEXT on two lines: one is wider than BW2's message window, as in Eterna)
+    static const char kText[] = "You've already used your catch\nfor this area!";
     int length = 0;
     for (const char *c = kText; *c != '\0' && length < GEN5_PORT_TEXT_LENGTH - 1; c++) {
-        sBattle.catchRefusedText[length++] = (unsigned char)*c;
+        sBattle.catchRefusedText[length++] = *c == '\n' ? 0xFFFE : (unsigned char)*c;
     }
     sBattle.catchRefusedText[length] = 0xFFFF;
 }

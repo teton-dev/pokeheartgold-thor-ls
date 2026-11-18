@@ -1,0 +1,30 @@
+# From new-game: the catching tutorial in BW2's capture demo, with stillshots every 20 frames from when its battle starts
+# until Lyra has thrown, to see her back sprite (BW2's demo script sets its own demonstrator, Bianca, on the player's side:
+# btlv_effvm.c's SetTrainer, patched in gen5/ to the battle's player)
+mash A until free
+give 155 5
+gen5 on
+tutorial
+until battle timeout 600
+wait 200
+stillshot b01
+wait 20
+stillshot b02
+wait 20
+stillshot b03
+wait 20
+stillshot b04
+wait 20
+stillshot b05
+wait 20
+stillshot b06
+wait 20
+stillshot b07
+wait 20
+stillshot b08
+wait 20
+stillshot b09
+wait 20
+stillshot b10
+mash A until free timeout 6000
+exit

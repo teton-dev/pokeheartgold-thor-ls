@@ -1,0 +1,18 @@
+# From new-game: a warp into Dark Cave (Route 31's side), a cave that needs Flash: the darkness is a 3D model with a lit
+# hole around the player (field_flash_darkness.c). Screenshots there, a step on, and out on Route 31.
+# Run it with widescreen on too (TEST_CONFIG='SecondaryScreen=true Widescreen=true WindowWidth=768 WindowHeight=432'):
+# the hole shows the cave around the player, not a black screen.
+mash A until free
+warp 176 5 25
+until map 176 timeout 3000
+wait 60
+shot cave
+walk UP 2
+wait 30
+shot cave2
+walk DOWN 3
+walk DOWN 1
+until map 35 timeout 3000
+wait 30
+shot route31
+exit

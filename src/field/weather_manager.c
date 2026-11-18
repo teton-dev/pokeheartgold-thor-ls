@@ -154,6 +154,16 @@ enum WeatherLoadStep {
     WEATHER_LOAD_CREATE_SPRITES,
 };
 
+// Flash's darkness fogs the whole 3D scene black; the darkness model's lit middle is translucent and not fogged, which
+// on the DS clears the fog flag of the pixels it covers (field_flash_darkness.c). The port's renderer fogs each polygon
+// as it draws it, so the whole screen went black: the port draws the darkness without the fog, the model's
+// surroundings black (FlashDarknessEffect_Draw)
+#ifdef SDK_PORT
+#define FLASH_FOG FALSE
+#else
+#define FLASH_FOG TRUE
+#endif
+
 enum WeatherFlashEndStep {
     FLASH_END_FADE_OUT,
     FLASH_END_FADE_IN,
@@ -2308,7 +2318,7 @@ static void WeatherTask_Flash(SysTask *task, void *data) {
     switch (work->state) {
     case WEATHER_STATE_FADE_IN_INIT:
         taskData->darkness = FlashDarkness_Show(PlayerAvatar_GetMapObject(fieldSystem->playerAvatar));
-        Fog_Set(fieldSystem->fog, -1, TRUE, GX_FOGBLEND_COLOR_ALPHA, GX_FOGSLOPE_0x0020, 0);
+        Fog_Set(fieldSystem->fog, -1, FLASH_FOG, GX_FOGBLEND_COLOR_ALPHA, GX_FOGSLOPE_0x0020, 0);
         Fog_SetColor(fieldSystem->fog, -1, 0, 0);
         {
             s8 fogTable[FOG_TABLE_ENTRIES];
@@ -2325,7 +2335,7 @@ static void WeatherTask_Flash(SysTask *task, void *data) {
         break;
     case WEATHER_STATE_START_FULL:
         taskData->darkness = FlashDarkness_Show(PlayerAvatar_GetMapObject(fieldSystem->playerAvatar));
-        Fog_Set(fieldSystem->fog, -1, TRUE, GX_FOGBLEND_COLOR_ALPHA, GX_FOGSLOPE_0x0020, 0);
+        Fog_Set(fieldSystem->fog, -1, FLASH_FOG, GX_FOGBLEND_COLOR_ALPHA, GX_FOGSLOPE_0x0020, 0);
         Fog_SetColor(fieldSystem->fog, -1, 0, 0);
         {
             s8 fogTable[FOG_TABLE_ENTRIES];
@@ -2385,7 +2395,7 @@ static void WeatherTask_Flash2(SysTask *task, void *data) {
     switch (work->state) {
     case WEATHER_STATE_FADE_IN_INIT:
         taskData->darkness = FlashDarkness_Show(PlayerAvatar_GetMapObject(fieldSystem->playerAvatar));
-        Fog_Set(fieldSystem->fog, -1, TRUE, GX_FOGBLEND_COLOR_ALPHA, GX_FOGSLOPE_0x0020, 0);
+        Fog_Set(fieldSystem->fog, -1, FLASH_FOG, GX_FOGBLEND_COLOR_ALPHA, GX_FOGSLOPE_0x0020, 0);
         Fog_SetColor(fieldSystem->fog, -1, 0, 0);
         {
             s8 fogTable[FOG_TABLE_ENTRIES];
@@ -2402,7 +2412,7 @@ static void WeatherTask_Flash2(SysTask *task, void *data) {
         break;
     case WEATHER_STATE_START_FULL:
         taskData->darkness = FlashDarkness_Show(PlayerAvatar_GetMapObject(fieldSystem->playerAvatar));
-        Fog_Set(fieldSystem->fog, -1, TRUE, GX_FOGBLEND_COLOR_ALPHA, GX_FOGSLOPE_0x0020, 0);
+        Fog_Set(fieldSystem->fog, -1, FLASH_FOG, GX_FOGBLEND_COLOR_ALPHA, GX_FOGSLOPE_0x0020, 0);
         Fog_SetColor(fieldSystem->fog, -1, 0, 0);
         {
             s8 fogTable[FOG_TABLE_ENTRIES];

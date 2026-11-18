@@ -30,6 +30,8 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 | `gen5_wild_loss.txt` | `new-game` | a wild battle lost in BW2's engine (as the debug window starts one): the player whites out home, not left without an overworld | ~1 min |
 | `gen5_mom_savings.txt` | `new-game` | with Mom saving, a Team Rocket Grunt beaten in BW2's engine: a quarter of the prize goes to Mom | ~2 min |
 | `gen5_trainer_lines.txt` | `new-game` | Falkner in BW2's engine says his last-Pokemon line (HGSS's TRMSG_LAST_POKE) when his Pidgeotto comes out | ~2 min |
+| `gen5_tutorial_back.txt` | `new-game` | the catching tutorial in BW2's capture demo, stillshots every 20 frames until the throw: Lyra's back, not BW2's demonstrator (Bianca); the log has "the capture demo's trainer (class 38) shown as the player (class 183)" | ~2 min |
+| `gen5_nuzlocke_refused.txt` | `new-game` | Nuzlocke mode (Hard: the test's wild battles are scripted ones) in BW2's engine: a Pidgey caught with a Master Ball, then a Rattata in the same area knocks one back with "You've already used your catch / for this area!" on two lines | ~3 min |
 | `gen5_safari.txt` | `new-game` | the Safari Zone in BW2's engine (`TEST_ENV=POKEPLATINUM_GEN5_SAFARI_SEED=3`): a Bulbasaur (never flees), the command screen (BALL, BAIT, ROCK, RUN), a ball, bait, mud, RUN, 29 balls left in the save's counter | ~2 min |
 | `gen5_safari_catch.txt` | `new-game` | a Safari Zone catch (same seed): Safari Balls at a Caterpie until one catches it, HGSS's naming screen, the Caterpie in a Safari Ball, 10 balls left | ~2 min |
 | `gen5_safari_end.txt` | `new-game` | the Safari Zone's endings (same seed): a Kangaskhan baited until it flees, then the last ball misses a Bulbasaur and HGSS's Safari encounter takes the player back to where it started (its gate) | ~2 min |
@@ -44,6 +46,7 @@ tools/docker/desktop.sh test tests/scripts/new_game.txt --keep new-game
 | `widescreen_xmenu.txt` | `new-game` | out to New Bark Town, X opens the field menu and closes it, with screenshots (run it with widescreen on, `TEST_CONFIG` below): the menu's gray bar on the top screen reaches the wide screen's edges | ~1 min |
 | `widescreen_newbark.txt` | `new-game` | down the stairs and out into New Bark Town, with screenshots there; run it with widescreen on (`TEST_CONFIG`, below) to check the overworld fills the 16:9 window | ~2 min |
 | `widescreen_wild_transition.txt` | `new-game` | out to New Bark Town, a wild battle's own transition (the black tiles that flip the overworld away) caught mid-flip with a stillshot; run with widescreen on to check it fills the window too, not just the battle behind it | ~1 min |
+| `widescreen_dark_cave.txt` | `new-game` | a warp into Dark Cave (a cave that needs Flash), screenshots there and a step on, then out to Route 31; run it with and without widescreen: the lit circle around the player, black everywhere else (not a black screen) | ~1 min |
 
 ## Running
 

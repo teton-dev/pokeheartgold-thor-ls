@@ -48,6 +48,9 @@ static BOOL FlashDarknessEffect_Init(FieldEffect *effect, void *state);
 static void FlashDarknessEffect_Destroy(FieldEffect *effect, void *state);
 static void FlashDarknessEffect_Update(FieldEffect *effect, void *state);
 static void FlashDarknessEffect_Draw(FieldEffect *effect, void *state);
+#ifdef SDK_PORT
+static void FlashDarkness_PortDraw(FlashDarknessEffect *work, const VecFx32 *position, const MtxFx33 *rotation, const VecFx32 *scale);
+#endif
 
 static const FieldEffectBasicTemplate sFlashDarknessTemplate = {
     sizeof(FlashDarknessEffect),
@@ -144,5 +147,66 @@ static void FlashDarknessEffect_Draw(FieldEffect *effect, void *state) {
     scale.y = (fx32)(FX32_ONE * work->args.darkness->scale);
     scale.z = (fx32)(FX32_ONE * work->args.darkness->scale);
     FieldEffect_GetPosition(effect, &position);
+#ifdef SDK_PORT
+    FlashDarkness_PortDraw(work, &position, &rotation, &scale);
+#else
     GF3dRender_DrawModel(&work->args.darkness->renderObj, &position, &rotation, &scale);
+#endif
 }
+
+#ifdef SDK_PORT
+// The port: the DS blacks out everything outside the darkness with fog (WeatherTask_Flash), which the port's renderer
+// can't do as the DS does (weather_manager.c's FLASH_FOG). Instead the model is drawn as it is, and around it, in its
+// plane, an opaque black frame reaching far past the screen's edges (a widescreen's too). Both are moved towards the
+// camera, scaled down as much, so that they cover the same part of the screen with nothing of the map in front.
+static void FlashDarkness_PortDraw(FlashDarknessEffect *work, const VecFx32 *position, const MtxFx33 *rotation, const VecFx32 *scale) {
+    FieldSystem *fieldSystem = FieldEffectManager_GetFieldSystem(work->args.manager);
+    VecFx32 cameraPos = Camera_GetLookAtCamPos(fieldSystem->camera);
+    VecFx32 toModel;
+    VEC_Subtract(position, &cameraPos, &toModel);
+    fx32 distance = VEC_Mag(&toModel);
+    // A little past the near plane: closer to the camera than any of the map it sees
+    fx32 wanted = FX_Mul(Camera_GetPerspectiveClippingPlaneNear(fieldSystem->camera), FX32_CONST(1.25));
+    fx32 ratio = distance > wanted ? FX_Div(wanted, distance) : FX32_ONE;
+    VecFx32 nearPos;
+    VEC_MultAdd(ratio, &toModel, &cameraPos, &nearPos);
+    VecFx32 nearScale = { FX_Mul(scale->x, ratio), FX_Mul(scale->y, ratio), FX_Mul(scale->z, ratio) };
+    GF3dRender_DrawModel(&work->args.darkness->renderObj, &nearPos, rotation, &nearScale);
+
+    // The frame: the model's box (x and y; it is flat), a tenth of its width inside it at the sides and the top (the
+    // model's dark edges don't quite fill it there; its lit middle reaches its bottom edge), and 2048 units past it on
+    // every side. The vertices are fx16 (under 8), so they are in units of 512, the base scale 512 times the model's
+    const NNSG3dResMdlInfo *info = NNS_G3dGetMdlInfo(work->args.darkness->model);
+    const fx32 width = FX_Mul((fx32)info->boxW, info->boxPosScale) / 512;
+    const fx32 inset = width / 10;
+    const fx32 left = FX_Mul((fx32)info->boxX, info->boxPosScale) / 512 + inset;
+    const fx32 bottom = FX_Mul((fx32)info->boxY, info->boxPosScale) / 512;
+    const fx32 right = left + width - 2 * inset;
+    const fx32 top = bottom + FX_Mul((fx32)info->boxH, info->boxPosScale) / 512 - inset;
+    const fx32 outer = FX32_CONST(4);
+    const fx16 xs[4] = { (fx16)-outer, (fx16)left, (fx16)right, (fx16)outer };
+    const fx16 ys[4] = { (fx16)-outer, (fx16)bottom, (fx16)top, (fx16)outer };
+    VecFx32 frameScale = { nearScale.x * 512, nearScale.y * 512, nearScale.z * 512 };
+    NNS_G3dGlbSetBaseTrans(&nearPos);
+    NNS_G3dGlbSetBaseRot(rotation);
+    NNS_G3dGlbSetBaseScale(&frameScale);
+    NNS_G3dGlbFlushP();
+    G3_TexImageParam(GX_TEXFMT_NONE, GX_TEXGEN_NONE, GX_TEXSIZE_S8, GX_TEXSIZE_T8, GX_TEXREPEAT_NONE, GX_TEXFLIP_NONE, GX_TEXPLTTCOLOR0_USE, 0);
+    G3_PolygonAttr(GX_LIGHTMASK_NONE, GX_POLYGONMODE_MODULATE, GX_CULL_NONE, 0, 31, GX_POLYGON_ATTR_MISC_NONE);
+    G3_Begin(GX_BEGIN_QUADS);
+    G3_Color(GX_RGB(0, 0, 0));
+    // The eight cells of a 3x3 grid around the middle one (the model)
+    for (int row = 0; row < 3; row++) {
+        for (int column = 0; column < 3; column++) {
+            if (row == 1 && column == 1) {
+                continue;
+            }
+            G3_Vtx(xs[column], ys[row], 0);
+            G3_Vtx(xs[column + 1], ys[row], 0);
+            G3_Vtx(xs[column + 1], ys[row + 1], 0);
+            G3_Vtx(xs[column], ys[row + 1], 0);
+        }
+    }
+    G3_End();
+}
+#endif

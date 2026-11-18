@@ -6,8 +6,6 @@
 
 #include <simulator/sim.h>
 
-#include "constants/weather.h"
-
 #include "application/pokegear/pokegear_main.h"
 #include "bug_contest_swap_mon.h"
 #include "battle_transition_task.h"
@@ -35,7 +33,8 @@ static FieldSystem *ShownFieldSystem(void) {
 
 // How the weather's 2D layers go wide: its sprites (rain, snow, sand, diamond dust) repeated across the sides, the
 // 4:3 picture wrapping around, and its BG2 picture (fog) drawn across the whole width from its tilemap, which
-// scrolls and repeats. FALSE: the scene stays 4:3 (Flash's darkness, a circle of windows drawn line by line)
+// scrolls and repeats. Flash's darkness is 3D, its black frame reaching past the wide screen's edges
+// (field_flash_darkness.c)
 static BOOL WeatherLayers(FieldSystem *fieldSystem, u8 *objWrap, u8 *wideBgs) {
     *objWrap = 0;
     *wideBgs = 0;
@@ -43,9 +42,6 @@ static BOOL WeatherLayers(FieldSystem *fieldSystem, u8 *objWrap, u8 *wideBgs) {
         return TRUE;
     }
     const u32 weather = WeatherManager_GetWeather(fieldSystem->mapSystems->weatherManager);
-    if (weather == WEATHER_FLASH || weather == WEATHER_FLASH_2) {
-        return FALSE;
-    }
     BOOL sprites, bg2;
     WeatherManager_PortLayers(weather, &sprites, &bg2);
     if (sprites) {
