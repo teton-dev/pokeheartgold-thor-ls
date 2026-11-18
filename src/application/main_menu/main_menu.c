@@ -1128,6 +1128,13 @@ static BOOL MainMenu_DrawOptionWindows(MainMenuAppData *data) {
             }
         } else {
             MainMenuTextPrinter_AddWindowAndPrint(data->bgConfig, &printer, 3, y, button->msgId);
+#ifdef SDK_PORT
+            // An empty slot has no CONTINUE box: its number goes on NEW GAME's
+            if (data->emptySlot && button->id == APPOPTION_NEW_GAME) {
+                MainMenu_PrintSlot(printer.window, MAKE_TEXT_COLOR(1, 2, 15));
+                CopyWindowToVram(printer.window);
+            }
+#endif
             data->optionIds[i] = button->id;
             y += button->height + 2;
         }
