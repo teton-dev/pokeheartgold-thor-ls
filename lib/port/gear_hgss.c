@@ -1,9 +1,10 @@
 // The Gear's data adapters for HeartGold and SoulSilver (port-common's port/gear_*.h), as the Platinum fork's
 // src/port/gear_*.c, first part: the party, the trainer, names, the species lookup (stats, abilities, evolutions,
-// level-up moves) and the Pokemon pictures. Not yet (empty, so the Gear hides or explains them): the battle tab and
-// its menu (Goldenrod's battles are mostly in BW2's engine, which has no BattleSystem to read), the encounter guide
-// and where to find a species, the bosses and level cap, the map, the PC tab, the Day Care, berries and the Pokétch
-// tab (HGSS's touch screen is the Pokégear).
+// level-up moves), the Pokemon pictures, location names, the area's wild Pokemon, and the bosses (leaders, the
+// League, Red) with the level cap. Not yet (empty, so the Gear
+// hides or explains them): the battle tab and its menu (Goldenrod's battles are mostly in BW2's engine, which has no
+// BattleSystem to read), where to find a species, the map, the PC tab, the Day Care, berries and the Pokétch tab
+// (HGSS's touch screen is the Pokégear).
 #include <nitro.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,19 @@
 #include "battle/battle_util.h"
 #include "field_system.h"
 #include "filesystem.h"
+#include "gf_rtc.h"
+#include "map_events.h"
+#include "map_header.h"
+#include "msgdata.h"
+#include "msgdata/msg.naix"
+#include "pm_string.h"
+#include "roamer.h"
+#include "save_vars_flags.h"
+#include "sys_flags.h"
+#include "trainer_data.h"
+#include "constants/trainers.h"
+#include "swarm.h"
+#include "wild_encounter.h"
 #include "move.h"
 #include "party.h"
 #include "player_data.h"
@@ -112,19 +126,38 @@ const char *Gear_TypeName(u8 type) {
     return SaveEd_TypeName(type);
 }
 
-// Not yet: the map names (the area and map tabs aren't in Goldenrod yet)
-const char *Gear_LocationName(int mapHeaderID) {
-    (void)mapHeaderID;
-    return "";
-}
+// Location names: the map sections' names (msg 0279), which HGSS's map labels are
+#define LOCATION_NAMES_MAX 320
+static char sLocationNames[LOCATION_NAMES_MAX][GEAR_NAME_LEN];
+static int sLocationNameCount = -1;
 
 const char *Gear_LocationLabelName(int labelTextID) {
-    (void)labelTextID;
-    return "";
+    if (sLocationNameCount < 0) {
+        MsgData *msgData = NewMsgDataFromNarc(MSGDATA_LOAD_LAZY, NARC_msgdata_msg, NARC_msg_msg_0279_bin, HEAP_ID_DEFAULT);
+        sLocationNameCount = (int)MsgDataGetCount(msgData);
+        if (sLocationNameCount > LOCATION_NAMES_MAX) {
+            sLocationNameCount = LOCATION_NAMES_MAX;
+        }
+        for (int i = 0; i < sLocationNameCount; i++) {
+            String *string = NewString_ReadMsgData(msgData, i);
+            Gear_TextToAscii(String_cstr(string), String_GetLength(string), sLocationNames[i], GEAR_NAME_LEN);
+            String_Delete(string);
+        }
+        DestroyMsgData(msgData);
+    }
+    return labelTextID >= 0 && labelTextID < sLocationNameCount ? sLocationNames[labelTextID] : "";
+}
+
+const char *Gear_LocationName(int mapHeaderID) {
+    return mapHeaderID >= 0 ? Gear_LocationLabelName((int)MapHeader_GetMapSec(mapHeaderID)) : "";
 }
 
 int Gear_CurrentLocationLabel(void) {
-    return -1;
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    if (fieldSystem == NULL || fieldSystem->location == NULL) {
+        return -1;
+    }
+    return (int)MapHeader_GetMapSec(fieldSystem->location->mapId);
 }
 
 // --- moves and types -------------------------------------------------------------------------------------------------
@@ -655,28 +688,268 @@ const char *Gear_PoketchAppName(int app) {
     return "";
 }
 
-void Gear_GetArea(GearArea *out) {
-    memset(out, 0, sizeof(*out));
-    out->valid = Gear_IsGameRunning();
-    out->mapHeaderID = -1;
-    snprintf(out->name, sizeof(out->name), "Not in Goldenrod yet");
+// --- the area's wild Pokemon (the Area tab), from the map's encounter table as the field reads it ---------------------
+
+static const u8 sGrassRates[NUM_ENCOUNTERS_LAND] = { 20, 20, 10, 10, 10, 10, 5, 5, 4, 4, 1, 1 };
+static const u8 sWaterRates[NUM_ENCOUNTERS_SURF] = { 60, 30, 5, 4, 1 };
+static const u8 sRodRates[NUM_ENCOUNTERS_FISH] = { 40, 40, 15, 4, 1 };
+
+static void AddEncounter(GearArea *area, u8 method, u16 species, u8 minLevel, u8 maxLevel, u8 rate) {
+    if (species == SPECIES_NONE) {
+        return;
+    }
+    // The same species again by the same method: one entry, its rates added up and its levels widened
+    for (int i = 0; i < area->count; i++) {
+        GearEncounter *entry = &area->entries[i];
+        if (entry->method == method && entry->species == species) {
+            entry->rate += rate;
+            entry->minLevel = minLevel < entry->minLevel ? minLevel : entry->minLevel;
+            entry->maxLevel = maxLevel > entry->maxLevel ? maxLevel : entry->maxLevel;
+            return;
+        }
+    }
+    if (area->count < GEAR_AREA_MAX_ENTRIES) {
+        GearEncounter *entry = &area->entries[area->count++];
+        entry->method = method;
+        entry->species = species;
+        entry->minLevel = minLevel;
+        entry->maxLevel = maxLevel;
+        entry->rate = rate;
+    }
 }
 
+static void AddWater(GearArea *area, u8 method, const EncounterDataSlot *slots, const u8 *rates) {
+    for (int i = 0; i < NUM_ENCOUNTERS_FISH; i++) {
+        AddEncounter(area, method, slots[i].species, slots[i].level_min, slots[i].level_max, rates[i]);
+    }
+}
+
+static int CompareEncounters(const void *a, const void *b) {
+    const GearEncounter *x = a, *y = b;
+    if (x->method != y->method) {
+        return x->method - y->method;
+    }
+    return y->rate - x->rate;
+}
+
+void Gear_GetArea(GearArea *out) {
+    memset(out, 0, sizeof(*out));
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    if (fieldSystem == NULL || fieldSystem->location == NULL || fieldSystem->saveData == NULL) {
+        return;
+    }
+    const u32 mapId = fieldSystem->location->mapId;
+    out->valid = TRUE;
+    out->mapHeaderID = (int)mapId;
+    snprintf(out->name, sizeof(out->name), "%s", Gear_LocationName((int)mapId));
+    // HGSS's grass has three tables: morning, day (and evening), night (and late night)
+    const int timeOfDay = GF_RTC_GetTimeOfDay();
+    out->timeOfDay = timeOfDay;
+    if (!MapHeader_HasWildEncounters(mapId)) {
+        return;
+    }
+    static EncounterData data;
+    WildEncounters_ReadFromNarc(&data, mapId);
+    const u16 *grass = timeOfDay == RTC_TIMEOFDAY_MORN ? data.landSlots.species_morn
+        : (timeOfDay == RTC_TIMEOFDAY_DAY || timeOfDay == RTC_TIMEOFDAY_EVE) ? data.landSlots.species_day
+                                                                             : data.landSlots.species_nite;
+    if (data.encounterRate_walking != 0) {
+        for (int i = 0; i < NUM_ENCOUNTERS_LAND; i++) {
+            AddEncounter(out, GEAR_ENC_GRASS, grass[i], data.landSlots.levels[i], data.landSlots.levels[i], sGrassRates[i]);
+        }
+    }
+    if (data.encounterRate_surfing != 0) {
+        AddWater(out, GEAR_ENC_SURF, data.surfSlots, sWaterRates);
+    }
+    if (data.encounterRate_oldRod != 0) {
+        AddWater(out, GEAR_ENC_OLD_ROD, data.oldRodSlots, sRodRates);
+    }
+    if (data.encounterRate_goodRod != 0) {
+        AddWater(out, GEAR_ENC_GOOD_ROD, data.goodRodSlots, sRodRates);
+    }
+    if (data.encounterRate_superRod != 0) {
+        AddWater(out, GEAR_ENC_SUPER_ROD, data.superRodSlots, sRodRates);
+    }
+    // A mass outbreak reported here (the radio's news): its species takes the first two grass slots
+    RoamerSaveData *roamers = Save_Roamers_Get(fieldSystem->saveData);
+    if (data.landSwarm != SPECIES_NONE && RoamerSave_OutbreakActive(roamers)
+        && IsSwarmEncounterFromRand(Roamers_GetRand(roamers, 2), (u16)mapId, 0)) {
+        AddEncounter(out, GEAR_ENC_SWARM, data.landSwarm, data.landSlots.levels[0], data.landSlots.levels[1], 40);
+    }
+    out->hasEncounters = out->count > 0;
+    qsort(out->entries, out->count, sizeof(GearEncounter), CompareEncounters);
+}
+
+// --- the bosses (the Trainer tab's road ahead) and the level cap, from the game's own trainer data -------------------
+
+typedef struct BossDef {
+    u16 trainerID;
+    u8 kind;  // GearBossKind
+    u8 badge; // the badge it gives (0-15: Johto, then Kanto), 0xFF none
+    u8 stage; // badges the player has when it comes
+    const char *title;
+    const char *name;
+    const char *place;
+} BossDef;
+
+static const BossDef sBossDefs[] = {
+    { TRAINER_LEADER_FALKNER_FALKNER, GEAR_BOSS_GYM, 0, 0, "Leader", "Falkner", "Violet City" },
+    { TRAINER_LEADER_BUGSY_BUGSY, GEAR_BOSS_GYM, 1, 1, "Leader", "Bugsy", "Azalea Town" },
+    { TRAINER_LEADER_WHITNEY, GEAR_BOSS_GYM, 2, 2, "Leader", "Whitney", "Goldenrod City" },
+    { TRAINER_LEADER_MORTY_MORTY, GEAR_BOSS_GYM, 3, 3, "Leader", "Morty", "Ecruteak City" },
+    { TRAINER_LEADER_CHUCK_CHUCK, GEAR_BOSS_GYM, 4, 4, "Leader", "Chuck", "Cianwood City" },
+    { TRAINER_LEADER_JASMINE_JASMINE, GEAR_BOSS_GYM, 5, 5, "Leader", "Jasmine", "Olivine City" },
+    { TRAINER_LEADER_PRYCE_PRYCE, GEAR_BOSS_GYM, 6, 6, "Leader", "Pryce", "Mahogany Town" },
+    { TRAINER_LEADER_CLAIR_CLAIR, GEAR_BOSS_GYM, 7, 7, "Leader", "Clair", "Blackthorn City" },
+    { TRAINER_ELITE_FOUR_WILL_WILL, GEAR_BOSS_ELITE_FOUR, 0xFF, 8, "Elite Four", "Will", "Indigo Plateau" },
+    { TRAINER_ELITE_FOUR_KOGA_KOGA, GEAR_BOSS_ELITE_FOUR, 0xFF, 8, "Elite Four", "Koga", "Indigo Plateau" },
+    { TRAINER_ELITE_FOUR_BRUNO_BRUNO, GEAR_BOSS_ELITE_FOUR, 0xFF, 8, "Elite Four", "Bruno", "Indigo Plateau" },
+    { TRAINER_ELITE_FOUR_KAREN_KAREN, GEAR_BOSS_ELITE_FOUR, 0xFF, 8, "Elite Four", "Karen", "Indigo Plateau" },
+    { TRAINER_CHAMPION_LANCE, GEAR_BOSS_CHAMPION, 0xFF, 8, "Champion", "Lance", "Indigo Plateau" },
+    { TRAINER_LEADER_LT_SURGE_LT__SURGE, GEAR_BOSS_GYM, 10, 8, "Leader", "Lt. Surge", "Vermilion City" },
+    { TRAINER_LEADER_SABRINA_SABRINA, GEAR_BOSS_GYM, 13, 8, "Leader", "Sabrina", "Saffron City" },
+    { TRAINER_LEADER_MISTY_MISTY, GEAR_BOSS_GYM, 9, 8, "Leader", "Misty", "Cerulean City" },
+    { TRAINER_LEADER_ERIKA_ERIKA, GEAR_BOSS_GYM, 11, 8, "Leader", "Erika", "Celadon City" },
+    { TRAINER_LEADER_JANINE_JANINE, GEAR_BOSS_GYM, 12, 8, "Leader", "Janine", "Fuchsia City" },
+    { TRAINER_LEADER_BROCK_BROCK, GEAR_BOSS_GYM, 8, 8, "Leader", "Brock", "Pewter City" },
+    { TRAINER_LEADER_BLAINE_BLAINE, GEAR_BOSS_GYM, 14, 8, "Leader", "Blaine", "Seafoam Islands" },
+    { TRAINER_LEADER_BLUE_BLUE, GEAR_BOSS_GYM, 15, 8, "Leader", "Blue", "Viridian City" },
+    { TRAINER_PKMN_TRAINER_RED_RED, GEAR_BOSS_CHAMPION, 0xFF, 8, "Trainer", "Red", "Mt. Silver" },
+};
+
+static GearBoss sBosses[NELEMS(sBossDefs)];
+static BOOL sBossBuilt[NELEMS(sBossDefs)];
+
 int Gear_BossCount(void) {
-    return 0;
+    return Gear_IsGameRunning() ? (int)NELEMS(sBossDefs) : 0;
+}
+
+// The default moves a trainer's Pokemon gets: the last four it learned by its level
+static void DefaultMoves(u16 species, int form, int level, GearMove moves[4]) {
+    u16 learnset[LEVEL_UP_LEARNSET_MAX + 1];
+    LoadLevelUpLearnset_HandleAlternateForm(species, form, learnset);
+    u16 known[4] = { 0, 0, 0, 0 };
+    int count = 0;
+    for (int i = 0; i < LEVEL_UP_LEARNSET_MAX && learnset[i] != LEVEL_UP_LEARNSET_END; i++) {
+        if ((int)LEVEL_UP_LEARNSET_LVL(learnset[i]) > level) {
+            break;
+        }
+        const u16 move = LEVEL_UP_LEARNSET_MOVE(learnset[i]);
+        BOOL already = FALSE;
+        for (int k = 0; k < 4; k++) {
+            already = already || known[k] == move;
+        }
+        if (already) {
+            continue;
+        }
+        if (count < 4) {
+            known[count++] = move;
+        } else {
+            memmove(known, known + 1, sizeof(u16) * 3);
+            known[3] = move;
+        }
+    }
+    for (int m = 0; m < 4; m++) {
+        Gear_MoveInfo(known[m], &moves[m]);
+    }
+}
+
+static void BuildBoss(int index) {
+    const BossDef *def = &sBossDefs[index];
+    GearBoss *boss = &sBosses[index];
+    memset(boss, 0, sizeof(*boss));
+    boss->trainerID = def->trainerID;
+    boss->kind = def->kind;
+    boss->stage = def->stage;
+    boss->doubles = TrainerData_GetAttr(def->trainerID, TRATTR_DOUBLEBTL) != 0;
+    snprintf(boss->title, sizeof(boss->title), "%s", def->title);
+    snprintf(boss->name, sizeof(boss->name), "%s", def->name);
+    snprintf(boss->place, sizeof(boss->place), "%s", def->place);
+
+    // The party as the trainer data stores it: each entry's size depends on the trainer's type (moves, item)
+    const int type = TrainerData_GetAttr(def->trainerID, TRATTR_TYPE);
+    int count = TrainerData_GetAttr(def->trainerID, TRATTR_NPOKE);
+    if (count > GEAR_PARTY_MAX) {
+        count = GEAR_PARTY_MAX;
+    }
+    const BOOL hasMoves = (type & (1 << TRTYPE_MOVES_F)) != 0;
+    const BOOL hasItem = (type & (1 << TRTYPE_ITEM_F)) != 0;
+    const size_t stride = hasMoves ? (hasItem ? sizeof(TRPOKE_ITEM_CUSTMOVES) : sizeof(TRPOKE_NOITEM_CUSTMOVES))
+                                   : (hasItem ? sizeof(TRPOKE_ITEM_DFLTMOVES) : sizeof(TRPOKE_NOITEM_DFLTMOVES));
+    static u8 buffer[GEAR_PARTY_MAX * sizeof(TRPOKE)];
+    memset(buffer, 0, sizeof(buffer));
+    TrainerData_ReadTrPoke(def->trainerID, (TRPOKE *)buffer);
+    for (int i = 0; i < count; i++) {
+        const u8 *entry = buffer + i * stride;
+        const u16 level = *(const u16 *)(entry + 2);
+        const u16 speciesField = *(const u16 *)(entry + 4);
+        GearMon *mon = &boss->party[boss->partyCount++];
+        memset(mon, 0, sizeof(*mon));
+        mon->species = speciesField & 0x3FF;
+        mon->form = speciesField >> 10;
+        mon->level = (u8)level;
+        mon->gender = GEAR_GENDER_NONE;
+        snprintf(mon->nickname, sizeof(mon->nickname), "%s", Gear_SpeciesName(mon->species));
+        Gear_SpeciesTypes(mon->species, &mon->type1, &mon->type2);
+        int at = 6;
+        if (hasItem) {
+            mon->heldItem = *(const u16 *)(entry + at);
+            at += 2;
+        }
+        if (hasMoves) {
+            for (int m = 0; m < 4; m++) {
+                Gear_MoveInfo(*(const u16 *)(entry + at + m * 2), &mon->moves[m]);
+            }
+        } else {
+            DefaultMoves(mon->species, mon->form, mon->level, mon->moves);
+        }
+        if (mon->level > boss->aceLevel) {
+            boss->aceLevel = mon->level;
+            boss->aceSpecies = mon->species;
+        }
+    }
+}
+
+static BOOL BossBeaten(int index, SaveData *saveData) {
+    const BossDef *def = &sBossDefs[index];
+    if (def->badge != 0xFF) {
+        return PlayerProfile_TestBadgeFlag(Save_PlayerData_GetProfile(saveData), def->badge) ? TRUE : FALSE;
+    }
+    // The Elite Four and Lance: the Hall of Fame (Red: not known)
+    return def->trainerID != TRAINER_PKMN_TRAINER_RED_RED && CheckGameClearFlag(Save_VarsFlags_Get(saveData));
 }
 
 const GearBoss *Gear_Boss(int index) {
-    (void)index;
-    return NULL;
+    SaveData *saveData = RunningSave();
+    if (saveData == NULL || index < 0 || index >= (int)NELEMS(sBossDefs)) {
+        return NULL;
+    }
+    if (!sBossBuilt[index]) {
+        BuildBoss(index);
+        sBossBuilt[index] = TRUE;
+    }
+    sBosses[index].beaten = BossBeaten(index, saveData);
+    return &sBosses[index];
 }
 
+// The next boss not beaten yet, in the order above (Johto's leaders, the League, Kanto's leaders, Red)
 int Gear_NextGymBoss(void) {
+    SaveData *saveData = RunningSave();
+    if (saveData == NULL) {
+        return -1;
+    }
+    for (int i = 0; i < (int)NELEMS(sBossDefs); i++) {
+        if (!BossBeaten(i, saveData)) {
+            return i;
+        }
+    }
     return -1;
 }
 
 int Gear_LevelCap(void) {
-    return 0;
+    const int next = Gear_NextGymBoss();
+    const GearBoss *boss = next >= 0 ? Gear_Boss(next) : NULL;
+    return boss != NULL ? boss->aceLevel : 0;
 }
 
 const GearMap *Gear_GetMap(void) {

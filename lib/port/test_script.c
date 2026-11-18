@@ -30,6 +30,7 @@ void SIM_Settings_Open(const char *page);
 #include "pokemon.h"
 #include "port_game_settings.h"
 #include "port_nuzlocke_mode.h"
+#include "port/gear_data.h"
 #include "save_vars_flags.h"
 #ifdef GEN5_BATTLES
 #include "player_data.h"
@@ -79,6 +80,7 @@ enum TestOp {
     OP_TEXT_WIDTHS,
     OP_EDITOR,
     OP_SETTINGS,
+    OP_GEAR,
     OP_EXIT,
 };
 
@@ -556,6 +558,13 @@ static BOOL ParseLine(char *text, int line, TestCommand *command) {
     } else if (strcmp(words[0], "log") == 0 && rest != NULL) {
         command->op = OP_LOG;
         snprintf(command->text, sizeof(command->text), "%s", rest);
+        return TRUE;
+    } else if (strcmp(words[0], "gear") == 0) {
+        // gear: once the player is free, what the Gear's Area and Trainer tabs show (port-common's Gear data,
+        // lib/port/gear_hgss.c): the area's wild Pokemon, the next boss and its team, the level cap
+        command->op = OP_GEAR;
+        command->condition = COND_FREE;
+        command->timeout = DEFAULT_TIMEOUT;
         return TRUE;
     } else if (strcmp(words[0], "settings") == 0) {
         // settings [PAGE]: opens the settings (on PAGE), as the back button does. The game waits while they are
@@ -1198,6 +1207,32 @@ static u16 Step(void) {
             printf("[test] %s\n", command->text);
             Next();
             continue;
+        case OP_GEAR: {
+            if (!ConditionMet(command)) {
+                if (TimedOut(elapsed, command->timeout, sTest.commandStartMs)) {
+                    Fail(command, "the player was never free");
+                }
+                return 0;
+            }
+            static GearArea area;
+            Gear_GetArea(&area);
+            printf("[test] gear area: %s (map %d), time %d, %d entries\n", area.name, area.mapHeaderID, area.timeOfDay, area.count);
+            for (int i = 0; i < area.count; i++) {
+                const GearEncounter *e = &area.entries[i];
+                printf("[test] gear   method %d: %s Lv %d-%d, %d%%\n", e->method, Gear_SpeciesName(e->species), e->minLevel, e->maxLevel, e->rate);
+            }
+            const int next = Gear_NextGymBoss();
+            const GearBoss *boss = next >= 0 ? Gear_Boss(next) : NULL;
+            if (boss != NULL) {
+                printf("[test] gear next boss: %s %s (%s), %d Pokemon, ace Lv %d; level cap %d\n", boss->title, boss->name, boss->place, boss->partyCount, boss->aceLevel, Gear_LevelCap());
+                for (int i = 0; i < boss->partyCount; i++) {
+                    printf("[test] gear   %s Lv %d: %s, %s\n", boss->party[i].nickname, boss->party[i].level, Gear_MoveName(boss->party[i].moves[0].id), Gear_MoveName(boss->party[i].moves[1].id));
+                }
+            }
+            printf("[test] gear bosses: %d, location label %d %s\n", Gear_BossCount(), Gear_CurrentLocationLabel(), Gear_LocationLabelName(Gear_CurrentLocationLabel()));
+            Next();
+            continue;
+        }
         case OP_SETTINGS:
             printf("[test] settings %s\n", command->text);
             SIM_Settings_Open(command->text[0] != '\0' ? command->text : NULL);

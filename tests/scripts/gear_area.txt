@@ -1,0 +1,12 @@
+# The Gear's Area and Trainer tabs in Goldenrod (lib/port/gear_hgss.c), through the test command gear, which logs
+# what they show: on Route 30, its grass Pokemon for the time of day and its water and rods; the next boss (Falkner)
+# with his team and moves, and the level cap. From new-game; the check is the "[test] gear" lines.
+#
+#   tools/docker/desktop.sh test tests/scripts/gear_area.txt --from new-game
+
+mash A until free
+gear
+warp 34 553 340
+until free timeout 3000
+gear
+exit 0
