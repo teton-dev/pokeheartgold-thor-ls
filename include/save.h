@@ -102,6 +102,11 @@ BOOL Save_FlashChipIsDetected(SaveData *saveData);
 u32 Save_GetStatusFlags(SaveData *saveData);
 void Save_ClearStatusFlags(SaveData *saveData);
 u32 Save_FileExists(SaveData *saveData);
+#ifdef SDK_PORT
+void SaveData_PortReload(SaveData *saveData);
+BOOL SaveData_PortIsValidImage(const void *image, u32 size);
+BOOL Save_PortIsNewGame(SaveData *saveData);
+#endif
 BOOL Save_CheckExtraChunksExist(SaveData *saveData);
 BOOL Save_FileDoesNotBelongToPlayer(SaveData *saveData);
 BOOL Save_NumModifiedPCBoxesIsMany(SaveData *saveData);

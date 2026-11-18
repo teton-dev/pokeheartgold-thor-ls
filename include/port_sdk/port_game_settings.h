@@ -17,6 +17,10 @@ typedef struct GameSettings {
     BOOL drawEveryFrame; // DrawEveryFrame: 30 Hz scenes draw their in-between DS frames too
     BOOL gen5Battles; // Gen5Battles: battles in Black 2 and White 2's engine (port_gen5_battle.h)
     BOOL japaneseGameCorner; // JapaneseGameCorner: the Japanese slot machines instead of Voltorb Flip (port_slots_rom.h)
+    int saveSlot; // [Saves] Slot: the save slot in use, 1-based (slot 1 is save.bin; port-common's port/save_slots.h)
+    BOOL autosave; // [Saves] Autosave: save while exploring, every autosaveMinutes (port-common's port/autosave.h)
+    int autosaveMinutes; // [Saves] AutosaveMinutes
+    BOOL autosaveOnExit; // [Saves] AutosaveOnExit: also when the app is closed or sent to the background
 } GameSettings;
 
 // The settings, loaded the first time (defaults when there is no file)

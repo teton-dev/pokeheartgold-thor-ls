@@ -2,6 +2,7 @@
 #include "port_game_settings.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <simulator/config/ini.h>
@@ -22,6 +23,19 @@ static const char *BoolToString(BOOL value) {
 
 static int IniHandler(void *user, const char *section, const char *name, const char *value) {
     GameSettings *settings = user;
+    // The saves' settings in their own section, with the Platinum fork's names
+    if (strcmp(section, "Saves") == 0) {
+        if (strcmp(name, "Slot") == 0) {
+            settings->saveSlot = atoi(value);
+        } else if (strcmp(name, "Autosave") == 0) {
+            settings->autosave = StringToBool(value);
+        } else if (strcmp(name, "AutosaveMinutes") == 0) {
+            settings->autosaveMinutes = atoi(value);
+        } else if (strcmp(name, "AutosaveOnExit") == 0) {
+            settings->autosaveOnExit = StringToBool(value);
+        }
+        return 1;
+    }
     if (strcmp(section, "General") != 0) {
         return 1;
     }
@@ -50,6 +64,10 @@ GameSettings *GameSettings_Get(void) {
         sSettings.drawEveryFrame = FALSE;
         sSettings.gen5Battles = FALSE;
         sSettings.japaneseGameCorner = FALSE;
+        sSettings.saveSlot = 1;
+        sSettings.autosave = TRUE;
+        sSettings.autosaveMinutes = 5;
+        sSettings.autosaveOnExit = TRUE;
         if (ini_parse(SIM_SettingsPath(SETTINGS_FILE), IniHandler, &sSettings) < 0) {
             GameSettings_Save();
         }
@@ -69,5 +87,10 @@ void GameSettings_Save(void) {
     fprintf(file, "DrawEveryFrame=%s\n", BoolToString(sSettings.drawEveryFrame));
     fprintf(file, "Gen5Battles=%s\n", BoolToString(sSettings.gen5Battles));
     fprintf(file, "JapaneseGameCorner=%s\n", BoolToString(sSettings.japaneseGameCorner));
+    fprintf(file, "\n[Saves]\n");
+    fprintf(file, "Slot=%d\n", sSettings.saveSlot);
+    fprintf(file, "Autosave=%s\n", BoolToString(sSettings.autosave));
+    fprintf(file, "AutosaveMinutes=%d\n", sSettings.autosaveMinutes);
+    fprintf(file, "AutosaveOnExit=%s\n", BoolToString(sSettings.autosaveOnExit));
     fclose(file);
 }
