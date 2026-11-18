@@ -8,11 +8,15 @@
 
 #include <SDL2/SDL.h>
 
+#include <cctype>
 #include <cstring>
 
 #include <string>
 
 #include "port_game_settings.h"
+// Only its GUI part: its Pokemon functions need the game's headers, which this library doesn't see
+#define PORT_NUZLOCKE_MODE_GUI_ONLY
+#include "port_nuzlocke_mode.h"
 #include "port_slots_rom.h"
 #ifdef GEN5_BATTLES
 #include <simulator/sim_files.h>
@@ -201,6 +205,101 @@ void DrawGames() {
          "be.");
 }
 
+// --- Challenges: Nuzlocke mode (port_nuzlocke_mode.h), as the Platinum fork's page -----------------------------
+
+int sNuzlockeWarnLevel = 0; // a level waiting for the rules to be accepted
+double sNuzlockeOffUntil = 0.0;
+
+const char *NuzlockeRules(int level) {
+    // What Goldenrod enforces so far (docs/thor/dev/hgss.md): Platinum's level cap, IVs of 15, item and nickname
+    // rules aren't in yet
+    switch (level) {
+    case NUZLOCKE_SIMPLE:
+        return "A Pokemon that faints is gone for good: nothing heals it again. Whiting out ends the run: the mode "
+               "turns off and can never be turned on again on this save.";
+    case NUZLOCKE_NORMAL:
+        return "Simple's rules, and: once you have Poke Balls, you may catch only the first Pokemon you meet in each "
+               "area (the same species again if it got away), and nothing else there once you've caught it. Shiny "
+               "Pokemon can always be caught.";
+    case NUZLOCKE_HARD:
+        return "Normal's rules, and: static encounters (legendaries among them) count as the area's one, and there "
+               "is no crit guard.";
+    }
+    return "";
+}
+
+// Everything a level asks, for the warning before it turns on (Normal and Hard build on the levels below)
+std::string NuzlockeAllRules(int level) {
+    std::string rules = NuzlockeRules(NUZLOCKE_SIMPLE);
+    for (int i = NUZLOCKE_NORMAL; i <= level; i++) {
+        const char *more = NuzlockeRules(i);
+        std::string extra = strchr(more, ':') + 2; // without "Simple's rules, and: "
+        extra[0] = (char)toupper((unsigned char)extra[0]);
+        rules += "\n\n" + extra;
+    }
+    return rules;
+}
+
+void DrawChallenges() {
+    Section("Nuzlocke mode");
+    NuzlockeModeView view;
+    NuzlockeMode_GetView(&view);
+    if (!view.hasSave) {
+        Note("Load a save (continue or start a game) to set its Nuzlocke mode.");
+        return;
+    }
+    if (view.storageError) {
+        Status("The Nuzlocke record couldn't be written to the save.", true);
+    }
+    if (view.dropped) {
+        Note("This save was a Nuzlocke run and left it: it can't be one again.");
+        return;
+    }
+    if (sNuzlockeWarnLevel != 0) {
+        std::string title = std::string("Nuzlocke mode: ") + NuzlockeMode_LevelName(sNuzlockeWarnLevel);
+        Panel(title.c_str(), NuzlockeAllRules(sNuzlockeWarnLevel).c_str());
+        Note("Turning it off later, or whiting out, ends it on this save for good. Goldenrod doesn't have Platinum's "
+             "level cap, IVs of 15, item and nickname rules yet.");
+        const int pressed = ButtonPair("Turn it on", "Cancel", true);
+        if (pressed == 1) {
+            NuzlockeMode_RequestLevel(sNuzlockeWarnLevel);
+        }
+        if (pressed != 0) {
+            sNuzlockeWarnLevel = 0;
+        }
+        return;
+    }
+    static const char *const kLevels[] = { "Off", "Simple", "Normal", "Hard" };
+    int level = view.level;
+    if (level == NUZLOCKE_OFF) {
+        if (Choice("Nuzlocke mode", "For this save only. Simple, Normal or Hard: the rules show before it turns on.",
+                &level, kLevels, NUZLOCKE_LEVEL_COUNT) && level != NUZLOCKE_OFF) {
+            sNuzlockeWarnLevel = level;
+        }
+        return;
+    }
+    int choice = level - 1;
+    if (Choice("Level", NuzlockeRules(level), &choice, kLevels + 1, NUZLOCKE_LEVEL_COUNT - 1)) {
+        NuzlockeMode_RequestLevel(choice + 1);
+    }
+    bool guard = view.critGuard != FALSE;
+    if (Toggle("Crit guard", "No critical hits, except from moves that always land one. Not with Hard.", &guard,
+            level != NUZLOCKE_HARD)) {
+        NuzlockeMode_RequestCritGuard(guard ? TRUE : FALSE);
+    }
+    const double now = ImGui::GetTime();
+    const bool confirming = now < sNuzlockeOffUntil;
+    if (Button(confirming ? "Tap again: it can't be turned on again###nuzOff" : "Turn Nuzlocke mode off###nuzOff",
+            "This save stops being a Nuzlocke run, for good.", confirming)) {
+        if (confirming) {
+            NuzlockeMode_RequestLevel(NUZLOCKE_OFF);
+            sNuzlockeOffUntil = 0.0;
+        } else {
+            sNuzlockeOffUntil = now + 4.0;
+        }
+    }
+}
+
 } // namespace
 
 void SaveEditor_Draw(); // save_editor_gui.cpp
@@ -213,6 +312,7 @@ void SIM_Prj_SettingsPages() {
 #ifdef GEN5_BATTLES
     SIM::Settings::AddPage("Battles", "Gen 5 battles and their ROM", DrawBattles, 32);
 #endif
+    SIM::Settings::AddPage("Challenges", "Nuzlocke mode", DrawChallenges, 34);
     SIM::Settings::AddPage("Display", nullptr, DrawFrameRate, 40); // appended to libntr's page
     SIM::Settings::AddPage("Save editor", "Pokemon, items, money, badges", SaveEditor_Draw, 80);
 }
