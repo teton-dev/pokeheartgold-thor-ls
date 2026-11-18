@@ -225,14 +225,14 @@ static void FrontierScript_Jump(FrontierScriptContext *ctx, const u8 *ptr) {
 }
 
 BOOL FrtCmd_GoTo(FrontierScriptContext *ctx) {
-    u32 offset = FrontierScriptContext_ReadWord(ctx);
+    s32 offset = FrontierScriptContext_ReadWord(ctx);
     FrontierScript_Jump(ctx, ctx->scriptPtr + offset);
     return FALSE;
 }
 
 BOOL FrtCmd_GoToIf(FrontierScriptContext *ctx) {
     u8 condition = FrontierScriptContext_ReadByte(ctx);
-    u32 offset = FrontierScriptContext_ReadWord(ctx);
+    s32 offset = FrontierScriptContext_ReadWord(ctx);
     if (sFrontierScriptConditionTable[condition][ctx->comparisonResult] == TRUE) {
         FrontierScript_Jump(ctx, ctx->scriptPtr + offset);
     }
@@ -240,7 +240,7 @@ BOOL FrtCmd_GoToIf(FrontierScriptContext *ctx) {
 }
 
 BOOL FrtCmd_Call(FrontierScriptContext *ctx) {
-    u32 offset = FrontierScriptContext_ReadWord(ctx);
+    s32 offset = FrontierScriptContext_ReadWord(ctx);
     FrontierScriptContext_Call(ctx, ctx->scriptPtr + offset);
     return FALSE;
 }
@@ -468,7 +468,7 @@ static BOOL FrontierScriptNative_WaitYesNo(FrontierScriptContext *ctx) {
 BOOL FrtCmd_LoadObjectGfx(FrontierScriptContext *ctx) {
     FrontierSystem *system = ctx->frontierSystem;
     FrontierMap *map = Frontier_GetMap(system->frontierWork);
-    u32 offset = FrontierScriptContext_ReadWord(ctx);
+    s32 offset = FrontierScriptContext_ReadWord(ctx);
     const u8 *saved = ctx->scriptPtr;
     FrontierMapObjectGfx gfx;
     ctx->scriptPtr += offset;
@@ -510,7 +510,7 @@ BOOL FrtCmd_RemoveObjectGfx(FrontierScriptContext *ctx) {
 BOOL FrtCmd_CreateObjects(FrontierScriptContext *ctx) {
     FrontierSystem *system = ctx->frontierSystem;
     FrontierMap *map = Frontier_GetMap(system->frontierWork);
-    u32 offset = FrontierScriptContext_ReadWord(ctx);
+    s32 offset = FrontierScriptContext_ReadWord(ctx);
     const u8 *saved = ctx->scriptPtr;
     FrontierMapObjectTemplate template;
     ctx->scriptPtr = saved + offset;

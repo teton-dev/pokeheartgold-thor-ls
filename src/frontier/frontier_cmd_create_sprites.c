@@ -20,7 +20,7 @@ BOOL FrtCmd_CreateSprites(FrontierScriptContext *ctx) {
     u16 id;
     ManagedSprite *sprite;
     FrontierMap *map = Frontier_GetMap(ctx->frontierSystem->frontierWork);
-    u32 offset = FrontierScriptContext_ReadWord(ctx);
+    s32 offset = FrontierScriptContext_ReadWord(ctx);
 
     saved = ctx->scriptPtr;
     ctx->scriptPtr = saved + offset;

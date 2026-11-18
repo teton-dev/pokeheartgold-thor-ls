@@ -1,9 +1,9 @@
 # The Battle Tower from a new game (the Platinum fork's gen5_tower.txt, for HGSS): three Pokemon given, the single battle
 # attendant, Challenge, Single Battle, the three entered (the first A shows the party screen's cursor), the save. The
 # check is the shots: no "Your Pokemon must all be different" (frontier_field_system.c read the party menu's choices at
-# the DS's byte offsets: fixed for the port), and "ETHAN saved the game". Not yet: the Frontier's own scenes after the
-# save crash in its script reader (FrontierScriptContext_ReadHalfWord), so the battle in BW2's engine
-# (Gen5Battle_WantsFrontier) isn't reached here.
+# the DS's byte offsets: fixed for the port), "ETHAN saved the game", the Frontier's elevator and battle room (their
+# scripts' backward jumps read as u32 went 4 GB astray on 64-bit: now s32), then the battle in BW2's engine
+# (Gen5Battle_WantsFrontier), forfeited with RUN and YES. The log has "battle ended (BW2's result 3".
 #
 #   SCREEN=1920x1080 tools/docker/desktop.sh test tests/scripts/gen5_tower.txt --from new-game
 
@@ -75,4 +75,17 @@ stillshot p4
 press A
 wait 120
 stillshot p5
+press A
+wait 200
+stillshot p6
+mash A until command timeout 9000
+wait 60
+shot battle-command
+# RUN: in a facility's battle it forfeits (BW2's Battle Subway), after a yes
+mash touch 128 175 for 20
+wait 90
+shot forfeit-ask
+mash touch 128 55 for 20
+wait 600
+shot video-question
 exit 0

@@ -155,7 +155,7 @@ void FrontierSystem_RestoreVars(FrontierSystem *system, u16 *saved) {
 // The script data starts with a table of relative offsets, one word per script.
 static void FrontierScriptContext_GoToScript(FrontierScriptContext *ctx, u32 scriptIndex) {
     ctx->scriptPtr += scriptIndex * 4;
-    ctx->scriptPtr += FrontierScriptContext_ReadWord(ctx);
+    ctx->scriptPtr += (s32)FrontierScriptContext_ReadWord(ctx);
 }
 
 u16 *FrontierSystem_GetVarPtr(FrontierSystem *system, u32 index) {
