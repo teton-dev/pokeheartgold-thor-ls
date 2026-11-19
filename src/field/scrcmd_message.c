@@ -14,6 +14,9 @@
 #include "script.h"
 #include "script_manager.h"
 #include "text.h"
+#ifdef SDK_PORT
+#include "port_nuzlocke_mode.h"
+#endif
 
 typedef struct MessageBox {
     String *message;
@@ -286,6 +289,9 @@ static void ovFieldMain_CreateMessageBox(FieldSystem *fieldSystem, MessageBox *m
 
 static void ovFieldMain_ReadAndExpandMsgDataViaBuffer(MessageBox *messageBox, MsgData *messageData, u32 messageNum) {
     ReadMsgDataIntoString(messageData, messageNum, messageBox->buffer);
+#ifdef SDK_PORT
+    NuzlockeMode_NoteScriptMessage(String_cstr(messageBox->buffer));
+#endif
     StringExpandPlaceholders(messageBox->messageFormat, messageBox->message, messageBox->buffer);
 }
 

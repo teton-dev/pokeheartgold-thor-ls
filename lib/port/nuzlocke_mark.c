@@ -49,24 +49,33 @@ void NuzlockeMark_Draw(Window *window, u16 x, u16 y, u8 bgColor) {
     }
 }
 
-// HGSS's character codes for ASCII text (what MainMenu_PrintSlot does for "SLOT n/4")
-static void PrintAscii(Window *window, const char *text, int x, BOOL rightAligned, u16 y, u32 color, enum HeapID heapId) {
-    u16 chars[24];
+// HGSS's character codes for ASCII text (what MainMenu_PrintSlot does for "SLOT n/4"); \x01 is an e acute
+String *NuzlockeMark_NewString(const char *text, enum HeapID heapId) {
+    u16 chars[64];
     int n = 0;
-    for (const char *c = text; *c != '\0' && n < 23; c++) {
+    for (const char *c = text; *c != '\0' && n < 63; c++) {
         if (*c >= '0' && *c <= '9') {
             chars[n++] = 0x121 + (*c - '0');
         } else if (*c >= 'A' && *c <= 'Z') {
             chars[n++] = 0x12B + (*c - 'A');
         } else if (*c >= 'a' && *c <= 'z') {
             chars[n++] = 0x145 + (*c - 'a');
+        } else if (*c == '\x01') {
+            chars[n++] = 0x188;
+        } else if (*c == '!') {
+            chars[n++] = 0x1AB;
         } else {
             chars[n++] = 0x1DE; // a space
         }
     }
     chars[n] = EOS;
-    String *string = String_New(24, heapId);
+    String *string = String_New(n + 1, heapId);
     CopyU16ArrayToString(string, chars);
+    return string;
+}
+
+static void PrintAscii(Window *window, const char *text, int x, BOOL rightAligned, u16 y, u32 color, enum HeapID heapId) {
+    String *string = NuzlockeMark_NewString(text, heapId);
     if (rightAligned) {
         x -= FontID_String_GetWidth(0, string, 0);
     }

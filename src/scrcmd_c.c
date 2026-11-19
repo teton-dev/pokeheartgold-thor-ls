@@ -111,6 +111,10 @@
 #include "view_rankings_task.h"
 #include "swarm.h"
 #include "use_item_on_mon.h"
+#ifdef SDK_PORT
+#include "port_nuzlocke_mode.h"
+#include "sound_playback.h"
+#endif
 
 FS_EXTERN_OVERLAY(OVY_26);
 FS_EXTERN_OVERLAY(npc_trade);
@@ -968,6 +972,15 @@ BOOL NativeScript_WaitYesNo(ScriptContext *ctx) {
     if (selection == LIST_NOTHING_CHOSEN) {
         return FALSE;
     } else {
+#ifdef SDK_PORT
+        // No to a nickname offer with Nuzlocke mode on: the question again
+        if (selection != 0 && NuzlockeMode_On() && NuzlockeMode_NicknameOfferPending()) {
+            PlaySE(SEQ_SE_DP_BOX02);
+            LoadUserFrameGfx1(fieldSystem->bgConfig, GF_BG_LYR_MAIN_3, 0x3D9, 11, 0, HEAP_ID_FIELD1);
+            *listMenu2D = Std_CreateYesNoMenu(fieldSystem->bgConfig, &_020FAC94, 0x3D9, 11, HEAP_ID_FIELD1);
+            return FALSE;
+        }
+#endif
         if (selection == 0) {
             *ret_p = 0; // yes
         } else {

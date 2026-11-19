@@ -33,6 +33,8 @@
 #include "palette_blink.h"
 #include "vram_transfer_manager.h"
 #ifdef SDK_PORT
+#include "port_nuzlocke_mark.h"
+#include "port_nuzlocke_mode.h"
 #include "port_test_script.h"
 #endif
 
@@ -1653,6 +1655,27 @@ static void NamingScreen_LoadKeyboardLayout(u16 (*keyboard)[13], const int pageN
     }
 }
 
+#ifdef SDK_PORT
+// Nuzlocke mode: a Pokemon must be given a name. A blank one (or only spaces) is refused, with a buzz and a message
+// where the prompt is.
+static BOOL NamingScreen_PortRefuseBlankName(NamingScreenAppData *data) {
+    if (data->type != NAME_SCREEN_POKEMON || !NuzlockeMode_On()) {
+        return FALSE;
+    }
+    for (int i = 0; i < data->textCursorPos; i++) {
+        if (data->entryBuf[i] != CHAR_SPACE && data->entryBuf[i] != EOS) {
+            return FALSE;
+        }
+    }
+    String *message = NuzlockeMark_NewString("You must name your new Pok\x01mon!", HEAP_ID_NAMING_SCREEN);
+    FillWindowPixelBuffer(&data->windows[9], 15);
+    NamingScreen_PrintMessageOnWindowLeftAlign(&data->windows[9], data->type, message);
+    String_Delete(message);
+    PlaySE(SEQ_SE_DP_BOX02);
+    return TRUE;
+}
+#endif
+
 static NamingScreenMainState NamingScreen_HandleCharacterInput(NamingScreenAppData *data, u16 key, BOOL isButtonInput) {
     if (key == NAME_SCREEN_CONTROL_SPACE || key == NAME_SCREEN_CONTROL_SKIP) {
         key = CHAR_JP_SPACE;
@@ -1719,6 +1742,11 @@ static NamingScreenMainState NamingScreen_HandleCharacterInput(NamingScreenAppDa
         }
         break;
     case NAME_SCREEN_BUTTON_OK:
+#ifdef SDK_PORT
+        if (NamingScreen_PortRefuseBlankName(data)) {
+            return NS_MAIN_STATE_INPUT_LOOP;
+        }
+#endif
         PaletteBlink_Delete(data->paletteBlink);
         if (!data->printedFromBattleGMM) {
             PlaySE(SEQ_SE_DP_PIRORIRO);

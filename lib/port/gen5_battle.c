@@ -671,7 +671,8 @@ static void TrainerToGen5(BattleSetup *setup, int battler, Gen5Trainer *dest) {
         TrainerArtToGen5(dest->platinumClass, dest);
     }
     for (int i = 0; i < 4; i++) {
-        dest->items[i] = trainer->data.items[i];
+        // Nuzlocke mode: trainers lose their bag items (their Pokemon keep held ones)
+        dest->items[i] = NuzlockeMode_On() ? 0 : trainer->data.items[i];
     }
     dest->prizeBase = PrizeBase(dest->platinumClass);
     // A trainer's name may be kept compressed (String_Cat_HandleTrainerName unpacks it)
@@ -1123,6 +1124,10 @@ static BOOL Init(OverlayManager *man, int *state) {
     }
     // The Battle Frontier allows no items: its battles have no bag
     for (int p = 0; p < (int)NELEMS(sBattlePockets) && !sBattle.bugContest && !sFrontier; p++) {
+        // Nuzlocke mode: Poke Balls are the only items used in battle (the rest stay in the bag as they are)
+        if (NuzlockeMode_On() && sBattlePockets[p] != POCKET_BALLS) {
+            continue;
+        }
         ItemSlot *slot;
         for (int i = 0; (slot = Bag_GetPocketSlotN(setup->bag, sBattlePockets[p], i)) != NULL && sBattle.itemCount < GEN5_ITEMS_MAX; i++) {
             if (slot->id != ITEM_NONE && slot->quantity != 0) {
@@ -1398,8 +1403,8 @@ static int AfterCatch(BattleSetup *setup) {
         StoreContestCatch(setup);
         return STATE_CHECK_EVOLUTION;
     }
-    if (sBattle.askNickname && !sBattle.nicknameWanted) {
-        // No nickname: it keeps its species' name
+    if (sBattle.askNickname && !sBattle.nicknameWanted && !NuzlockeMode_On()) {
+        // No nickname: it keeps its species' name (Nuzlocke mode: a catch must be named)
         StoreCaught(setup);
         return STATE_CHECK_EVOLUTION;
     }

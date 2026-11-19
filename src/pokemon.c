@@ -242,6 +242,19 @@ void CreateBoxMon(BoxPokemon *boxMon, int species, int level, int fixedIV, int h
         iv = (exp & 0x7C00) >> 10;
         SetBoxMonData(boxMon, MON_DATA_SPDEF_IV, &iv);
     }
+#ifdef SDK_PORT
+    // Nuzlocke mode: every Pokemon made has IVs of 15 (wild, gifts, trainers'); the random ones above are still
+    // drawn, so the RNG advances as it would
+    if (NuzlockeMode_On()) {
+        iv = 15;
+        SetBoxMonData(boxMon, MON_DATA_HP_IV, &iv);
+        SetBoxMonData(boxMon, MON_DATA_ATK_IV, &iv);
+        SetBoxMonData(boxMon, MON_DATA_DEF_IV, &iv);
+        SetBoxMonData(boxMon, MON_DATA_SPEED_IV, &iv);
+        SetBoxMonData(boxMon, MON_DATA_SPATK_IV, &iv);
+        SetBoxMonData(boxMon, MON_DATA_SPDEF_IV, &iv);
+    }
+#endif
     exp = (u32)GetMonBaseStat(species, BASE_ABILITY_1);
     iv = (u32)GetMonBaseStat(species, BASE_ABILITY_2);
     if (iv != 0) {
@@ -304,6 +317,18 @@ u32 GenPersonalityByGenderAndNature(u16 species, u8 gender, u8 nature) {
 void CreateMonWithFixedIVs(Pokemon *mon, u16 species, u8 level, u32 ivs, u32 personality) {
     CreateMon(mon, species, level, 0, 1, personality, 0, 0);
     SetMonData(mon, MON_DATA_COMBINED_IVS, &ivs);
+#ifdef SDK_PORT
+    // Nuzlocke mode: a roamer made before the mode was on still has 15s
+    if (NuzlockeMode_On()) {
+        u32 iv = 15;
+        SetMonData(mon, MON_DATA_HP_IV, &iv);
+        SetMonData(mon, MON_DATA_ATK_IV, &iv);
+        SetMonData(mon, MON_DATA_DEF_IV, &iv);
+        SetMonData(mon, MON_DATA_SPEED_IV, &iv);
+        SetMonData(mon, MON_DATA_SPATK_IV, &iv);
+        SetMonData(mon, MON_DATA_SPDEF_IV, &iv);
+    }
+#endif
     CalcMonLevelAndStats(mon);
 }
 

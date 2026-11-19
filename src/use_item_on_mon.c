@@ -10,8 +10,16 @@
 #include "party.h"
 #include "pokemon.h"
 #include "pokemon_mood.h"
+#ifdef SDK_PORT
+#include "port_nuzlocke_mode.h"
+#endif
 
 BOOL CanUseItemOnPokemon(Pokemon *mon, u16 itemID, s32 moveIdx, enum HeapID heapID) {
+#ifdef SDK_PORT
+    if (NuzlockeMode_RefusesItem(mon, itemID, heapID)) {
+        return FALSE;
+    }
+#endif
     int atkEv;
     int defEv;
     int speedEv;
@@ -222,6 +230,11 @@ BOOL CanUseItemOnMonInParty(Party *party, u16 itemID, s32 partyIdx, s32 moveIdx,
 }
 
 BOOL UseItemOnPokemon(Pokemon *mon, u16 itemID, u16 moveIdx, u16 location, enum HeapID heapID) {
+#ifdef SDK_PORT
+    if (NuzlockeMode_RefusesItem(mon, itemID, heapID)) {
+        return FALSE;
+    }
+#endif
     s32 stack_data[8];
 #define sp70 stack_data[7]
 #define sp6C stack_data[6]

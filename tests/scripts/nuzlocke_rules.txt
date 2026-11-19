@@ -1,0 +1,33 @@
+# Nuzlocke mode's rules (docs/thor/dev/nuzlocke.md; Eterna's nuzlocke_rules.txt, Goldenrod's half): IVs of 15 for a
+# Pokemon made with the mode on, the level cap (Falkner's strongest, 13; Hard: his weakest, 9), a Rare Candy refused
+# at the cap but not below it, a Pokemon that faints dead for good (a Revive is refused), and the mode's mark in the
+# log. The check is each command's own: a failure fails the test.
+#
+#   tools/docker/desktop.sh build; tools/docker/desktop.sh test tests/scripts/nuzlocke_rules.txt --from new-game
+mash A until free
+nuzlocke normal
+wait 30
+nuzlocke state
+give 155 5
+give 16 13
+editor allivs 0 15
+editor allivs 1 15
+editor cap 13
+# Rare Candy (50): refused at the cap, works below it
+editor use 50 1
+editor use 50 0
+editor level 1 12
+editor use 50 1
+editor level 1 13
+# A Pokemon that faints is dead for good: a Revive (28) is refused
+editor faint 0
+editor dead 0 1
+editor use 28 0
+editor dead 0 1
+nuzlocke hard
+wait 30
+editor cap 9
+nuzlocke off
+wait 30
+editor cap 0
+exit 0

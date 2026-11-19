@@ -85,13 +85,17 @@ void NuzlockeMode_SetDead(Pokemon *mon, BOOL dead);
 
 // The rules, implemented per game (game thread). All are no-ops with the mode off.
 // The level no Pokemon may pass by EXP or Rare Candy (the next gym leader's strongest Pokemon's level, its
-// weakest's with Hard); 0 with the mode off. HGSS doesn't have Platinum's level-cap settings yet: always 0 for now.
+// weakest's with Hard); 0 with the mode off. The next boss from the Gear's table (gear_hgss.c).
 int NuzlockeMode_LevelCap(void);
 // The HP a Pokemon's HP is about to be set to: 0 for a dead one; and a living one set to 0 becomes dead
 u32 NuzlockeMode_FilterHP(Pokemon *mon, u32 hp);
 void NuzlockeMode_OnHPSet(Pokemon *mon, u32 hp);
 // A medicine (or Rare Candy) the mode refuses on mon: any, on a dead one; level-raising ones past the cap
 BOOL NuzlockeMode_RefusesItem(Pokemon *mon, u16 item, int heapID);
+// Gifts that offer a nickname must be named: the field scripts (the player's ROM, unchanged) show every message
+// through NuzlockeMode_NoteScriptMessage; a yes/no right after one that offers a nickname is asked again on No
+void NuzlockeMode_NoteScriptMessage(const u16 *text);
+BOOL NuzlockeMode_NicknameOfferPending(void);
 
 #endif // PORT_NUZLOCKE_MODE_GUI_ONLY
 

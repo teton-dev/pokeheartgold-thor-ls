@@ -14,6 +14,8 @@
 #include "save_local_field_data.h"
 
 #include "port_debug_field.h"
+#include "port_nuzlocke_mode.h"
+#include "use_item_on_mon.h"
 #include "port_save_editor.h"
 #include "port_test_script.h"
 
@@ -86,6 +88,42 @@ static const char *Editor(char **words, int count) {
     if (strcmp(what, "dump") == 0) {
         PrintParty();
         return NULL;
+    }
+    // Nuzlocke mode's checks (the party member in SLOT):
+    if (strcmp(what, "faint") == 0) { // faint SLOT: its HP to 0, as a battle's party update writes it
+        Pokemon *pokemon = Party_GetMonByIndex(SaveArray_Party_Get(FieldSystem_PortGet()->saveData), a);
+        u32 hp = 0;
+        SetMonData(pokemon, MON_DATA_HP, &hp);
+        printf("[test] party %d fainted: dead %d\n", a, NuzlockeMode_IsDead(pokemon));
+        return NULL;
+    }
+    if (strcmp(what, "dead") == 0) { // dead SLOT 0|1: whether it is dead, and its HP then stays 0 (a Revive is refused)
+        Pokemon *pokemon = Party_GetMonByIndex(SaveArray_Party_Get(FieldSystem_PortGet()->saveData), a);
+        printf("[test] party %d: dead %d, HP %d\n", a, NuzlockeMode_IsDead(pokemon), (int)GetMonData(pokemon, MON_DATA_HP, NULL));
+        return NuzlockeMode_IsDead(pokemon) == (b != 0) ? NULL : Failed("dead %d, not %d", NuzlockeMode_IsDead(pokemon), b != 0);
+    }
+    if (strcmp(what, "use") == 0) { // use ITEM SLOT: an item on the party member, as the party menu checks and applies it
+        Party *party = SaveArray_Party_Get(FieldSystem_PortGet()->saveData);
+        Pokemon *pokemon = Party_GetMonByIndex(party, b);
+        const int before = (int)GetMonData(pokemon, MON_DATA_LEVEL, NULL);
+        const BOOL can = CanUseItemOnPokemon(pokemon, (u16)a, 0, HEAP_ID_FIELD1);
+        const BOOL used = can && UseItemOnPokemon(pokemon, (u16)a, 0, 0, HEAP_ID_FIELD1);
+        printf("[test] item %d on party %d: can %d, used %d, level %d -> %d, HP %d\n", a, b, can, used, before,
+            (int)GetMonData(pokemon, MON_DATA_LEVEL, NULL), (int)GetMonData(pokemon, MON_DATA_HP, NULL));
+        return NULL;
+    }
+    if (strcmp(what, "allivs") == 0) { // allivs SLOT N: every IV is N
+        SaveEd_GetMon(ref, &mon);
+        for (int i = 0; i < SAVE_ED_STATS; i++) {
+            if (mon.ivs[i] != b) {
+                return Failed("an IV is %d, not %d", mon.ivs[i], b);
+            }
+        }
+        return NULL;
+    }
+    if (strcmp(what, "cap") == 0) { // cap N: the level cap is N
+        printf("[test] level cap %d\n", NuzlockeMode_LevelCap());
+        return NuzlockeMode_LevelCap() == a ? NULL : Failed("level cap %d, not %d", NuzlockeMode_LevelCap(), a);
     }
     if (strcmp(what, "give") == 0) { // give SPECIES LEVEL: to the party, shiny, with perfect IVs and an Adamant nature
         const int before = SaveEd_PartyCount();

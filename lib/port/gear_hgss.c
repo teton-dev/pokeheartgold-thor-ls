@@ -952,6 +952,22 @@ int Gear_LevelCap(void) {
     return boss != NULL ? boss->aceLevel : 0;
 }
 
+// The level of the next boss's weakest Pokemon (Nuzlocke mode's Hard cap)
+int Gear_LevelCapLow(void) {
+    const int next = Gear_NextGymBoss();
+    const GearBoss *boss = next >= 0 ? Gear_Boss(next) : NULL;
+    if (boss == NULL || boss->partyCount == 0) {
+        return 0;
+    }
+    int low = boss->party[0].level;
+    for (int i = 1; i < boss->partyCount; i++) {
+        if (boss->party[i].level < low) {
+            low = boss->party[i].level;
+        }
+    }
+    return low;
+}
+
 const GearMap *Gear_GetMap(void) {
     static GearMap map;
     memset(&map, 0, sizeof(map));

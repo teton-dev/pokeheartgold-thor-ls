@@ -3,6 +3,7 @@
 // (src/save.c) and bag (bag.h) APIs, which are named differently from Platinum's fork.
 #include <nitro.h>
 
+#include "constants/charcode.h"
 #include "constants/items.h"
 
 #include "field_system.h"
@@ -106,10 +107,17 @@ void NuzlockeMode_SetDead(Pokemon *mon, BOOL dead)
 
 // --- the rules -------------------------------------------------------------------------
 
-// HGSS has no equivalent of Platinum's Gear_LevelCap settings yet, so the level cap stays off
+int Gear_LevelCap(void);
+int Gear_LevelCapLow(void);
+
+// The next boss's ace (Hard: its weakest Pokemon) from the Gear's boss table (gear_hgss.c); 0 when there is none
 int NuzlockeMode_LevelCap(void)
 {
-    return 0;
+    if (!NuzlockeMode_On()) {
+        return 0;
+    }
+    const int cap = NuzlockeMode_Level() == NUZLOCKE_HARD ? Gear_LevelCapLow() : Gear_LevelCap();
+    return cap > 0 && cap <= MAX_LEVEL ? cap : 0;
 }
 
 static BOOL IsRealMon(Pokemon *mon)
@@ -135,13 +143,35 @@ void NuzlockeMode_OnHPSet(Pokemon *mon, u32 hp)
     NuzlockeMode_SetDead(mon, TRUE);
 }
 
+static BOOL sNicknameOffer;
+
+// "nickname" in HGSS's character codes (the message's text is searched as it is read from the ROM)
+void NuzlockeMode_NoteScriptMessage(const u16 *text)
+{
+    static const u16 kWord[] = { CHAR_i, CHAR_c, CHAR_k, CHAR_n, CHAR_a, CHAR_m, CHAR_e }; // [N]ickname
+    sNicknameOffer = FALSE;
+    for (const u16 *c = text; *c != EOS && !sNicknameOffer; c++) {
+        int k = 0;
+        while (k < (int)NELEMS(kWord) && c[k] == kWord[k]) {
+            k++;
+        }
+        sNicknameOffer = k == (int)NELEMS(kWord);
+    }
+}
+
+BOOL NuzlockeMode_NicknameOfferPending(void)
+{
+    return sNicknameOffer;
+}
+
 BOOL NuzlockeMode_RefusesItem(Pokemon *mon, u16 item, int heapID)
 {
-#pragma unused(item, heapID)
     if (!NuzlockeMode_On()) {
         return FALSE;
     }
-    // Only the dead-Pokemon rule applies so far: the level cap (and so the level-raising-item refusal) isn't wired
-    // up, since HGSS has no Gear_LevelCap settings to read yet (NuzlockeMode_LevelCap is always 0)
-    return NuzlockeMode_IsDead(mon);
+    if (NuzlockeMode_IsDead(mon)) {
+        return TRUE;
+    }
+    const int cap = NuzlockeMode_LevelCap();
+    return cap > 0 && GetItemAttr(item, ITEMATTR_LEVEL_UP, (enum HeapID)heapID) && (int)GetMonData(mon, MON_DATA_LEVEL, NULL) >= cap;
 }
