@@ -60,7 +60,7 @@ void NuzlockeGray_Update(void) {
     }
 }
 
-BOOL NuzlockeGray_Sprite(Sprite *sprite, BOOL onSub) {
+static BOOL GraySprite(Sprite *sprite, BOOL onSub, const int *slots, int slotCount) {
     NNSG2dImagePaletteProxy *proxy = Sprite_GetPaletteProxy(sprite);
     BOOL done = FALSE;
     for (int sub = onSub != FALSE; sub == (onSub != FALSE); sub++) {
@@ -81,7 +81,19 @@ BOOL NuzlockeGray_Sprite(Sprite *sprite, BOOL onSub) {
             }
         }
         if (gray < 0) {
-            gray = ObjPlttTransfer_PortReserveFreeSlots(1, type);
+            if (slots != NULL) {
+                // Slots the screen leaves unused (the manager has none free): one no copy of this screen holds
+                for (int k = 0; k < slotCount && gray < 0; k++) {
+                    gray = slots[k];
+                    for (int i = 0; i < (int)NELEMS(sCopies); i++) {
+                        if (sCopies[i].generation == generation && sCopies[i].type == (int)type && sCopies[i].gray == gray) {
+                            gray = -1;
+                        }
+                    }
+                }
+            } else {
+                gray = ObjPlttTransfer_PortReserveFreeSlots(1, type);
+            }
             if (gray < 0) {
                 continue;
             }
@@ -97,4 +109,12 @@ BOOL NuzlockeGray_Sprite(Sprite *sprite, BOOL onSub) {
         done = TRUE;
     }
     return done;
+}
+
+BOOL NuzlockeGray_Sprite(Sprite *sprite, BOOL onSub) {
+    return GraySprite(sprite, onSub, NULL, 0);
+}
+
+BOOL NuzlockeGray_SpriteInSlots(Sprite *sprite, BOOL onSub, const int *slots, int slotCount) {
+    return GraySprite(sprite, onSub, slots, slotCount);
 }

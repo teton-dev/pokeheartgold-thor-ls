@@ -912,6 +912,10 @@ static u32 GetBoxMonDataInternal(BoxPokemon *boxMon, int attr, void *dest) {
     return ret;
 }
 
+#ifdef SDK_PORT
+static BOOL sPortCopyingBoxMon;
+#endif
+
 void SetMonData(Pokemon *mon, int attr, const void *value) {
     u32 checksum;
 #ifdef SDK_PORT
@@ -940,7 +944,7 @@ void SetMonData(Pokemon *mon, int attr, const void *value) {
         ENCRYPT_BOX(&mon->box);
     }
 #ifdef SDK_PORT
-    if (attr == MON_DATA_HP) {
+    if (attr == MON_DATA_HP && !sPortCopyingBoxMon) {
         NuzlockeMode_OnHPSet(mon, portHP);
     }
 #endif
@@ -3274,6 +3278,11 @@ BOOL MonHasMove(Pokemon *mon, u16 move) {
 
 void CopyBoxPokemonToPokemon(const BoxPokemon *src, Pokemon *dest) {
     u32 zero = 0;
+#ifdef SDK_PORT
+    // Not a faint: the party half is cleared here, and until it is, its (encrypted, zeroed) stats read as garbage, so
+    // the HP of 0 would look like a faint of a Pokemon with stats (and Nuzlocke mode would mark it dead)
+    sPortCopyingBoxMon = TRUE;
+#endif
     CAPSULE capsule;
     struct Mail *mail;
     dest->box = *src;
@@ -3283,6 +3292,9 @@ void CopyBoxPokemonToPokemon(const BoxPokemon *src, Pokemon *dest) {
     SetMonData(dest, MON_DATA_STATUS, &zero);
     SetMonData(dest, MON_DATA_HP, &zero);
     SetMonData(dest, MON_DATA_MAX_HP, &zero);
+#ifdef SDK_PORT
+    sPortCopyingBoxMon = FALSE;
+#endif
     mail = Mail_New(HEAP_ID_DEFAULT);
     SetMonData(dest, MON_DATA_MAIL, mail);
     Heap_Free(mail);

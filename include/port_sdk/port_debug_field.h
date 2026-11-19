@@ -58,6 +58,8 @@ BOOL DebugField_BattleTrainer(int trainerId);
 // --- Wild battles ------------------------------------------------------------------------------------------------
 
 BOOL DebugField_WildBattle(int species, int level);
+// The PC box screen, as the PC opens it (it closes with B)
+BOOL DebugField_OpenPC(void);
 
 #ifdef __cplusplus
 }

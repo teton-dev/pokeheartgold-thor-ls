@@ -14,6 +14,9 @@
 #include "blackout.h"
 #include "encounter.h"
 #include "field_system.h"
+#include "launch_application.h"
+#include "application/pc_box/pc_box_internal.h"
+#include "heap.h"
 #include "field_warp_tasks.h"
 #include "map_header.h"
 #include "map_object.h"
@@ -446,5 +449,42 @@ BOOL DebugField_WildBattle(int species, int level) {
     sStart.winFlag = 0;
     FieldSystem_CreateTask(fieldSystem, Task_DebugWild, &sStart);
     printf("[debug] wild battle: species %d, level %d\n", species, level);
+    return TRUE;
+}
+
+// --- The PC box on its own ---------------------------------------------------------------------------------------
+
+static PCBoxArgs *sPcArgs;
+
+static BOOL Task_DebugPC(TaskManager *taskManager) {
+    FieldSystem *fieldSystem = TaskManager_GetFieldSystem(taskManager);
+    u32 *state = TaskManager_GetStatePtr(taskManager);
+    switch (*state) {
+    case 0:
+        (*state)++;
+        sPcArgs = Heap_Alloc(HEAP_ID_FIELD2, sizeof(PCBoxArgs));
+        sPcArgs->saveData = fieldSystem->saveData;
+        sPcArgs->mode = PC_BOX_MODE_MOVE_POKEMON;
+        sPcArgs->menuInputStatePtr = &fieldSystem->menuInputState;
+        PCBox_LaunchApp(fieldSystem, sPcArgs);
+        return FALSE;
+    case 1:
+        if (FieldSystem_ApplicationIsRunning(fieldSystem)) {
+            return FALSE;
+        }
+        Heap_Free(sPcArgs);
+        sPcArgs = NULL;
+        return TRUE;
+    }
+    return TRUE;
+}
+
+BOOL DebugField_OpenPC(void) {
+    FieldSystem *fieldSystem = FreeField();
+    if (fieldSystem == NULL) {
+        return FALSE;
+    }
+    FieldSystem_CreateTask(fieldSystem, Task_DebugPC, NULL);
+    printf("[debug] PC box opened\n");
     return TRUE;
 }

@@ -19,6 +19,10 @@ void NuzlockeGray_Colors(u16 *colors, int count);
 // nothing changed) with no free slot
 BOOL NuzlockeGray_Sprite(Sprite *sprite, BOOL onSub);
 
+// The same, for a screen whose sprite system owns every palette slot (the manager has none free): the copy goes to the
+// first of these slots that no other gray copy of the screen holds (slots the screen doesn't draw with)
+BOOL NuzlockeGray_SpriteInSlots(Sprite *sprite, BOOL onSub, const int *slots, int slotCount);
+
 // Once a frame (the main loop): the gray copies follow their palettes
 void NuzlockeGray_Update(void);
 

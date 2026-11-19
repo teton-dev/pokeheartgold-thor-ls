@@ -51,6 +51,9 @@
 #include "touchpad.h"
 #include "touchscreen.h"
 #include "type_icon_resources.h"
+#ifdef SDK_PORT
+#include "port_nuzlocke_gray.h"
+#endif
 #include "ui_util.h"
 #include "vram_transfer_manager.h"
 #include "wireless_status_icon.h"
@@ -181,6 +184,9 @@ static void PokemonSummary_InitSheenSparkles(PokemonSummary *summary);
 static void PokemonSummary_UpdateMarkingSprites(PokemonSummary *summary);
 static void PokemonSummary_ShowConditionChangeSprites(PokemonSummary *summary);
 static void PokemonSummary_LoadMonIcon(PokemonSummary *summary, void *mon, int sprite);
+#ifdef SDK_PORT
+static void PokemonSummary_PortGrayIcon(PokemonSummary *summary, void *mon, int sprite);
+#endif
 static void PokemonSummary_LoadShownMonIcon(PokemonSummary *summary);
 static void PokemonSummary_LoadPartyIcons(PokemonSummary *summary);
 static void PokemonSummary_SetBoxMonIconPos(PokemonSummary *summary);
@@ -2772,12 +2778,28 @@ static void PokemonSummary_LoadMonIcon(PokemonSummary *summary, void *mon, int s
     Heap_Free(file);
 }
 
+#ifdef SDK_PORT
+// Nuzlocke mode: a dead Pokemon's icon in gray (on the sub screen)
+static void PokemonSummary_PortGrayIcon(PokemonSummary *summary, void *mon, int sprite) {
+    BOOL dead = summary->args->monDataType == POKEMON_SUMMARY_BOX_MON_ARRAY ? NuzlockeGray_BoxIsDead(mon) : NuzlockeGray_IsDead(mon);
+    if (dead) {
+        // The sub screen's palette slots all belong to the Summary's sprites; 10 and 11 are ribbon palettes that
+        // the sub screen doesn't draw
+        static const int sGraySlots[] = { 11, 10 };
+        NuzlockeGray_SpriteInSlots(summary->sprites[sprite], TRUE, sGraySlots, 2);
+    }
+}
+#endif
+
 static void PokemonSummary_LoadShownMonIcon(PokemonSummary *summary) {
     void *mon = PokemonSummary_GetShownMon(summary);
     int palette;
     PokemonSummary_LoadMonIcon(summary, mon, POKEMON_SUMMARY_SPRITE_MON_ICON);
     palette = GetMonIconPaletteEx(summary->mon.species, summary->mon.form, summary->mon.isEgg);
     thunk_Sprite_SetPaletteOverride(summary->sprites[POKEMON_SUMMARY_SPRITE_MON_ICON], palette + 12);
+#ifdef SDK_PORT
+    PokemonSummary_PortGrayIcon(summary, mon, POKEMON_SUMMARY_SPRITE_MON_ICON);
+#endif
     Sprite_SetFlipMode_Int(summary->sprites[POKEMON_SUMMARY_SPRITE_MON_ICON], 1 ^ GetMonBaseStat_HandleAlternateForm(summary->mon.species, summary->mon.form, BASE_FLIP));
 }
 
@@ -2813,6 +2835,9 @@ static void PokemonSummary_LoadPartyIcons(PokemonSummary *summary) {
             break;
         }
         PokemonSummary_LoadMonIcon(summary, mon, POKEMON_SUMMARY_SPRITE_PARTY_ICONS + i);
+#ifdef SDK_PORT
+        PokemonSummary_PortGrayIcon(summary, mon, POKEMON_SUMMARY_SPRITE_PARTY_ICONS + i);
+#endif
     }
     for (; i < PARTY_SIZE; i++) {
         thunk_Sprite_SetDrawFlag(summary->sprites[POKEMON_SUMMARY_SPRITE_PARTY_ICONS + i], FALSE);
@@ -2839,11 +2864,17 @@ static void PokemonSummary_AlternateBoxMonIcon(PokemonSummary *summary) {
         thunk_Sprite_SetDrawFlag(summary->sprites[POKEMON_SUMMARY_SPRITE_PARTY_ICONS + 1], FALSE);
         PokemonSummary_LoadMonIcon(summary, mon, POKEMON_SUMMARY_SPRITE_PARTY_ICONS);
         thunk_Sprite_SetPaletteOverride(summary->sprites[POKEMON_SUMMARY_SPRITE_PARTY_ICONS], Boxmon_GetIconPalette(mon) + 12);
+#ifdef SDK_PORT
+        PokemonSummary_PortGrayIcon(summary, mon, POKEMON_SUMMARY_SPRITE_PARTY_ICONS);
+#endif
     } else {
         thunk_Sprite_SetDrawFlag(summary->sprites[POKEMON_SUMMARY_SPRITE_PARTY_ICONS], FALSE);
         thunk_Sprite_SetDrawFlag(summary->sprites[POKEMON_SUMMARY_SPRITE_PARTY_ICONS + 1], TRUE);
         PokemonSummary_LoadMonIcon(summary, mon, POKEMON_SUMMARY_SPRITE_PARTY_ICONS + 1);
         thunk_Sprite_SetPaletteOverride(summary->sprites[POKEMON_SUMMARY_SPRITE_PARTY_ICONS + 1], Boxmon_GetIconPalette(mon) + 12);
+#ifdef SDK_PORT
+        PokemonSummary_PortGrayIcon(summary, mon, POKEMON_SUMMARY_SPRITE_PARTY_ICONS + 1);
+#endif
     }
     summary->boxIconSprite ^= 1;
 }

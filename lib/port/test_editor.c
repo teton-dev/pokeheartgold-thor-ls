@@ -314,6 +314,9 @@ static const char *Debug(char **words, int count, BOOL *task) {
         printf("[test] warp to %s\n", DebugField_TownName(a));
         return DebugField_WarpToTown(a) ? NULL : "no such town";
     }
+    if (strcmp(what, "pc") == 0) { // pc: the PC box screen
+        return DebugField_OpenPC() ? NULL : "no PC box";
+    }
     if (strcmp(what, "wild") == 0) { // wild SPECIES LEVEL
         return DebugField_WildBattle(a, b) ? NULL : "no wild battle";
     }

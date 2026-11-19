@@ -22,6 +22,9 @@
 #include "pokemon_storage_system.h"
 #include "sprite.h"
 #include "sprite_system.h"
+#ifdef SDK_PORT
+#include "port_nuzlocke_gray.h"
+#endif
 #include "type_icon_resources.h"
 
 static void PCBox_SetSpriteDrawPriority(PCBoxView *view, u32 index, u32 priority);
@@ -253,6 +256,12 @@ static void PCBox_LoadMonIcon(PCBoxWork *work, BoxPokemon *boxMon, int index) {
     int palette = Boxmon_GetIconPalette(boxMon);
 
     PCBox_SetIconImage(work->view, charData->pRawData, index, palette);
+#ifdef SDK_PORT
+    // Nuzlocke mode: a dead Pokemon's icon in gray
+    if (NuzlockeGray_BoxIsDead(boxMon)) {
+        NuzlockeGray_Sprite(work->view->sprites[index]->sprite, FALSE);
+    }
+#endif
     Heap_Free(allocation);
 }
 

@@ -1,0 +1,17 @@
+# Nuzlocke mode: a dead Pokemon's icon is gray in the PC box screen (opened with the debug command, from anywhere).
+#
+#   tools/docker/desktop.sh test tests/scripts/nuzlocke_gray_pc.txt --from new-game
+mash A until free
+nuzlocke normal
+wait 30
+give 155 5
+give 16 5
+give 25 5
+editor faint 1
+editor pk4 0
+editor pk4 1
+editor dead 0 0
+editor dead 1 1
+debug pc
+wait 400
+stillshot pc

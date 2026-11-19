@@ -112,9 +112,9 @@ void PCBox_DrawBoxThumbnailMons(PCBoxWork *work, u32 box, void *dst) {
         for (; col < 6; col++) {
             mon.ptr = PCStorage_GetMonByIndexPair(work->storage, box, col + rowbase);
             lock = AcquireBoxMonLock(mon.ptr);
-            species = GetBoxMonData((void *)mon.raw, MON_DATA_SPECIES, NULL);
+            species = GetBoxMonData(mon.ptr, MON_DATA_SPECIES, NULL);
             if (GetBoxMonData(mon.ptr, MON_DATA_SPECIES_EXISTS, NULL)) {
-                if (!GetBoxMonData((void *)mon.raw, MON_DATA_IS_EGG, NULL)) {
+                if (!GetBoxMonData(mon.ptr, MON_DATA_IS_EGG, NULL)) {
                     form = (u16)GetBoxMonData(mon.ptr, MON_DATA_FORM, NULL);
                     type = (u16)GetMonBaseStatEx_HandleAlternateForm(work->view->personalNarc, species, form, 0x1b);
                 } else if (species == SPECIES_MANAPHY) {
@@ -128,7 +128,7 @@ void PCBox_DrawBoxThumbnailMons(PCBoxWork *work, u32 box, void *dst) {
                     MIi_CpuClear16(tile, (u16 *)((u8 *)dst + ((x & 7) + ((yy & 7) * 8 + (uintptr_t)((u8 *)(((s32)yy >> 3) * 4) + (x >> 3)) * 64))), 2);
                 }
             }
-            ReleaseBoxMonLock((void *)mon.raw, lock);
+            ReleaseBoxMonLock(mon.ptr, lock);
             x += 2;
         }
         y = (u8)(y + 2);

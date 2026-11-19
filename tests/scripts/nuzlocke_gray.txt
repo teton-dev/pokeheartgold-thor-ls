@@ -23,3 +23,12 @@ stillshot xmenu
 press A
 wait 300
 stillshot party
+# The Summary screen: the dead Pidgey (second in the party)
+press RIGHT
+wait 30
+press A
+wait 60
+stillshot party-menu
+press A
+wait 300
+stillshot summary
