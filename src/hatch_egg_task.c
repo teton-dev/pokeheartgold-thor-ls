@@ -2,6 +2,9 @@
 
 #include "get_egg.h"
 #include "naming_screen.h"
+#ifdef SDK_PORT
+#include "port_nuzlocke_mode.h"
+#endif
 #include "hatch_egg_app.h"
 #include "hatch_egg_task_data.h"
 #include "trainer_memo.h"
@@ -42,6 +45,12 @@ static BOOL Task_HatchEggInParty(TaskManager *taskManager) {
         FieldSystem_TryTriggerElmEggHatchedCall(fieldSystem, pokemon);
         UpdatePokedexWithReceivedSpecies(FieldSystem_GetSaveData(fieldSystem), data->args.mon);
 
+#ifdef SDK_PORT
+        // Nuzlocke mode: a hatched Pokemon must be named (NO opens the naming screen too, which takes no blank name)
+        if (NuzlockeMode_On()) {
+            data->wantToNameNewMon = TRUE;
+        }
+#endif
         if (data->wantToNameNewMon == TRUE) {
             data->state = HATCHEGGTASKSTATE_OPEN_NAMING_SCREEN;
         } else {
