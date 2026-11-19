@@ -1,0 +1,82 @@
+# A won Battle Castle battle in BW2's engine (HGSS): gen5_castle.txt's setup with a Spiritomb given Wonder Guard and Dark Pulse
+# by the save editor, leading. The check is the menu's shot after the win: no RECORD entry.
+#
+#   TEST_LIMIT=1800 SCREEN=1920x1080 tools/docker/desktop.sh test tests/scripts/gen5_castle_win.txt --from new-game
+
+mash A until free
+gen5 on
+give 445 60
+give 442 60
+give 6 60
+give 149 60
+# Spiritomb (party slot 1: the first pick, so it leads) with Wonder Guard (Ghost and Dark: no weaknesses, so no damaging
+# move touches it) and Dark Pulse in every slot: it wins by mashing A whatever the opponent's team
+editor ability 1 25
+editor allmoves 1 399
+warp 277 6 9
+until free timeout 3000
+wait 30
+press LEFT
+wait 20
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 90
+press A
+wait 150
+press A
+wait 150
+press RIGHT
+wait 60
+press A
+wait 150
+press A
+wait 150
+press DOWN
+wait 60
+press A
+wait 150
+press A
+wait 150
+press LEFT
+wait 60
+press A
+wait 150
+press A
+wait 150
+stillshot sel
+press A
+wait 150
+# the save (yes/no), the overwrite (yes/no), the Castle's talk, then its list (SELF, OPPONENT, BATTLE): the menu event
+mash A until menu timeout 3000
+mash A until menu timeout 3000
+mash A until menu timeout 3000
+wait 30
+stillshot menu
+press DOWN
+wait 40
+press DOWN
+wait 40
+stillshot battle-entry
+press A
+wait 120
+mash A until command timeout 30000
+wait 60
+shot battle-command
+# Dark Pulse until the trainer's Pokémon is down, then on to the next menu
+mash A until menu timeout 60000
+wait 60
+shot after-win
+exit 0

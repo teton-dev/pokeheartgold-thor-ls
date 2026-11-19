@@ -12,6 +12,7 @@
 #include "frontier/frontier_system.h"
 #include "msgdata/msg.naix"
 #include "msgdata/msg/msg_0191.h"
+#include "constants/charcode.h"
 
 #ifdef GEN5_BATTLES
 #include "port_gen5_battle.h"
@@ -411,12 +412,19 @@ FrontierMenu *FrontierListMenu_New(FrontierSystem *system, u8 x, u8 y, u8 initia
 void FrontierListMenu_AddItem(FrontierMenu *menu, u16 msgId, u16 description, u16 value) {
 #ifdef GEN5_BATTLES
     // After a battle in BW2's engine there's nothing to record (port_gen5_battle.h): no RECORD entry, and the menu
-    // (placed by its top for its four entries) moves down by the missing line
-    if (Gen5Battle_FrontierUnrecorded() && menu->ownsMsgData && msgId == msg_0191_00263) {
-        if (!menu->alignBottom) {
-            menu->y += 2;
+    // (placed by its top for its four entries) moves down by the missing line. Every facility's menu has the entry, in
+    // its own text bank (the Tower's is msg_0191), so it is told by its text
+    if (Gen5Battle_FrontierUnrecorded() && menu->msgData != NULL) {
+        static const u16 kRecord[] = { CHAR_R, CHAR_E, CHAR_C, CHAR_O, CHAR_R, CHAR_D, EOS };
+        String *text = NewString_ReadMsgData(menu->msgData, msgId);
+        const BOOL isRecord = memcmp(String_cstr(text), kRecord, sizeof(kRecord)) == 0;
+        String_Delete(text);
+        if (isRecord) {
+            if (!menu->alignBottom) {
+                menu->y += 2;
+            }
+            return;
         }
-        return;
     }
 #endif
     FrontierListMenu_AddItemInternal(menu, msgId, description, value);
