@@ -60,6 +60,8 @@ BOOL DebugField_BattleTrainer(int trainerId);
 BOOL DebugField_WildBattle(int species, int level);
 // The PC box screen, as the PC opens it (it closes with B)
 BOOL DebugField_OpenPC(void);
+// The field's weather (WEATHER_*), which the next battle starts in
+BOOL DebugField_SetWeather(int weather);
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,20 @@
+# A battle starts in the weather the field is in (HGSS's does; the Battle Arcade's roulette sets one too): rain (1) and a
+# sandstorm (7), in BW2's engine. The check is the shots: the rain, the sandstorm and the touch screen's weather badge.
+#
+#   tools/docker/desktop.sh test tests/scripts/gen5_weather.txt --from new-game
+mash A until free
+give 155 5
+debug weather 1
+wild 19 5 gen5
+until battle timeout 600
+until command timeout 6000
+wait 60
+shot rain-command
+mash touch 128 183 until free timeout 6000
+debug weather 7
+wild 19 5 gen5
+until battle timeout 600
+until command timeout 6000
+wait 60
+shot sand-command
+exit

@@ -15,6 +15,7 @@
 #include "encounter.h"
 #include "field_system.h"
 #include "launch_application.h"
+#include "save_local_field_data.h"
 #include "application/pc_box/pc_box_internal.h"
 #include "heap.h"
 #include "field_warp_tasks.h"
@@ -486,5 +487,15 @@ BOOL DebugField_OpenPC(void) {
     }
     FieldSystem_CreateTask(fieldSystem, Task_DebugPC, NULL);
     printf("[debug] PC box opened\n");
+    return TRUE;
+}
+
+BOOL DebugField_SetWeather(int weather) {
+    FieldSystem *fieldSystem = FreeField();
+    if (fieldSystem == NULL) {
+        return FALSE;
+    }
+    LocalFieldData_SetWeatherType(Save_LocalFieldData_Get(fieldSystem->saveData), (u16)weather);
+    printf("[debug] weather %d\n", weather);
     return TRUE;
 }

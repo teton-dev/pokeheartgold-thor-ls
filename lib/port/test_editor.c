@@ -279,6 +279,9 @@ static const char *Debug(char **words, int count, BOOL *task) {
         }
         return NULL;
     }
+    if (strcmp(what, "weather") == 0) { // weather N: the field's weather (1 rain, 5 snow, 7 sandstorm, 1001 sun), which the next battle starts in
+        return DebugField_SetWeather(a) ? NULL : "no field";
+    }
     if (strcmp(what, "map") == 0) { // map ID: the player is on it
         printf("[test] on %s (map %d)\n", DebugField_MapName(), DebugField_MapId());
         return DebugField_MapId() == a ? NULL : Failed("on map %d, not %d", DebugField_MapId(), a);

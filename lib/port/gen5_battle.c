@@ -114,6 +114,27 @@ BOOL Gen5Battle_Wants(const BattleSetup *setup) {
 
 // The Battle Tower's single battles (frontier_script_commands_misc.c's FrtCmd_TowerStartBattle), as the Platinum fork
 // runs its own; its doubles, multi and link battles and the other facilities stay HGSS's
+// The weather a battle starts in: the route's (HGSS's battle starts in it too), or the Battle Arcade's roulette's. BW2 has
+// no fog and no way to start in Trick Room: those start nothing
+static int WeatherToGen5(int weather) {
+    switch (weather) {
+    case 1:
+    case 2:
+    case 3:
+        return 2;
+    case 4:
+    case 5:
+    case 6:
+        return 3;
+    case 7:
+        return 4;
+    case 1001:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 static BOOL sFrontierUnrecorded;
 
 void Gen5Battle_SetFrontierUnrecorded(BOOL unrecorded) {
@@ -1015,6 +1036,7 @@ static BOOL Init(OverlayManager *man, int *state) {
     sFrontier = (setup->battleType & BATTLE_TYPE_FRONTIER) != 0;
     sBattle.facility = sFrontier;
     ArenaFromSetup(setup, &sBattle.arenaBg, &sBattle.arenaTerrain);
+    sBattle.weather = WeatherToGen5(setup->weatherType);
     {
         // For looking at arenas: POKEHEARTGOLD_GEN5_ARENA=bg,terrain (16,1 is Team Rocket's)
         const char *arena = getenv("POKEHEARTGOLD_GEN5_ARENA");
