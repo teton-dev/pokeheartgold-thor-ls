@@ -1,0 +1,15 @@
+# Nuzlocke mode's books on the Gear (port-common's Nuzlocke API, fed by lib/port/nuzlocke_gear.c): the area's
+# encounter and the graveyard on the Trainer tab. The check is the "[test] gear" lines (the log): shown, no deaths; a
+# Pokemon set to 0 HP is dead and logged with its name and the area it died in (the record's version 3 death log).
+#
+#   tools/docker/desktop.sh test tests/scripts/nuzlocke_gear.txt --from new-game
+mash A until free
+nuzlocke normal
+wait 30
+nuzlocke state
+give 155 5
+give 16 5
+editor faint 1
+wait 30
+nuzlocke state
+exit 0

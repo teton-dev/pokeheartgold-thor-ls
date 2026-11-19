@@ -2,6 +2,7 @@
 // image, and the dead flag on a Pokemon. The Platinum fork's src/port/nuzlocke_platinum.c, against HGSS's save
 // (src/save.c) and bag (bag.h) APIs, which are named differently from Platinum's fork.
 #include <nitro.h>
+#include <string.h>
 
 #include "constants/charcode.h"
 #include "constants/items.h"
@@ -10,6 +11,7 @@
 #include "bag.h"
 #include "item.h"
 #include "player_data.h"
+#include "party.h"
 #include "pokemon.h"
 #include "port_nuzlocke_mode.h"
 #include "port_nuzlocke_mode_game.h"
@@ -125,6 +127,37 @@ static BOOL IsRealMon(Pokemon *mon)
     return GetMonData(mon, MON_DATA_SPECIES_EXISTS, NULL) && !GetMonData(mon, MON_DATA_IS_EGG, NULL);
 }
 
+// The Gear's graveyard (the deaths in the mode's record)
+void PortGame_Mon_GetName(struct Pokemon *mon, char *out, int outSize);
+u16 PortGame_Field_LocationName(void);
+
+static void LogDeath(Pokemon *mon, u16 location)
+{
+    NuzlockeModeDeath death;
+    memset(&death, 0, sizeof(death));
+    death.personality = GetMonData(mon, MON_DATA_PERSONALITY, NULL);
+    death.species = (u16)GetMonData(mon, MON_DATA_SPECIES, NULL);
+    death.level = (u8)GetMonData(mon, MON_DATA_LEVEL, NULL);
+    death.location = location;
+    PortGame_Mon_GetName(mon, death.name, sizeof(death.name));
+    NuzlockeMode_RecordDeath(&death);
+}
+
+void NuzlockeModeGame_LogDeadParty(void)
+{
+    FieldSystem *fieldSystem = FieldSystem_PortGet();
+    if (fieldSystem == NULL || fieldSystem->saveData == NULL) {
+        return;
+    }
+    Party *party = SaveArray_Party_Get(fieldSystem->saveData);
+    for (int i = 0; i < Party_GetCount(party); i++) {
+        Pokemon *mon = Party_GetMonByIndex(party, i);
+        if (IsRealMon(mon) && NuzlockeMode_IsDead(mon) && !NuzlockeMode_DeathLogged(GetMonData(mon, MON_DATA_PERSONALITY, NULL))) {
+            LogDeath(mon, 0xFFFF);
+        }
+    }
+}
+
 u32 NuzlockeMode_FilterHP(Pokemon *mon, u32 hp)
 {
     if (hp == 0 || !NuzlockeMode_On()) {
@@ -141,6 +174,7 @@ void NuzlockeMode_OnHPSet(Pokemon *mon, u32 hp)
         return;
     }
     NuzlockeMode_SetDead(mon, TRUE);
+    LogDeath(mon, PortGame_Field_LocationName());
 }
 
 static BOOL sNicknameOffer;

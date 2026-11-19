@@ -29,6 +29,7 @@ void SIM_Settings_Open(const char *page);
 #include "player_avatar.h"
 #include "pokemon.h"
 #include "port_game_settings.h"
+#include "port/nuzlocke.h"
 #include "port_nuzlocke_mode.h"
 #include "port/gear_data.h"
 #include "save_vars_flags.h"
@@ -1019,6 +1020,18 @@ static u16 Step(void) {
                     NuzlockeMode_BallsReceived() ? ", has had balls" : "", location,
                     area == NUZLOCKE_AREA_CAUGHT ? "caught" : area == NUZLOCKE_AREA_MISSED ? "missed" : "open",
                     areaSpecies, NuzlockeMode_LevelCap());
+                // What the Gear shows (port-common's Nuzlocke API, fed by lib/port/nuzlocke_gear.c)
+                const NuzlockeRun *run = Nuzlocke_Get();
+                const NuzlockeArea *gearArea = Nuzlocke_Area(location);
+                printf("[test] gear nuzlocke: %s, catch rule %s, encounter %d, %d areas, this one %s; %d deaths\n",
+                    Nuzlocke_Enabled() ? "shown" : "hidden", Nuzlocke_CatchRule() ? "on" : "off",
+                    Nuzlocke_CurrentEncounter(), run->areaCount,
+                    gearArea == NULL ? "open" : gearArea->result == NUZLOCKE_CAUGHT ? "caught" : "missed", run->deathCount);
+                for (int i = 0; i < run->deathCount; i++) {
+                    printf("[test] gear death: %s, species %u, Lv %u, location %u, dead %d\n", run->deaths[i].name,
+                        run->deaths[i].species, run->deaths[i].level, run->deaths[i].location,
+                        Nuzlocke_IsDead(run->deaths[i].personality));
+                }
             }
             Next();
             continue;

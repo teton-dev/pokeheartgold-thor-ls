@@ -506,19 +506,21 @@ int sNuzlockeWarnLevel = 0; // a level waiting for the rules to be accepted
 double sNuzlockeOffUntil = 0.0;
 
 const char *NuzlockeRules(int level) {
-    // What Goldenrod enforces so far (docs/thor/dev/hgss.md): Platinum's level cap, IVs of 15, item and nickname
-    // rules aren't in yet
+    // The Platinum fork's text (src/port/gui_settings.cpp). The level cap is the next boss's ace (Hard: its weakest);
+    // the crit guard and the battle bag rule are enforced in BW2's engine (Settings > Battles > Gen 5 battles)
     switch (level) {
     case NUZLOCKE_SIMPLE:
-        return "A Pokemon that faints is gone for good: nothing heals it again. Whiting out ends the run: the mode "
+        return "Every Pokemon has IVs of 15. Your Pokemon gain no EXP past the next gym leader's strongest Pokemon's "
+               "level. A Pokemon that faints is gone for good: nothing heals it again. No items in battle (only Poke "
+               "Balls), and trainers use none. Caught Pokemon must be nicknamed. Whiting out ends the run: the mode "
                "turns off and can never be turned on again on this save.";
     case NUZLOCKE_NORMAL:
         return "Simple's rules, and: once you have Poke Balls, you may catch only the first Pokemon you meet in each "
                "area (the same species again if it got away), and nothing else there once you've caught it. Shiny "
                "Pokemon can always be caught.";
     case NUZLOCKE_HARD:
-        return "Normal's rules, and: static encounters (legendaries among them) count as the area's one, and there "
-               "is no crit guard.";
+        return "Normal's rules, and: the level cap is the next gym leader's weakest Pokemon's level, static "
+               "encounters (legendaries among them) count as the area's one, and there is no crit guard.";
     }
     return "";
 }
@@ -553,8 +555,8 @@ void DrawChallenges() {
     if (sNuzlockeWarnLevel != 0) {
         std::string title = std::string("Nuzlocke mode: ") + NuzlockeMode_LevelName(sNuzlockeWarnLevel);
         Panel(title.c_str(), NuzlockeAllRules(sNuzlockeWarnLevel).c_str());
-        Note("Turning it off later, or whiting out, ends it on this save for good. Goldenrod doesn't have Platinum's "
-             "level cap, IVs of 15, item and nickname rules yet.");
+        Note("Turning it off later, or whiting out, ends it on this save for good. The battle rules (no items, the crit "
+             "guard) are enforced in BW2's engine: keep Settings > Battles > Gen 5 battles on.");
         const int pressed = ButtonPair("Turn it on", "Cancel", true);
         if (pressed == 1) {
             NuzlockeMode_RequestLevel(sNuzlockeWarnLevel);
