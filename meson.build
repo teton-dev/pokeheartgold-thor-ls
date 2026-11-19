@@ -231,6 +231,7 @@ hgss_port_lib_c = files(
     'lib/port/gen5_dex_entry.c',
     'lib/port/heap_debug.c',
     'lib/port/msl_runtime.c',
+    'lib/port/nuzlocke_gray.c',
     'lib/port/nuzlocke_heartgold.c',
     'lib/port/nuzlocke_mark.c',
     'lib/port/nuzlocke_mode.c',

@@ -1,0 +1,25 @@
+# Nuzlocke mode: a dead Pokemon's icon is gray on the party menu (the shots; the log shows the gray palette copies).
+#
+#   tools/docker/desktop.sh test tests/scripts/nuzlocke_gray.txt --from new-game
+mash A until free
+nuzlocke normal
+wait 30
+give 155 5
+give 16 5
+give 25 5
+editor faint 1
+flag 106
+walk LEFT 3
+walk UP 2
+walk LEFT 1
+mash A until map 63 timeout 3000
+walk DOWN 7
+walk DOWN 1
+mash A until map 60 timeout 3000
+wait 60
+press X
+wait 120
+stillshot xmenu
+press A
+wait 300
+stillshot party

@@ -11,6 +11,10 @@ typedef struct ObjPlttTransferTaskTemplate {
 } ObjPlttTransferTaskTemplate;
 
 void ObjPlttTransfer_Init(int num, enum HeapID heapID);
+#ifdef SDK_PORT
+int ObjPlttTransfer_PortReserveFreeSlots(int count, NNS_G2D_VRAM_TYPE vramType);
+u32 ObjPlttTransfer_PortGeneration(void);
+#endif
 void ObjPlttTransfer_SetReservedRegion(u32 flag, NNS_G2D_VRAM_TYPE type);
 void ObjPlttTransfer_Destroy(void);
 void ObjPlttTransfer_Reset(void);

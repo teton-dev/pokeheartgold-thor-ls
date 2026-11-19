@@ -8,6 +8,9 @@
 #include "pokemon_icon_idx.h"
 #include "ui_util.h"
 #include "vram_transfer_manager.h"
+#ifdef SDK_PORT
+#include "port_nuzlocke_gray.h"
+#endif
 
 static void PartyMenu_SetIconAnimSeqIfChanged(Sprite *sprite, u8 seqNo);
 static int PartyMenu_GetMonIconAnimSeq(PartyMenuMonsDrawState *monDraw);
@@ -421,6 +424,13 @@ void PartyMenu_CreateMonIconSprites(PartyMenu *partyMenu, u8 partySlot, u16 x, u
     spriteTemplate.x = x;
     spriteTemplate.y = y + 0x100;
     partyMenu->monsDrawState[partySlot].mainScreenIconSprite = SpriteSystem_CreateSpriteFromResourceHeader(partyMenu->spriteRenderer, partyMenu->spriteGfxHandler, &spriteTemplate);
+#ifdef SDK_PORT
+    // Nuzlocke mode: a dead Pokemon's icon in gray
+    if (NuzlockeGray_IsDead(mon)) {
+        NuzlockeGray_Sprite(partyMenu->monsDrawState[partySlot].iconSprite, FALSE);
+        NuzlockeGray_Sprite(partyMenu->monsDrawState[partySlot].mainScreenIconSprite, TRUE);
+    }
+#endif
 }
 
 void PartyMenu_ReloadMonIconGraphics(PartyMenu *partyMenu, u8 partySlot) {
@@ -449,6 +459,12 @@ void PartyMenu_ReloadMonIconGraphics(PartyMenu *partyMenu, u8 partySlot) {
     Heap_Free(ncgrFile);
     thunk_Sprite_SetPaletteOverride(partyMenu->monsDrawState[partySlot].iconSprite, GetMonIconPaletteEx(species, form, FALSE) + 3);
     thunk_Sprite_SetPaletteOverride(partyMenu->monsDrawState[partySlot].mainScreenIconSprite, GetMonIconPaletteEx(species, form, FALSE) + 1);
+#ifdef SDK_PORT
+    if (NuzlockeGray_IsDead(mon)) {
+        NuzlockeGray_Sprite(partyMenu->monsDrawState[partySlot].iconSprite, FALSE);
+        NuzlockeGray_Sprite(partyMenu->monsDrawState[partySlot].mainScreenIconSprite, TRUE);
+    }
+#endif
     NARC_Delete(narc);
 }
 

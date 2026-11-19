@@ -53,7 +53,18 @@ static void ObjPlttTransferTask_ReleaseBlocks(ObjPlttTransferTask *task);
 static BOOL ObjPlttTransferTask_CheckAllocBlocks(ObjPlttTransferTask *task, u32 blockAddrMain, u32 blockAddrSub, u32 sizeMain, u32 sizeSub);
 static void ObjPlttTransferTask_ReserveBlocks(ObjPlttTransferTask *task, u32 *pBlockAddrMain, u32 *pBlockAddrSub);
 
+#ifdef SDK_PORT
+static u32 sPortGeneration; // changes when the palette slots are all given back (the reserved ones with them)
+
+u32 ObjPlttTransfer_PortGeneration(void) {
+    return sPortGeneration;
+}
+#endif
+
 void ObjPlttTransfer_Init(int num, enum HeapID heapID) {
+#ifdef SDK_PORT
+    sPortGeneration++;
+#endif
     if (sObjPlttTransferTasksManager == NULL) {
         sObjPlttTransferTasksManager = Heap_Alloc(heapID, sizeof(ObjPlttTransferTasksManager));
         MI_CpuClear32(sObjPlttTransferTasksManager, sizeof(ObjPlttTransferTasksManager));
@@ -359,6 +370,26 @@ static void resetBlockBits(u16 *addr, int num, int offset) {
     }
 }
 
+#ifdef SDK_PORT
+// teton-dev: Nuzlocke mode's gray icons need palette slots of their own (the Platinum fork's
+// PlttTransfer_PortReserveFreeSlots): count free slots in a row, the highest ones, taken until the manager is reset.
+// -1 when there are none
+int ObjPlttTransfer_PortReserveFreeSlots(int count, NNS_G2D_VRAM_TYPE vramType) {
+    if (sObjPlttTransferTasksManager == NULL) {
+        return -1;
+    }
+    u16 *used = vramType == NNS_G2D_VRAM_TYPE_2DMAIN ? &sObjPlttTransferTasksManager->blocksMain : &sObjPlttTransferTasksManager->blocksSub;
+    for (int slot = 16 - count; slot >= 0; slot--) {
+        const u16 mask = ((1 << count) - 1) << slot;
+        if ((*used & mask) == 0) {
+            *used |= mask;
+            return slot;
+        }
+    }
+    return -1;
+}
+#endif
+
 static u32 ObjPlttTransfer_GetFreePlttLoadAddr(u16 blocks, int num) {
     int i;
     int j;
@@ -384,6 +415,9 @@ static u32 ObjPlttTransfer_GetFreePlttLoadAddr(u16 blocks, int num) {
 static void ObjPlttTransfer_ReleaseAllBlocks(ObjPlttTransferTasksManager *manager) {
     manager->blocksMain = 0;
     manager->blocksSub = 0;
+#ifdef SDK_PORT
+    sPortGeneration++;
+#endif
 }
 
 static void ObjPlttTransferTask_AcquireBlocks(ObjPlttTransferTask *task) {

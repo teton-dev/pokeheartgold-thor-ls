@@ -23,6 +23,7 @@
 #include "wfc_user_info_warning.h"
 #ifdef SDK_PORT
 #include "port_frame_rate.h"
+#include "port_nuzlocke_gray.h"
 #include "port_nuzlocke_mode.h"
 #include "port_widescreen.h"
 #include "port/save_slots.h"
@@ -117,6 +118,7 @@ void NitroMain(void) {
         FrameRate_Update();
         Widescreen_Update();
         NuzlockeMode_Update();
+        NuzlockeGray_Update();
         SaveSync_Update();
 #endif
         if ((gSystem.heldKeysRaw & (PAD_BUTTON_START | PAD_BUTTON_SELECT | PAD_BUTTON_L | PAD_BUTTON_R)) == (PAD_BUTTON_START | PAD_BUTTON_SELECT | PAD_BUTTON_L | PAD_BUTTON_R)) {
