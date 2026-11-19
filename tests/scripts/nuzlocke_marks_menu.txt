@@ -1,0 +1,14 @@
+# Nuzlocke mode's alpha mark on the main menu: CONTINUE has a red frame, focused and not, and a line of the mark,
+# "NUZLOCKE" and the level (the check is the stillshots).
+#
+#   tools/docker/desktop.sh test tests/scripts/nuzlocke_marks_menu.txt --from nuz-normal
+wait 300
+press A
+wait 200
+press A
+wait 300
+stillshot menu_focused
+press DOWN 8
+wait 60
+stillshot menu_unfocused
+exit 0

@@ -28,6 +28,11 @@
 #include "string_util.h"
 #include "text.h"
 
+#ifdef SDK_PORT
+#include "port_nuzlocke_mark.h"
+#include "port_nuzlocke_mode.h"
+#endif
+
 // The player's progress shown before saving: location, name, badges, Pokedex, play time. Two layouts: the save
 // prompt window (Field_SaveStatsPrinter_*) and the full-width one of the touch screen save app (*TouchSave).
 
@@ -173,6 +178,12 @@ static void SaveStatsPrinter_PrintStats(struct SaveStatsPrinter *printer) {
         }
         String_Delete(str);
     }
+#ifdef SDK_PORT
+    // Nuzlocke mode: the alpha mark, "NUZLOCKE" and the level under the stats
+    if (NuzlockeMode_Level() != NUZLOCKE_OFF) {
+        NuzlockeMark_PrintLine(printer->window, NuzlockeMode_Level(), 0, NUZLOCKE_MARK_SIZE + 4, printer->width * 8, y + lineHeight, MAKE_TEXT_COLOR(1, 2, 15), 15, printer->heapId);
+    }
+#endif
 }
 
 void Field_SaveStatsPrinter_Print(struct SaveStatsPrinter *printer) {
@@ -203,6 +214,13 @@ struct SaveStatsPrinter *Field_SaveStatsPrinter_New(FieldSystem *fieldSystem, en
     SaveStatsPrinter_BufferStats(printer->msgFmt, &printer->stats);
     printer->width = 0xD;
     printer->height = SaveStatsPrinter_GetHeight(&printer->stats);
+#ifdef SDK_PORT
+    if (NuzlockeMode_Level() != NUZLOCKE_OFF) {
+        // A line for the mark, and room for "NUZLOCKE" and the level
+        printer->width += 2;
+        printer->height += 2;
+    }
+#endif
     return printer;
 }
 
@@ -243,6 +261,17 @@ static void SaveStatsPrinter_PrintStatRows(struct SaveStatsPrinter *printer) {
         AddTextPrinterParameterizedWithColor(printer->window, 0, str, SaveStatsPrinter_GetAlignedX(printer->window, str, row->align, 0), lineHeight * row->row, 0, sTextColors[row->color], NULL);
         String_Delete(str);
     }
+#ifdef SDK_PORT
+    // Nuzlocke mode. The window's backdrop has room for five lines only: the Pokedex's (blank before it is
+    // obtained) takes the mark, "NUZLOCKE" and the level; with the Pokedex, the mark alone at the title's left
+    if (NuzlockeMode_Level() != NUZLOCKE_OFF) {
+        if (printer->stats.dexOwned == 0) {
+            NuzlockeMark_PrintLine(printer->window, NuzlockeMode_Level(), 2, NUZLOCKE_MARK_SIZE + 6, printer->width * 8 - 2, lineHeight * 3, sTextColors[0], 0, printer->heapId);
+        } else {
+            NuzlockeMark_Draw(printer->window, 2, 0, 0);
+        }
+    }
+#endif
 }
 
 void Field_SaveStatsPrinter_PrintTouchSave(struct SaveStatsPrinter *printer) {

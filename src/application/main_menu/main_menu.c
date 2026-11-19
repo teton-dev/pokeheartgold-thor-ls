@@ -42,6 +42,8 @@
 
 #include "application/check_savedata.h"
 #include "port/save_slots.h"
+#include "port_nuzlocke_mark.h"
+#include "port_nuzlocke_mode.h"
 #endif
 
 typedef enum MainMenu_AppOption {
@@ -110,6 +112,7 @@ typedef struct MainMenuAppData {
 #ifdef SDK_PORT
     int pendingSlotSwitch; // port-common's save slots: the slot to load once the menu has faded out, or -1
     BOOL emptySlot;        // this slot holds no game while others do: the menu shows without CONTINUE
+    int nuzlockeLevel;     // the slot's game is a Nuzlocke run: the alpha mark, and a red frame
 #endif
 } MainMenuAppData;
 
@@ -121,6 +124,30 @@ typedef struct MainMenuButton {
     u32 msgId;
     MainMenuPrintFunction printFunction;
 } MainMenuButton;
+
+#ifdef SDK_PORT
+// Red copies of the unfocused (2) and focused (3) frame palettes, for a Nuzlocke save's CONTINUE
+#define NUZLOCKE_UNFOCUSED_FRAME_PLTT 5
+#define NUZLOCKE_FOCUSED_FRAME_PLTT   6
+
+// A color turned red: its strongest channel goes to red, the others to the weakest (greys stay grey)
+static u16 PortRedden(u16 color) {
+    int r = color & 0x1F, g = (color >> 5) & 0x1F, b = (color >> 10) & 0x1F;
+    int max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+    int min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+    if (max - min < 4) {
+        return color;
+    }
+    return RGB(max, min, min);
+}
+
+static void PortLoadNuzlockeFramePalettes(void) {
+    for (int i = 0; i < 16; i++) {
+        ((vu16 *)HW_PLTT)[NUZLOCKE_UNFOCUSED_FRAME_PLTT * 16 + i] = PortRedden(((vu16 *)HW_PLTT)[2 * 16 + i]);
+        ((vu16 *)HW_PLTT)[NUZLOCKE_FOCUSED_FRAME_PLTT * 16 + i] = PortRedden(((vu16 *)HW_PLTT)[3 * 16 + i]);
+    }
+}
+#endif
 
 extern void Sound_SetBGMPlayerChannels(u32 mode);
 extern void SystemCard_RebootIntoFile(const char *path);
@@ -807,6 +834,9 @@ static void MainMenu_SetupGraphics(MainMenuAppData *data) {
     LoadUserFrameGfx1(data->bgConfig, GF_BG_LYR_MAIN_0, 0x3EE, 3, 1, HEAP_ID_MAIN_MENU);
 
     ((vu16 *)HW_PLTT)[33] = RGB(26, 26, 26);
+#ifdef SDK_PORT
+    PortLoadNuzlockeFramePalettes();
+#endif
 }
 
 static void MainMenu_SetupSprites(MainMenuAppData *data) {
@@ -965,6 +995,10 @@ static BOOL MainMenu_PrintContinueButton(MainMenuAppData *data, u32 index, MainM
 
 #ifdef SDK_PORT
     MainMenu_PrintSlot(printer->window, textColor);
+    if (data->nuzlockeLevel != NUZLOCKE_OFF) {
+        int line = data->hasPokedex ? 5 : 4;
+        NuzlockeMark_PrintLine(printer->window, data->nuzlockeLevel, 32 - NUZLOCKE_MARK_SIZE - 4, 32, GetWindowWidth(printer->window) * 8 - 32, line * 16, textColor, 15, HEAP_ID_MAIN_MENU);
+    }
 #endif
     DrawFrameAndWindow1(printer->window, FALSE, printer->frameBaseTile, printer->framePalette);
 
@@ -1166,14 +1200,19 @@ static void MainMenu_HighlightOption(MainMenuAppData *data, int currentOption) {
             continue;
         }
 
+#ifdef SDK_PORT
+        BOOL red = i == 0 && data->nuzlockeLevel != NUZLOCKE_OFF;
+#else
+        BOOL red = FALSE;
+#endif
         if (data->menuInputState.state == MENU_INPUT_STATE_TOUCH) {
             DrawFrameAndWindow1(window, TRUE, 0x3EE, 2);
             BgTilemapRectChangePalette(data->bgConfig, GF_BG_LYR_MAIN_0, GetWindowX(window), GetWindowY(window), GetWindowWidth(window), GetWindowHeight(window), 0);
         } else if (i == currentOption) {
-            DrawFrameAndWindow1(window, TRUE, 0x3EE, 3);
+            DrawFrameAndWindow1(window, TRUE, 0x3EE, red ? NUZLOCKE_FOCUSED_FRAME_PLTT : 3);
             BgTilemapRectChangePalette(data->bgConfig, GF_BG_LYR_MAIN_0, GetWindowX(window), GetWindowY(window), GetWindowWidth(window), GetWindowHeight(window), 0);
         } else {
-            DrawFrameAndWindow1(window, TRUE, 0x3F7, 2);
+            DrawFrameAndWindow1(window, TRUE, 0x3F7, red ? NUZLOCKE_UNFOCUSED_FRAME_PLTT : 2);
             BgTilemapRectChangePalette(data->bgConfig, GF_BG_LYR_MAIN_0, GetWindowX(window), GetWindowY(window), GetWindowWidth(window), GetWindowHeight(window), 1);
         }
     }
@@ -1360,7 +1399,11 @@ static void AdvanceButtonBorderAnimation(MainMenuAppData *data) {
     if (sButtonBorderAnimation[data->buttonBorderAnimFrame] == 0) {
         data->buttonBorderAnimFrame = 0;
     }
-    ((vu16 *)HW_PLTT)[54] = sButtonBorderAnimation[data->buttonBorderAnimFrame++];
+    ((vu16 *)HW_PLTT)[54] = sButtonBorderAnimation[data->buttonBorderAnimFrame];
+#ifdef SDK_PORT
+    ((vu16 *)HW_PLTT)[NUZLOCKE_FOCUSED_FRAME_PLTT * 16 + 6] = PortRedden(sButtonBorderAnimation[data->buttonBorderAnimFrame]);
+#endif
+    data->buttonBorderAnimFrame++;
 }
 
 static void MainMenu_OnVBlank(BgConfig *bgConfig) {
@@ -1408,6 +1451,9 @@ BOOL MainMenuApp_Init(OverlayManager *manager, int *state) {
         data->emptySlot = TRUE;
         data->currentOption = 1;
     }
+    // A Nuzlocke run's CONTINUE has one more line (the mark), and a taller box when its last line is taken
+    data->nuzlockeLevel = data->dontHaveSavedata || data->emptySlot ? NUZLOCKE_OFF : NuzlockeMode_LevelOfSave(PlayerProfile_GetTrainerID(data->profile));
+    sMainMenuButtons[0].height = data->nuzlockeLevel != NUZLOCKE_OFF && data->hasPokedex ? 12 : 10;
 #endif
     Sound_SetBGMPlayerChannels(0);
     Sound_SetScene(SOUND_SCENE_NONE);

@@ -232,6 +232,7 @@ hgss_port_lib_c = files(
     'lib/port/heap_debug.c',
     'lib/port/msl_runtime.c',
     'lib/port/nuzlocke_heartgold.c',
+    'lib/port/nuzlocke_mark.c',
     'lib/port/nuzlocke_mode.c',
     'lib/port/rom_hacks.c',
     'lib/port/save_editor.c',

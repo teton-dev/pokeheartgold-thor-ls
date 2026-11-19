@@ -1,0 +1,29 @@
+# Nuzlocke mode's alpha mark (docs/thor/dev/nuzlocke.md, "Milestone 5"): out in New Bark Town, the X menu's SAVE
+# prompt has an info window with a line of the mark, "NUZLOCKE" and the level (the check is the stillshots); the
+# game is saved (by the test command) and kept as a Nuzlocke fixture, whose main menu nuzlocke_marks_menu.txt checks.
+#
+#   tools/docker/desktop.sh test tests/scripts/nuzlocke_marks.txt --from new-game --keep nuz-normal
+mash A until free
+nuzlocke normal
+walk LEFT 3
+walk UP 2
+walk LEFT 1
+mash A until map 63 timeout 3000
+walk DOWN 7
+walk DOWN 1
+mash A until map 60 timeout 3000
+wait 60
+press X
+wait 60
+press RIGHT
+wait 20
+press UP
+wait 20
+stillshot menu_save
+press A
+wait 120
+stillshot save_prompt
+mash B until free
+save
+nuzlocke state
+exit 0
