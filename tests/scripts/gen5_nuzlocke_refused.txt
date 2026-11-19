@@ -1,6 +1,7 @@
 # From new-game: Nuzlocke mode's catch rule in BW2's engine. (Hard: the test's wild battles are scripted ones, which count only with Hard.) A level 50 Cyndaquil and three Master Balls; a wild Pidgey
 # caught (the area's catch), then a wild Rattata in the same area: the Master Ball is knocked back with "You've already
-# used your catch for this area!", on two lines in BW2's message window (stillshots).
+# used your catch for this area!", on two lines in BW2's message window (stillshots). The caught Pidgey has to be
+# named (Nuzlocke mode: no nickname question, the naming screen).
 mash A until free
 nuzlocke hard
 give 155 50
@@ -16,8 +17,13 @@ wait 60
 touch 64 33
 wait 60
 touch 108 175
-# NO to "Give a nickname to the caught ...?"
-mash B touch 128 100 until free timeout 6000
+# The catch must be named (the question isn't asked): an A, then OK
+mash A until naming timeout 9000
+wait 60
+touch 34 99
+wait 20
+touch 216 71
+mash A until free timeout 9000
 check party 2
 nuzlocke state
 wild 19 3 gen5

@@ -1100,7 +1100,8 @@ static BOOL Init(OverlayManager *man, int *state) {
         if (sBattle.captureDemo) {
             CaptureDemoTextToGen5(setup);
         }
-        sBattle.askNickname = setup->battleType != BATTLE_TYPE_BUG_CONTEST && !sBattle.safari && !sBattle.captureDemo;
+        // (Nuzlocke mode: no question, a catch must be named: BW2's flow skips it and the naming screen follows)
+        sBattle.askNickname = setup->battleType != BATTLE_TYPE_BUG_CONTEST && !sBattle.safari && !sBattle.captureDemo && !NuzlockeMode_On();
         // With a full party, the line about the PC a catch with no nickname goes to
         if (sBattle.askNickname) {
             PcTextToGen5(setup, Party_GetMonByIndex(setup->party[BATTLER_ENEMY], 0), sBattle.pcText[0]);
@@ -1403,8 +1404,8 @@ static int AfterCatch(BattleSetup *setup) {
         StoreContestCatch(setup);
         return STATE_CHECK_EVOLUTION;
     }
-    if (sBattle.askNickname && !sBattle.nicknameWanted && !NuzlockeMode_On()) {
-        // No nickname: it keeps its species' name (Nuzlocke mode: a catch must be named)
+    if (sBattle.askNickname && !sBattle.nicknameWanted) {
+        // No nickname: it keeps its species' name
         StoreCaught(setup);
         return STATE_CHECK_EVOLUTION;
     }
