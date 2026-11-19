@@ -329,7 +329,13 @@ FrontierMap *FrontierMap_Init(FrontierWork *frontier) {
     PaletteData_SetAutoTransparent(map->paletteData, TRUE);
     PaletteData_AllocBuffers(map->paletteData, PLTTBUF_MAIN_BG, 0x200, HEAP_ID_101);
     PaletteData_AllocBuffers(map->paletteData, PLTTBUF_SUB_BG, 0x200, HEAP_ID_101);
+#ifdef SDK_PORT
+    // The Battle Arcade fades all 0x100 colors of this buffer (frontier_cmd_arcade.c, PaletteData_BlendPalette): past
+    // the DS's 0x1C0 bytes, into the next heap block's header (a flaky crash when the map is freed). Full size here
+    PaletteData_AllocBuffers(map->paletteData, PLTTBUF_MAIN_OBJ, 0x200, HEAP_ID_101);
+#else
     PaletteData_AllocBuffers(map->paletteData, PLTTBUF_MAIN_OBJ, 0x1C0, HEAP_ID_101);
+#endif
     PaletteData_AllocBuffers(map->paletteData, PLTTBUF_SUB_OBJ, 0x200, HEAP_ID_101);
     map->bgConfig = BgConfig_Alloc(HEAP_ID_101);
     GF_CreateVramTransferManager(64, HEAP_ID_101);
