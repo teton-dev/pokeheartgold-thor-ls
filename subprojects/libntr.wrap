@@ -18,7 +18,9 @@ directory = libntr
 # about the game's hacks from the game (SIM_Prj_AddGameText)
 # libntr_wide_edge_bg0.patch: BG0 drawn as 2D gets the wide scene's edge extension too (layers 1 to 3 had it; the
 # Bug-Catching Contest's swap screen has its top picture on the sub engine's BG0)
-diff_files = libntr_g3_mult.patch, libntr_g3_clip.patch, libntr_g3_clear.patch, libntr_wide_obj.patch, libntr_snd_waveout.patch, libntr_g3_translucent_state.patch, libntr_wide_edge.patch, libntr_translucent_id.patch, libntr_g3_perspective.patch, libntr_wide_obj_edge.patch, libntr_wide_window.patch, libntr_bg_charbase.patch, libntr_wide_mirror.patch, libntr_wide_subtop.patch, libntr_tex_bank_d.patch, libntr_wide_stripe.patch, libntr_sprite_depth.patch, libntr_snd_lock.patch, libntr_g3_tex_wrap.patch, libntr_native_menus.patch, libntr_carts_known.patch, libntr_wide_edge_bg0.patch
+# libntr_battle_speed.patch: Settings > Controls > Battle speed (1.5x, 2x, 3x, 4x): while the game says a battle is running
+# (SIM_SetBattleActive) it runs at that speed, in place of fast-forward's
+diff_files = libntr_g3_mult.patch, libntr_g3_clip.patch, libntr_g3_clear.patch, libntr_wide_obj.patch, libntr_snd_waveout.patch, libntr_g3_translucent_state.patch, libntr_wide_edge.patch, libntr_translucent_id.patch, libntr_g3_perspective.patch, libntr_wide_obj_edge.patch, libntr_wide_window.patch, libntr_bg_charbase.patch, libntr_wide_mirror.patch, libntr_wide_subtop.patch, libntr_tex_bank_d.patch, libntr_wide_stripe.patch, libntr_sprite_depth.patch, libntr_snd_lock.patch, libntr_g3_tex_wrap.patch, libntr_native_menus.patch, libntr_carts_known.patch, libntr_wide_edge_bg0.patch, libntr_battle_speed.patch
 
 [provide]
 dependency_names = NitroSDK

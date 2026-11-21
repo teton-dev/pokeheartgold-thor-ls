@@ -85,6 +85,10 @@
 #include "gear_phone_ring_manager.h"
 #include "legendary_cinematic_manager.h"
 #ifdef SDK_PORT
+#include <simulator/sim.h>
+
+#include "battle/battle_setup.h"
+#include "constants/battle.h"
 #include "port_test_script.h"
 #ifdef GEN5_BATTLES
 #include "port_gen5_battle.h"
@@ -169,6 +173,9 @@ static void SetName(TaskManager *taskman);
 BOOL Battle_Init(OverlayManager *man, int *state) {
 #ifdef SDK_PORT
     TestScript_OnEvent(TEST_EVENT_BATTLE);
+    // Settings > Controls > Battle speed (not for link battles: both sides count frames)
+    const BattleSetup *setup = OverlayManager_GetArgs(man);
+    SIM_SetBattleActive((setup->battleType & BATTLE_TYPE_LINK) ? FALSE : TRUE);
 #endif
     return TRUE;
 }
@@ -181,6 +188,9 @@ BOOL Battle_Main(OverlayManager *man, int *state) {
 }
 
 BOOL Battle_Exit(OverlayManager *man, int *state) {
+#ifdef SDK_PORT
+    SIM_SetBattleActive(FALSE);
+#endif
     return TRUE;
 }
 
