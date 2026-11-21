@@ -9,6 +9,8 @@
 
 #include "application/pokegear/phone/phone_internal.h"
 
+#include "port_game_settings.h"
+
 #include "gear_phone_ring_manager.h"
 #include "map_header.h"
 #include "math_util.h"
@@ -126,6 +128,13 @@ BOOL GearPhoneRingManager_TryStartCall(GearPhoneRingManager *gearPhone) {
             return TRUE;
         }
         GearPhoneRingManager_SetRinging(gearPhone, TRUE);
+        return FALSE;
+    }
+    // Settings > Gameplay > Story calls only: no random calls (trainers, gym leaders...); the triggers above are the
+    // story's and Mom's
+    if (GameSettings_Get()->storyCallsOnly) {
+        FreePhoneBook(phoneBook);
+        gearPhone->elapsedMinutes = 0;
         return FALSE;
     }
     u32 rand = MTRandom() % 100;

@@ -133,6 +133,9 @@ void DrawGameplay() {
     const enum SlotsRomState state = SlotsRom_State();
     const char *game = SlotsRom_GameName();
     GameSettings *settings = GameSettings_Get();
+    Section("Pokegear");
+    SettingToggle("Story calls only", "No calls from random trainers on the Pokegear. Only your mom's and the story's "
+        "(Prof. Elm, the Bike Shop, Bill, Baoba...) still ring.", &settings->storyCallsOnly);
     Section("Game Corner");
     SettingToggle("Japanese Game Corner", "The Japanese games' slot machines in the Game Corners, in place of Voltorb "
         "Flip. Needs the Japanese ROM below.", &settings->japaneseGameCorner, game != nullptr);

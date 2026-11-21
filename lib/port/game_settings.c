@@ -59,6 +59,8 @@ static int IniHandler(void *user, const char *section, const char *name, const c
         settings->drawEveryFrame = StringToBool(value);
     } else if (strcmp(name, "Gen5Battles") == 0) {
         settings->gen5Battles = StringToBool(value);
+    } else if (strcmp(name, "StoryCallsOnly") == 0) {
+        settings->storyCallsOnly = StringToBool(value);
     } else if (strcmp(name, "JapaneseGameCorner") == 0) {
         settings->japaneseGameCorner = StringToBool(value);
     }
@@ -74,6 +76,7 @@ GameSettings *GameSettings_Get(void) {
         sSettings.drawEveryFrame = FALSE;
         sSettings.gen5Battles = FALSE;
         sSettings.japaneseGameCorner = FALSE;
+        sSettings.storyCallsOnly = FALSE;
         sSettings.saveSlot = 1;
         sSettings.autosave = TRUE;
         sSettings.autosaveMinutes = 5;
@@ -99,6 +102,7 @@ void GameSettings_Save(void) {
     fprintf(file, "60FpsEverywhere=%s\n", BoolToString(sSettings.enable60fpsEverywhere));
     fprintf(file, "DrawEveryFrame=%s\n", BoolToString(sSettings.drawEveryFrame));
     fprintf(file, "Gen5Battles=%s\n", BoolToString(sSettings.gen5Battles));
+    fprintf(file, "StoryCallsOnly=%s\n", BoolToString(sSettings.storyCallsOnly));
     fprintf(file, "JapaneseGameCorner=%s\n", BoolToString(sSettings.japaneseGameCorner));
     fprintf(file, "\n[Saves]\n");
     fprintf(file, "Slot=%d\n", sSettings.saveSlot);
