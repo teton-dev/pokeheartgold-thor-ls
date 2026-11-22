@@ -28,6 +28,9 @@
 #include "type_icon_resources.h"
 #include "vram_transfer_manager.h"
 #include "yes_no_prompt.h"
+#ifdef SDK_PORT
+#include "port_infinite_tm.h"
+#endif
 
 // Bag application: item list, message boxes, quantity and money windows, sprites (cursor, item icons,
 // pocket tabs, buttons).
@@ -406,7 +409,11 @@ static void BagApp_PrintItemListEntry(BagApp *app, Window *window, String *name,
     case POCKET_TMHMS:
         AddTextPrinterParameterizedWithColor(window, 0, name, 0, 0, TEXT_SPEED_NOTRANSFER, MAKE_TEXT_COLOR(1, 2, 0), NULL);
         BagApp_PrintTMHMNumber(app, window, &pocket->slots[index], 16);
-        if (pocket->slots[index].id >= ITEM_TM01 && pocket->slots[index].id <= ITEM_TM92) {
+        if (pocket->slots[index].id >= ITEM_TM01 && pocket->slots[index].id <= ITEM_TM92
+#ifdef SDK_PORT
+            && !InfiniteTM_Applies(pocket->slots[index].id)
+#endif
+        ) {
             BagApp_PrintItemQuantity(app->msgFormat, app->msgData, window, pocket->slots[index].quantity);
         }
         break;

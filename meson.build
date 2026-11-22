@@ -233,6 +233,7 @@ hgss_port_lib_c = files(
     'lib/port/msl_runtime.c',
     'lib/port/nuzlocke_gear.c',
     'lib/port/nuzlocke_gray.c',
+    'lib/port/infinite_tm.c',
     'lib/port/nuzlocke_heartgold.c',
     'lib/port/nuzlocke_mark.c',
     'lib/port/nuzlocke_mode.c',

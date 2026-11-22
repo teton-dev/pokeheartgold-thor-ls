@@ -17,6 +17,7 @@ typedef struct GameSettings {
     BOOL drawEveryFrame; // DrawEveryFrame: 30 Hz scenes draw their in-between DS frames too
     BOOL gen5Battles; // Gen5Battles: battles in Black 2 and White 2's engine (port_gen5_battle.h)
     BOOL japaneseGameCorner; // JapaneseGameCorner: the Japanese slot machines instead of Voltorb Flip (port_slots_rom.h)
+    BOOL infiniteTMs; // InfiniteTMs: TMs are not used up or sold, and the bag does not count them (port_infinite_tm.h)
     BOOL storyCallsOnly; // StoryCallsOnly: no random Pokégear calls from trainers; only story calls and Mom's (gear_phone_calls.c)
     int saveSlot; // [Saves] Slot: the save slot in use, 1-based (slot 1 is save.bin; port-common's port/save_slots.h)
     BOOL autosave; // [Saves] Autosave: save while exploring, every autosaveMinutes (port-common's port/autosave.h)

@@ -48,6 +48,9 @@
 #include "vram_transfer_manager.h"
 #include "wireless_status_icon.h"
 #include "yes_no_prompt.h"
+#ifdef SDK_PORT
+#include "port_infinite_tm.h"
+#endif
 
 // Bag application: entry points, input states, item actions (use, trash, register, give, sell),
 // sub-screen layouts, 3D bag model and camera, windows.
@@ -2399,7 +2402,11 @@ static int BagApp_State_StartSell(BagApp *app) {
     BagApp_ShowItemDescription(app, &app->windows[0], app->bagView->itemId);
     BagApp_HideCursor(app);
 
-    if (GetItemAttr(app->bagView->itemId, ITEMATTR_PREVENT_TOSS, HEAP_ID_6) != 0 || app->sellPrice == 0) {
+    if (GetItemAttr(app->bagView->itemId, ITEMATTR_PREVENT_TOSS, HEAP_ID_6) != 0 || app->sellPrice == 0
+#ifdef SDK_PORT
+        || InfiniteTM_Applies(app->bagView->itemId)
+#endif
+    ) {
         template = NewString_ReadMsgData(app->msgData, msg_0010_00076);
         BufferItemName(app->msgFormat, fieldIdx, app->bagView->itemId);
         StringExpandPlaceholders(app->msgFormat, app->msgBuf, template);

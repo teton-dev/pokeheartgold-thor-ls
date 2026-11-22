@@ -99,7 +99,8 @@ void DrawBattles() {
         Note(Gen5Rom_Status());
     }
     const bool busy = state == GEN5_ROM_IMPORTING || SIM_Files_IsBusy() != FALSE;
-    if (Button(game == nullptr ? "Add Black 2 or White 2" : "Replace it",
+    if (game == nullptr
+        && Button("Add Black 2 or White 2",
             "Your own dump of Pokemon Black 2 or White 2 (USA), unpatched: the Gen 5 battles' graphics, sounds and "
             "data come from it. Its files are extracted once; the ROM isn't kept.",
             false, !busy)) {
@@ -133,6 +134,9 @@ void DrawGameplay() {
     const enum SlotsRomState state = SlotsRom_State();
     const char *game = SlotsRom_GameName();
     GameSettings *settings = GameSettings_Get();
+    Section("Items");
+    SettingToggle("Infinite TM uses", "TMs are not used up when taught, and the shops don't buy them. The bag "
+        "doesn't show how many you have.", &settings->infiniteTMs);
     Section("Pokegear");
     SettingToggle("Story calls only", "No calls from random trainers on the Pokegear. Only your mom's and the story's "
         "(Prof. Elm, the Bike Shop, Bill, Baoba...) still ring.", &settings->storyCallsOnly);
@@ -150,7 +154,8 @@ void DrawGameplay() {
         Status(SlotsRom_Status(), true);
     }
     const bool busy = state == SLOTS_ROM_IMPORTING || SIM_Files_IsBusy() != FALSE;
-    if (Button(game == nullptr ? "Add the Japanese ROM" : "Replace it",
+    if (game == nullptr
+        && Button("Add the Japanese ROM",
             "Your own dump of Pokemon HeartGold or SoulSilver (Japan): the slot machine's graphics and rules come "
             "from it. Only those files are kept; the ROM isn't.",
             false, !busy)) {
@@ -522,7 +527,8 @@ const char *NuzlockeRules(int level) {
                "area (the same species again if it got away), and nothing else there once you've caught it. Shiny "
                "Pokemon can always be caught.";
     case NUZLOCKE_HARD:
-        return "Normal's rules, and: the level cap is the next gym leader's weakest Pokemon's level, static "
+        return "Normal's rules, and: if the first Pokemon you meet in an area gets away, the area is failed and "
+               "nothing can be caught there, the level cap is the next gym leader's weakest Pokemon's level, static "
                "encounters (legendaries among them) count as the area's one, and there is no crit guard.";
     }
     return "";

@@ -7,6 +7,9 @@
 #include "bag_view.h"
 #include "heap.h"
 #include "save.h"
+#ifdef SDK_PORT
+#include "port_infinite_tm.h"
+#endif
 
 static u32 Bag_GetItemPocket(Bag *bag, u16 itemId, ItemSlot **itemSlots, u32 *countPtr, enum HeapID heapID);
 static ItemSlot *Pocket_GetItemSlotForAdd(ItemSlot *slots, u32 count, u16 itemId, u16 quantity, u16 maxQuantity);
@@ -184,6 +187,11 @@ BOOL Bag_TakeItem(Bag *bag, u16 itemId, u16 quantity, enum HeapID heapID) {
     if (slot == NULL) {
         return FALSE;
     }
+#ifdef SDK_PORT
+    if (InfiniteTM_Applies(itemId)) {
+        return TRUE; // Settings > Gameplay > Infinite TM uses: the TM stays in the bag
+    }
+#endif
     slot->quantity -= quantity;
     if (slot->quantity == 0) {
         slot->id = ITEM_NONE;
