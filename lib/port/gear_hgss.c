@@ -968,11 +968,7 @@ int Gear_LevelCapLow(void) {
     return low;
 }
 
-const GearMap *Gear_GetMap(void) {
-    static GearMap map;
-    memset(&map, 0, sizeof(map));
-    return &map;
-}
+// Gear_GetMap: gear_map_hgss.c
 
 const char *Gear_PCUnavailable(void) {
     return "The PC tab isn't in Goldenrod's Gear yet.";

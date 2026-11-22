@@ -1,0 +1,32 @@
+# The Gear's Area and Map tabs with Nuzlocke mode in Goldenrod: Route 30 on Hard with a scripted wild Pidgey (which counts
+# only with Hard) that the script's touches catch, so the tabs show blue "Catch complete" with the Pidgey in colour (Gen 5's
+# sprite, with the ROM imported). The script ends by waiting, so that the lower window can be looked at and tapped by hand
+# (desktop.sh shot / click on the run's container; Full, then Map). The "[test] gear catch status" lines: available, caught,
+# caught. (The yellow and red states are checked in Eterna's nuzlocke_gear_hard.txt; the status logic is shared.)
+#
+#   SCREEN=1800x1300 SIM_NATIVE_SETTINGS=1 SIM_NATIVE_SETTINGS_EVENTS='toggle @Show the Gear 1|close' \
+#     TEST_CONFIG='SecondaryScreen=true BottomWindowWidth=540 BottomWindowHeight=620' tools/docker/desktop.sh test tests/scripts/nuzlocke_gear_view.txt --from new-game
+
+gen5-import
+mash A until free
+settings Gear
+wait 120
+nuzlocke hard
+give 155 5
+editor item 4 10
+wait 40
+warp 34 553 340
+until free timeout 3000
+wait 90
+nuzlocke state
+wild 16 3 gen5
+until battle timeout 600
+until command timeout 6000
+wait 60
+mash touch 128 183 until free timeout 6000
+nuzlocke state
+nuzlocke normal
+wait 40
+nuzlocke state
+wait 400000
+exit 0
