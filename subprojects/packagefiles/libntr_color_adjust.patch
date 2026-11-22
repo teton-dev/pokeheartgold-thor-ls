@@ -1,0 +1,117 @@
+--- a/include/simulator/config/sim_config.h
++++ b/include/simulator/config/sim_config.h
+@@ -61,6 +61,9 @@
+     u8 widescreen; /* The top screen as wide as the display where the game allows (SIM_SetWidescreenScene) */
+     u8 texturePacks; /* Replace 3D textures with the packs' (simulator/sim_texture_packs.h) */
+     u8 dumpTextures; /* Save the 3D textures the game uses as PNGs */
++    s8 colorSaturation; /* Display colour adjustment, -25 to +25 (0: none) */
++    s8 colorVibrance;
++    s8 colorContrast;
+     u8 edgeMarking; /* Draw the DS's 3D outlines (edge marking) where the game turns them on */
+     u32 windowWidth; /* Initial width of the window. If set to 0, will use the default width for the screen layout */
+     u32 windowHeight; /* Initial height of the window. If set to 0, will use default height for the screen layout */
+--- a/libraries/sim/src/config/sim_config.c
++++ b/libraries/sim/src/config/sim_config.c
+@@ -65,6 +65,15 @@
+     if(MATCH("General", "DumpTextures")) {
+         config->dumpTextures = StringToBool(value);
+     }
++    if(MATCH("General", "ColorSaturation")) {
++        config->colorSaturation = (s8)atoi(value);
++    }
++    if(MATCH("General", "ColorVibrance")) {
++        config->colorVibrance = (s8)atoi(value);
++    }
++    if(MATCH("General", "ColorContrast")) {
++        config->colorContrast = (s8)atoi(value);
++    }
+     if(MATCH("General", "EdgeMarking")) {
+         config->edgeMarking = StringToBool(value);
+     }
+@@ -463,6 +472,9 @@
+     aConfig->texturePacks = TRUE;
+     aConfig->dumpTextures = FALSE;
+     aConfig->edgeMarking = TRUE;
++    aConfig->colorSaturation = 0;
++    aConfig->colorVibrance = 0;
++    aConfig->colorContrast = 0;
+     aConfig->fastForwardSpeed = 4;
+     aConfig->battleSpeed = 0;
+     aConfig->fastForwardToggle = FALSE;
+@@ -557,6 +569,9 @@
+     fprintf(configFile, "TexturePacks=%s\n", BoolToString(aConfig->texturePacks));
+     fprintf(configFile, "DumpTextures=%s\n", BoolToString(aConfig->dumpTextures));
+     fprintf(configFile, "EdgeMarking=%s\n", BoolToString(aConfig->edgeMarking));
++    fprintf(configFile, "ColorSaturation=%d\n", aConfig->colorSaturation);
++    fprintf(configFile, "ColorVibrance=%d\n", aConfig->colorVibrance);
++    fprintf(configFile, "ColorContrast=%d\n", aConfig->colorContrast);
+     fprintf(configFile, "WindowHeight=%d\n", aConfig->windowHeight);
+     fprintf(configFile, "WindowWidth=%d\n", aConfig->windowWidth);
+     fprintf(configFile, "FullScreen=%s\n", BoolToString(aConfig->fullScreen));
+--- a/libraries/sim/src/shaders/g2_fragment.glsl
++++ b/libraries/sim/src/shaders/g2_fragment.glsl
+@@ -40,6 +40,7 @@
+ //uniform float inAlpha;
+ uniform float inMasterBrightFactor;
+ uniform int inMasterBrightMode;
++uniform vec3 inColorAdjust; // saturation, vibrance, contrast: -1..1
+ out vec4 color;
+ void main()
+ {
+@@ -195,6 +196,16 @@
+         color = backdropColor;
+     }
+     
++    if(inColorAdjust != vec3(0.0)) {
++        float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
++        // Vibrance: saturation that favours the dull colours (the more saturated a colour is, the less it changes)
++        float chroma = max(color.r, max(color.g, color.b)) - min(color.r, min(color.g, color.b));
++        float sat = 1.0 + inColorAdjust.x * 0.5 + inColorAdjust.y * 0.5 * (1.0 - chroma);
++        color.rgb = clamp(vec3(luma) + (color.rgb - vec3(luma)) * sat, 0.0, 1.0);
++        // Contrast around mid grey
++        color.rgb = clamp((color.rgb - 0.5) * (1.0 + inColorAdjust.z * 0.5) + 0.5, 0.0, 1.0);
++    }
++
+     if(inMasterBrightMode == 1) {
+         // brightness up
+         color.r = color.r + ((1.0 - color.r) * (inMasterBrightFactor/16.0));
+--- a/libraries/sim/src/sim_main.cpp
++++ b/libraries/sim/src/sim_main.cpp
+@@ -1448,6 +1448,14 @@
+       g2shaderProgramID,
+       glGetUniformLocation(g2shaderProgramID, "inMasterBrightMode"),
+       masterBrightMode);
++
++  // Settings > Display > Colour: saturation, vibrance and contrast, -25..+25 (shader: before the master brightness)
++  glProgramUniform3f(
++      g2shaderProgramID,
++      glGetUniformLocation(g2shaderProgramID, "inColorAdjust"),
++      (float)s_SIM_config.colorSaturation / 25.0f,
++      (float)s_SIM_config.colorVibrance / 25.0f,
++      (float)s_SIM_config.colorContrast / 25.0f);
+ 
+   glBindVertexArray(g2vertexArray);
+   glBindBuffer(GL_ARRAY_BUFFER, g2vertexBuffer);
+--- a/libraries/sim/src/sim_settings.cpp
++++ b/libraries/sim/src/sim_settings.cpp
+@@ -262,6 +262,20 @@
+                "device's kind of GPU. The DS's outlines aren't drawn with it on.", &aa, kAA, choices)) {
+       config->antiAliasing = (u8)(aa == 2 ? 4 : (aa == 1 ? 2 : 0));
+       SIM_SetInternalResolutionAfterRender(0);
++      SaveConfig();
++    }
++  }
++
++  {
++    int saturation = config->colorSaturation, vibrance = config->colorVibrance, contrast = config->colorContrast;
++    bool changed = false;
++    changed |= Stepper("Saturation", "How vivid the colours are. Negative looks greyer, positive more colourful.", &saturation, -25, 25, 1, "%+d");
++    changed |= Stepper("Vibrance", "Like saturation, but it lifts dull colours more than the ones that are already vivid.", &vibrance, -25, 25, 1, "%+d");
++    changed |= Stepper("Contrast", "The difference between dark and bright. Positive darkens the darks and brightens the lights.", &contrast, -25, 25, 1, "%+d");
++    if (changed) {
++      config->colorSaturation = (s8)saturation;
++      config->colorVibrance = (s8)vibrance;
++      config->colorContrast = (s8)contrast;
+       SaveConfig();
+     }
+   }
