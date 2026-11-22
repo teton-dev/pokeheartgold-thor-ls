@@ -231,6 +231,13 @@ test)
     for setting in ${TEST_CONFIG:-}; do
         echo "$setting" >> "$RUN/sim_config.ini"
     done
+    # TEST_CONFIG_PRJ='Key=value ...': the game's own settings (sim_config_prj.ini: 60FpsEverywhere=false...)
+    if [ -n "${TEST_CONFIG_PRJ:-}" ]; then
+        printf '[General]\n' > "$RUN/sim_config_prj.ini"
+        for setting in ${TEST_CONFIG_PRJ}; do
+            echo "$setting" >> "$RUN/sim_config_prj.ini"
+        done
+    fi
     if [ -n "$FROM" ]; then
         [ -f "$FIXTURES/$FROM/save.bin" ] || { echo "No fixture $FIXTURES/$FROM"; exit 1; }
         cp "$FIXTURES/$FROM/save.bin" "$RUN/save.bin"
