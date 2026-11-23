@@ -22,6 +22,7 @@
 #include "comm_state.h"
 #include "wfc_user_info_warning.h"
 #ifdef SDK_PORT
+#include <simulator/sim.h>
 #include "port_frame_rate.h"
 #include "port_nuzlocke_gray.h"
 #include "port_nuzlocke_mode.h"
@@ -57,6 +58,9 @@ static BOOL IsLinkModeWithSoftResetCancel(int linkMode);
 void NitroMain(void) {
 #ifdef SDK_PORT
     PortGameVersion_Init(); // before anything reads GAME_VERSION
+    // The DS doesn't blend translucent polygons of one polygon ID over each other: the overworld's shadows (a building's,
+    // its flower box's, a sprite's) darkened twice where they overlap, and flickered with the camera
+    SIM_SetTranslucentPolygonIdRule(TRUE);
 #endif
     InitSystemForTheGame();
     InitGraphicMemory();
