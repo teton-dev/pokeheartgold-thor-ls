@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include <simulator/sim.h>
+#include <simulator/sim_test_shot.h>
 
 // libntr's settings screen (simulator/sim_settings.hpp, C++): opened on a page, as the back button does
 void SIM_Settings_Open(const char *page);
@@ -231,9 +232,34 @@ static void PrintPlace(const char *what) {
     }
 }
 
+// A shot's picture, written by libntr from the next frame it presents (simulator/sim_test_shot.h) into the folder the
+// harness names in POKEHEARTGOLD_TEST_SHOTS, as NAME.png. Without it (another harness) the harness takes its own.
+// FALSE: none requested.
+static BOOL RequestShot(const char *name) {
+    const char *dir = getenv("POKEHEARTGOLD_TEST_SHOTS");
+    if (dir == NULL || dir[0] == '\0' || name[0] == '\0') {
+        return FALSE;
+    }
+    // A script's word: letters, digits, '-' and '_' only, so the file stays in that folder
+    for (const char *c = name; *c != '\0'; c++) {
+        if (!((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9') || *c == '-'
+                || *c == '_')) {
+            printf("[test] shot %s: not a file name (letters, digits, - and _)\n", name);
+            return FALSE;
+        }
+    }
+    char path[512];
+    if (snprintf(path, sizeof(path), "%s/%s.png", dir, name) >= (int)sizeof(path)) {
+        return FALSE;
+    }
+    SIM_TestShotRequest(path);
+    return TRUE;
+}
+
 static void Fail(const TestCommand *command, const char *why) {
     printf("[test] FAIL line %d: %s\n", command != NULL ? command->line : 0, why);
     PrintPlace("the player is on");
+    RequestShot("failure"); // taken at the next frame shown: the pause after it keeps showing frames
     printf("[test] shot failure\n");
     fflush(stdout);
     sTest.failed = TRUE;
@@ -1118,7 +1144,12 @@ static u16 Step(void) {
                     sStillPresentMs = config->testModePresentMs;
                     config->testModePresentMs = 1;
                 }
-                if (elapsed < 3) {
+                // The picture is the last frame shown before the stop (its third); a frame the game skips (drawn again
+                // before it's shown) puts it off, for a few frames at most
+                if (elapsed == 2) {
+                    RequestShot(command->text);
+                }
+                if (elapsed < 3 || (SIM_TestShotPending() && elapsed < 12)) {
                     return 0;
                 }
                 printf("[test] shot %s\n", command->text);
@@ -1128,7 +1159,8 @@ static u16 Step(void) {
                 Next();
                 return 0;
             }
-            // The harness takes the screenshot while the game runs on without input
+            // The picture is the next frame shown (RequestShot), while the game runs on without input
+            RequestShot(command->text);
             printf("[test] shot %s\n", command->text);
             fflush(stdout);
             sTest.pauseUntil = NowMs() + SHOT_PAUSE_MS;
