@@ -302,6 +302,12 @@ static BillboardObject *MapObject_CreateBillboardForSprite(LocalMapObject *objec
     MapObject_GetDrawPosition(object, &position);
     billboard = MapObjectBillboards_CreateBillboard(billboards, resource, &position);
     GF_ASSERT(billboard != NULL);
+#ifdef SDK_PORT
+    // Enhanced graphics: the objects that have a blob shadow (people, Pokemon) cast the sun's
+    if (billboard != NULL) {
+        BillboardObject_SetCastsShadow(billboard, MapObject_GetEffectFlags(object)->shadow != 0);
+    }
+#endif
     return billboard;
 }
 
@@ -1526,6 +1532,12 @@ static void MapObject_ChangeBillboardSpriteKeepingCopy(LocalMapObject *object, u
     position = *BillboardObject_GetPosition(oldBillboard);
     work->billboard = MapObjectBillboards_CreateBillboard(billboards, &work->resource, &position);
     GF_ASSERT(work->billboard != NULL);
+#ifdef SDK_PORT
+    // Enhanced graphics: the old sprite shown through the change casts as it did (MapObject_CreateBillboardForSprite)
+    if (work->billboard != NULL) {
+        BillboardObject_SetCastsShadow(work->billboard, MapObject_GetEffectFlags(object)->shadow != 0);
+    }
+#endif
     if (fog == 0) {
         NNS_G3dMdlSetMdlFogEnableFlagAll(BillboardObject_GetModel(work->billboard), FALSE);
     }

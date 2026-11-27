@@ -13,6 +13,7 @@
 #include <simulator/sim.h>
 
 #include "port_frame_rate.h"
+#include "port/enhanced_scene.h"
 
 // The overworld's sprites are nudged toward the camera for the depth test, up to this much at their tops (view
 // units; nothing at their feet), so a head clears the lower edge of a sign just behind it. On the DS the edge snaps
@@ -88,6 +89,9 @@ static void Billboard_Clear(Billboard *billboard) {
 }
 
 static void BillboardObject_Clear(BillboardObject *object) {
+#ifdef SDK_PORT
+    object->castsShadow = FALSE;
+#endif
     object->owner = 0;
     object->ranges = NULL;
     object->modelSet = 0;
@@ -153,6 +157,8 @@ void BillboardLists_Draw(void) {
     }
 #ifdef SDK_PORT
     NNS_G3dGeFlushBuffer();
+    EnhancedScene_SpriteLampShadowsEnd();
+    SIM_SetSpriteShadow(FALSE);
     SIM_SetSpriteDepthBias(0);
 #endif
 }
@@ -242,8 +248,25 @@ static void Billboard_Draw(Billboard *billboard) {
     GF_ASSERT(billboard != NULL);
     MTX_Identity33(&identity);
     object = billboard->root.next;
+#ifdef SDK_PORT
+    // Enhanced graphics: the sprites of map objects with a shadow cast the sun's (libntr's SIM_SetSpriteShadow); the
+    // commands before must be processed before libntr's state changes. Billboards draw one after another, so the
+    // bracket is closed after each (BillboardLists_Draw ends it too)
+    BOOL casting = FALSE;
+#endif
     while (object != &billboard->root) {
         if (object->visible == TRUE) {
+#ifdef SDK_PORT
+            if ((object->castsShadow != FALSE) != casting) {
+                casting = object->castsShadow != FALSE;
+                NNS_G3dGeFlushBuffer();
+                SIM_SetSpriteShadow(casting);
+            }
+            if (casting) {
+                // At night, near a lamp: its shadow instead of the sun's (read as the sprite's polygon is submitted)
+                EnhancedScene_SpriteLampShadow(&object->position);
+            }
+#endif
             if (object->callback != NULL) {
                 object->callback(object, object->callbackArg);
             }
@@ -258,6 +281,12 @@ static void Billboard_Draw(Billboard *billboard) {
         }
         object = object->next;
     }
+#ifdef SDK_PORT
+    if (casting) {
+        NNS_G3dGeFlushBuffer();
+        SIM_SetSpriteShadow(FALSE);
+    }
+#endif
 }
 
 static void BillboardObject_LoadResource(BillboardObject *object, BillboardResource *resource) {
@@ -489,6 +518,13 @@ VecFx32 *BillboardObject_GetScale(BillboardObject *object) {
     GF_ASSERT(object != NULL);
     return &object->scale;
 }
+
+#ifdef SDK_PORT
+void BillboardObject_SetCastsShadow(BillboardObject *object, BOOL casts) {
+    GF_ASSERT(object != NULL);
+    object->castsShadow = casts != FALSE;
+}
+#endif
 
 void BillboardObject_SetVisible(void *billboard, u8 visible) {
     BillboardObject *object = billboard;

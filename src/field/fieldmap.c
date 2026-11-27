@@ -66,6 +66,8 @@
 #include "gymmick_collision.h"
 #include "vram_transfer_manager.h"
 #ifdef SDK_PORT
+#include "port_enhanced_graphics.h"
+#include "port/enhanced_scene.h"
 #include "port_widescreen.h"
 #endif
 
@@ -594,10 +596,19 @@ static void FieldMap_Render3D(FieldSystem *fieldSystem) {
     Widescreen_BeforeFieldRender(fieldSystem);
 #endif
     Camera_PushLookAtToNNSGlb();
+#ifdef SDK_PORT
+    // Enhanced graphics: the camera and this frame's ground and lamps; the land and its props are the sun's casters
+    // (MapPropManager_Draw doesn't cull to the screen, so props past the edges cast too)
+    EnhancedGraphics_FieldDrawing(fieldSystem);
+    EnhancedScene_LandDrawing(TRUE);
+#endif
 
     MapLoadManager_RenderLoadedMaps(fieldSystem->mapLoadManager, fieldSystem->modelAttributes);
 
     MapPropManager_Draw(fieldSystem->mapPropManager, fieldSystem->areaDataManager);
+#ifdef SDK_PORT
+    EnhancedScene_LandDrawing(FALSE);
+#endif
 
     camAngle = Camera_GetAngle(fieldSystem->camera);
     fx64 offsetProduct = (fieldSystem->projZOffset << FX32_SHIFT) * (fx64)(FX_CosIdx((u16)(-camAngle.x)));
@@ -624,6 +635,9 @@ static void FieldMap_Render3D(FieldSystem *fieldSystem) {
     NNS_G3dGlbFlushP();
 
     Field3dObjectTaskManager_RunDrawTasks(fieldSystem->mapSystems->field3dObjectTaskManager);
+#ifdef SDK_PORT
+    EnhancedGraphics_DrawWaterMask(fieldSystem);
+#endif
     RequestSwap3DBuffers(GX_SORTMODE_AUTO, gG3dDepthBufferingMode);
 }
 

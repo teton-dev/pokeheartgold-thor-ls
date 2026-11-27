@@ -59,6 +59,9 @@ struct BillboardObject {
     u32 frame;
     BillboardObject *next;
     BillboardObject *prev;
+#ifdef SDK_PORT
+    u8 castsShadow; // Enhanced graphics: a map object's sprite that casts the sun's (or a lamp's) shadow
+#endif
 };
 
 struct Billboard {

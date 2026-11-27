@@ -9,7 +9,10 @@ directory = port-common
 # off until it has the Gear's Gear_* data adapters
 # port-common_nuzlocke_mode.patch: the Platinum fork's (its Gear shows Nuzlocke mode's books through weak hooks; the
 # retired Nuzlocke helper stays off), so both games build the same port-common
-diff_files = port-common_gear_option.patch, port-common_nuzlocke_mode.patch
+# port-common_enhanced_scene.patch: enhanced graphics' game-neutral game side (src/enhanced_scene.c: the time of day's
+# light, sun, air, fog, forest sunlight, lamps, water mask); each game keeps an adapter (Platinum src/port/enhanced_graphics.c,
+# HGSS lib/port/enhanced_graphics.c). Needs NitroSystem's headers
+diff_files = port-common_gear_option.patch, port-common_nuzlocke_mode.patch, port-common_enhanced_scene.patch
 
 [provide]
 dependency_names = port_common

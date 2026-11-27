@@ -17,6 +17,10 @@
 #include "render_animation.h"
 #include "render_model.h"
 
+#ifdef SDK_PORT
+#include "port/enhanced_scene.h"
+#endif
+
 // Map object ground shadows: four shadow models whose alpha and scale follow the time of day.
 
 enum FieldShadowState {
@@ -128,6 +132,14 @@ void FieldShadow_Free(FieldShadow *shadow) {
     FieldShadow_FreeModels(shadow);
     FieldEffectManager_HeapFree(shadow);
 }
+
+#ifdef SDK_PORT
+// Enhanced graphics: the sun casts the objects' shadows now, or a lamp casts this one's (at its position): the game's
+// blob is not drawn then
+static BOOL EnhancedBlobHidden(const VecFx32 *position) {
+    return EnhancedScene_SunShadowsShown() || EnhancedScene_LampShadowShown(position);
+}
+#endif
 
 static void FieldShadow_StartTask(FieldShadow *shadow) {
     FieldSystem *fieldSystem = FieldEffectManager_GetFieldSystem(shadow->manager);
@@ -322,6 +334,11 @@ static void FieldShadowEffect_Draw(FieldEffect *effect, void *state) {
     shadow = work->args.shadow;
     FieldShadow_GetScale(shadow, &scale);
     FieldEffect_GetPosition(effect, &pos);
+#ifdef SDK_PORT
+    if (EnhancedBlobHidden(&pos)) {
+        return;
+    }
+#endif
     pos.x -= FX32_CONST(0.5);
     pos.y -= FX32_CONST(4);
     pos.z += FX32_ONE;
@@ -361,6 +378,11 @@ static void FieldShadowEffect_DrawFollowMon(FieldEffect *effect, void *state) {
         pos.y -= FX32_CONST(4);
         pos.z += FX32_ONE;
     }
+#ifdef SDK_PORT
+    if (EnhancedBlobHidden(&pos)) {
+        return;
+    }
+#endif
     RenderObj_Draw(renderObj, &pos, &scale, &mtx);
 }
 
@@ -404,6 +426,11 @@ static void FieldShadowEffect_DrawFriendShadow(FieldEffect *effect, void *state)
         FieldShadow *shadow = work->args.shadow;
         NNSG3dRenderObj *renderObj = &shadow->renderObjs[index];
         FieldEffect_GetPosition(effect, &pos);
+#ifdef SDK_PORT
+        if (EnhancedBlobHidden(&pos)) {
+            return;
+        }
+#endif
         pos.x -= FX32_CONST(0.5);
         pos.y -= FX32_CONST(4);
         pos.z += FX32_ONE;

@@ -13,6 +13,7 @@
 #include "field_system.h"
 #include "start_menu.h"
 #include "overlay_manager.h"
+#include "port_enhanced_graphics.h"
 #ifdef GEN5_BATTLES
 #include "port_gen5_battle.h"
 #endif
@@ -244,6 +245,8 @@ void Widescreen_Update(void) {
     SIM_SetWidescreenBgStripe(0, 255.0f / 256.0f);
     SIM_SetWidescreenObjEdgeExtend(objEdge);
     SIM_SetWidescreenScene(wide);
+    // Enhanced graphics follow the field map shown (none over menus, other applications and battles)
+    EnhancedGraphics_Update(Gen5BattleShown() ? NULL : fieldSystem);
 }
 
 static float WantedRatio(const Camera *camera) {

@@ -1,0 +1,21 @@
+# From new-game: Ilex Forest with Settings > Display > Forest sunlight and Fog on (lib/port/enhanced_graphics.c: Ilex's looks): patches of
+# sunlight on the forest floor by day (none at night) and a ground mist; shots by the south entrance and further north,
+# and there again 4 s later (the patches drift). No walking: Ilex's grass starts wild battles.
+# Run it by day and by night, with the settings on:
+#
+#   tools\windows\test.ps1 -Repo <this repo> -Data <thor-dev>\desktop-hg -From new-game -Script tests/scripts/enhanced_forest.txt
+#       -Hour 13 -Config 'EnhancedSunPatches=true EnhancedFog=true'
+#
+# SIM_ATMOSPHERE_DEBUG=3 shows the patches alone (2 the fog).
+mash A until free
+warp 117 15 78
+until map 117 timeout 3000
+wait 90
+shot ilex_south
+warp 117 16 60
+until free timeout 3000
+wait 90
+shot ilex_mid
+wait 240
+shot ilex_mid2
+exit 0

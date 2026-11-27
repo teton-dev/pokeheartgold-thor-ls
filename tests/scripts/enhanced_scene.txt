@@ -1,0 +1,44 @@
+# From new-game: HGSS's enhanced graphics (lib/port/enhanced_graphics.c over port-common's enhanced_scene.c) in New
+# Bark Town (out of the house; by the sea to the east), Route 30 and Goldenrod City (its street lamps at night). Run by
+# day and by night with every Display > enhanced setting on, and once with them off to compare:
+#
+#   tools\windows\test.ps1 -Repo <this repo> -Data <thor-dev>\desktop-hg -From hg/new-game -Script tests/scripts/enhanced_scene.txt
+#       -Hour 13 -Config 'EnhancedGrading=true EnhancedShadows=true EnhancedHighlights=true EnhancedWater=true
+#       EnhancedAtmosphere=true EnhancedBloom=true EnhancedFog=true EnhancedLamps=true'
+#
+# By day: the sprites' sun shadows (no blob under them), the houses' and trees' shadows, the haze; at night a blue grade,
+# the blob shadows back and Goldenrod's lamps lit (POKEHEARTGOLD_LAMP_LOG=1 lists the lamps found). The debug views:
+# SIM_SUNSHADOW_DEBUG=1 (the shadows' mask), SIM_WATER_DEBUG=1 (the water mask), SIM_ATMOSPHERE_DEBUG=1.
+# A Cyndaquil (from the save editor) follows the player: its sprite casts too.
+mash A until free
+editor give 155 5
+walk LEFT 3
+walk UP 2
+walk LEFT 1
+mash A until map 63 timeout 3000
+walk DOWN 7
+walk DOWN 1
+mash A until map 60 timeout 3000
+wait 90
+shot newbark
+walk DOWN 2
+walk RIGHT 4
+wait 60
+shot newbark_east
+warp 34 553 340
+until free timeout 3000
+wait 90
+shot route30
+warp 76 351 362
+until free timeout 3000
+wait 90
+shot goldenrod
+wait 240
+shot goldenrod2
+# Beside the street lamp south-east of the Pokémon Center (the lamp at tile 354, 370): at night its light casts the
+# player's shadow (away from it) and the blob goes
+warp 76 355 372
+until free timeout 3000
+wait 90
+shot goldenrod_lamp
+exit 0

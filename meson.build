@@ -228,6 +228,7 @@ hgss_lib_c = files(
 hgss_port_lib_c = files(
     'lib/port/debug_field.c',
     'lib/port/dsprot_port.c',
+    'lib/port/enhanced_graphics.c',
     'lib/port/frame_rate.c',
     'lib/port/game_settings.c',
     'lib/port/game_hgss.c',
