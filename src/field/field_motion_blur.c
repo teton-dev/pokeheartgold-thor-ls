@@ -7,7 +7,9 @@
 #include "sys_task_api.h"
 #include "systask_environment.h"
 
+#ifndef SDK_PORT // (libntr's headers declare it, with its own types: u32 is long on Windows)
 u32 GX_GetBankForLCDC(void);
+#endif
 
 static FieldCapture *FieldCapture_Start(const FieldCaptureConfig *config);
 static void FieldCapture_Stop(FieldCapture **capture, GXDispMode dispMode, GXBGMode bgMode, GXBG0As bg0As);

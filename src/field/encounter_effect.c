@@ -49,7 +49,9 @@ typedef struct EncounterEffectFlash {
     BOOL *done;
 } EncounterEffectFlash;
 
+#ifndef SDK_PORT // (libntr's headers declare it, with its own types: u32 is long on Windows)
 void GXx_SetMasterBrightness_(vu16 *reg, s32 brightness);
+#endif
 
 static void Task_EncounterEffectFlash(SysTask *task, void *data);
 static void EncounterEffect_SetMasterBrightness(int screen, s32 brightness);

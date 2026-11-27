@@ -20,7 +20,9 @@ project('pokeheartgold', ['c', 'cpp', 'nasm'],
 fs = import('fs')
 
 build_target = get_option('build_target')
-is_desktop = (build_target == 'linux')
+# win64: the Windows desktop build under MSYS2 (UCRT64), for development and tests (docs in the Platinum fork's
+# docs/thor/dev/desktop-windows.md)
+is_desktop = (build_target == 'linux' or build_target == 'win64')
 cc = meson.get_compiler('c')
 
 ############################################################
@@ -87,6 +89,11 @@ if get_option('lp64_warnings')
     )
 else
     hgss_warning_args = ['-w']
+endif
+
+# Windows: u32/s32 are long (32 bits there), so int * and u32 * differ in type only; GCC 14+ makes that an error
+if build_target == 'win64'
+    hgss_warning_args += ['-Wno-error=incompatible-pointer-types']
 endif
 
 if build_target == 'android'
@@ -258,7 +265,7 @@ hgss_port_lib_c = files(
 ############################################################
 # Same split as Platinum's ppwlobby: built for the desktop, left out on Android (the lobby
 # server is gone and the C++ assumes 32-bit pointers in places clang rejects).
-build_lobby = get_option('lobby').require(is_desktop,
+build_lobby = get_option('lobby').disable_auto_if(build_target == 'win64').require(is_desktop,
     error_message: 'the Wi-Fi Plaza lobby is desktop-only').allowed()
 
 hgss_link_with = []
@@ -331,6 +338,15 @@ main = executable('main',
     link_with: hgss_link_with,
     dependencies: sdk_deps,
     link_args: link_args + ['-Wl,--no-undefined'] + sanitize_args,
+    native: true,
+)
+elif build_target == 'win64'
+main = executable('main',
+    link_whole: [hgss_game, hgss_settings_ui],
+    objects: gen5_objects,
+    link_with: hgss_link_with,
+    dependencies: sdk_deps + [cc.find_library('ws2_32')],
+    link_args: link_args + sanitize_args,
     native: true,
 )
 elif build_target == 'android'

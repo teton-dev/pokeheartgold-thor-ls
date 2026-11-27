@@ -31,7 +31,9 @@ static inline BOOL StrLess(Str *a, Str *b) {
     return LobbyString_Compare(a, b) < 0;
 }
 
+#ifndef SDK_PORT // (libntrdwc's gs/nonport.h declares it as gsi_time: unsigned int, not Windows' 32-bit long)
 u32 current_time(void);
+#endif
 extern char gLobbyFmt_N_UnderscoreIntUnderscoreUint[];
 extern char gLobbyStr___2[];
 void LobbyChat_SplitString(LobbyStringVector *out, const Str *s, Str *sep, int n);

@@ -7,8 +7,10 @@
 
 void TP_RequestAutoSamplingStartAsync(u16, u16, TPData *, u16);
 void TP_RequestAutoSamplingStopAsync(void);
+#ifndef SDK_PORT // (libntr's headers declare it, with its own types: u32 is long on Windows)
 void TP_WaitBusy(u32);
 u32 TP_CheckBusy(u32);
+#endif
 u16 TP_GetLatestIndexInAuto(void);
 
 TouchpadState gTouchpadState;

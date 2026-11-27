@@ -81,7 +81,9 @@ static void ScreenFade_QueueBrightnessReset(ScreenFade *fade);
 static void ScreenFade_HoldFadeColor(ScreenFade *fade);
 static void PaletteFade_Clear(PaletteFade *fade);
 
+#ifndef SDK_PORT // (libntr's headers declare it, with its own types: u32 is long on Windows)
 void GXx_SetMasterBrightness_(vu16 *reg, s32 brightness);
+#endif
 
 static const FadeFunc sFadeFuncPtrs[] = {
     FadeFunc_00,

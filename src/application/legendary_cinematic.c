@@ -22,7 +22,9 @@ static void LegendaryCinematic_CaptureTask(SysTask *task, void *data);
 static void LegendaryCinematic_CaptureStartTask(SysTask *task, void *data);
 static void LegendaryCinematic_InitCapture(LegendaryCinematicCaptureConfig *config);
 
+#ifndef SDK_PORT // (libntr's headers declare it, with its own types: u32 is long on Windows)
 u32 GX_GetBankForLCDC(void);
+#endif
 
 static const VecFx32 sLegendaryCinematicModelScale = { FX32_ONE, FX32_ONE, FX32_ONE };
 
